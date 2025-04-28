@@ -1,0 +1,233 @@
+# Pling SaaS Business Model
+
+## Pricing Tiers
+
+### Free Tier (Freemium)
+- 1 team with up to 3 members
+- Basic sales tracking
+- Basic leaderboard
+- Limited to 50 sales entries per month
+- Basic analytics
+- Email support
+
+### Pro Tier (29€/month)
+- 1 team with up to 10 members
+- Advanced sales tracking
+- Full leaderboard features
+- Unlimited sales entries
+- Advanced analytics
+- Priority email support
+- Custom team branding
+- Export functionality
+- Team chat
+- Custom competitions
+
+### Business Tier (79€/month)
+- Up to 3 teams with 25 members each
+- Everything in Pro, plus:
+- API access
+- Advanced team hierarchy
+- Multiple team management
+- Custom reports
+- Phone support
+- SSO integration
+- Advanced permissions
+- Sales forecasting
+- Integration with CRM systems
+
+### Enterprise Tier (Custom pricing)
+- Unlimited teams and members
+- Everything in Business, plus:
+- Dedicated account manager
+- Custom feature development
+- On-premise deployment option
+- 24/7 support
+- Custom analytics
+- Custom integrations
+- Training sessions
+- SLA guarantee
+
+## Per-User Pricing Model
+
+Additional users beyond tier limits:
+- Pro: 5€/user/month
+- Business: 4€/user/month
+- Enterprise: Custom pricing
+
+## Feature Matrix
+
+### Sales Features
+Free:
+- Basic sales tracking
+- Simple dashboard
+- Basic reporting
+
+Pro:
+- Advanced sales tracking
+- Sales categories
+- Sales goals
+- Full dashboard
+- Detailed reporting
+- Export functionality
+
+Business:
+- Everything in Pro
+- Sales forecasting
+- Territory management
+- Advanced goals
+- Custom metrics
+- API access
+
+### Team Features
+Free:
+- Basic team management
+- Simple leaderboard
+- Basic competitions
+
+Pro:
+- Advanced team management
+- Full leaderboard features
+- Custom competitions
+- Team chat
+- Team analytics
+
+Business:
+- Multiple team management
+- Team hierarchy
+- Cross-team competitions
+- Advanced permissions
+- Team performance analytics
+
+### Analytics
+Free:
+- Basic sales metrics
+- Simple charts
+- Monthly reports
+
+Pro:
+- Advanced metrics
+- Custom charts
+- Weekly reports
+- Trend analysis
+- Export functionality
+
+Business:
+- Custom metrics
+- Advanced forecasting
+- API access
+- Custom reports
+- Data warehouse integration
+
+## Implementation Plan
+
+### Phase 1: Freemium Launch
+1. Implement user limits
+2. Add feature flags system
+3. Create subscription management
+4. Implement usage tracking
+5. Set up payment processing
+
+### Phase 2: Pro Tier Features
+1. Advanced team features
+2. Enhanced analytics
+3. Export functionality
+4. Team chat implementation
+5. Custom competition system
+
+### Phase 3: Business Tier Features
+1. Multi-team management
+2. Advanced permissions
+3. API development
+4. Integration capabilities
+5. Custom reporting system
+
+### Phase 4: Enterprise Features
+1. SSO integration
+2. Advanced security features
+3. Custom analytics engine
+4. Integration framework
+5. Advanced administration tools
+
+## Technical Requirements
+
+1. Subscription Management
+- Stripe integration for recurring billing
+- Usage tracking system
+- Feature flag system
+- User limit enforcement
+
+2. Database Changes
+- Add subscription table
+- Add usage tracking tables
+- Add feature entitlements
+- Add team limits
+
+3. Authentication & Authorization
+- Role-based access control
+- Feature-based permissions
+- Team hierarchy management
+- SSO integration capability
+
+4. Monitoring & Analytics
+- Usage tracking
+- Performance monitoring
+- Subscription analytics
+- Feature usage analytics
+
+## Marketing Strategy
+
+1. Freemium Acquisition
+- Focus on viral team features
+- In-app upgrade prompts
+- Feature preview for free users
+- Referral program
+
+2. Conversion Strategy
+- Usage-based upgrade prompts
+- Feature discovery
+- Success metrics sharing
+- Team growth incentives
+
+3. Retention Strategy
+- Regular feature updates
+- Usage insights
+- Success stories
+- Community building
+- Regular check-ins
+
+## Success Metrics
+
+1. Key Performance Indicators
+- Monthly Recurring Revenue (MRR)
+- User Growth Rate
+- Conversion Rate (Free to Paid)
+- Churn Rate
+- Feature Usage
+- Team Growth Rate
+
+2. Customer Success Metrics
+- User Engagement
+- Feature Adoption
+- Team Activity
+- Sales Performance
+- Support Tickets
+
+## Future Considerations
+
+1. Platform Expansion
+- Mobile apps
+- Desktop applications
+- Browser extensions
+- Offline support
+
+2. Integration Ecosystem
+- CRM integrations
+- Analytics platforms
+- Communication tools
+- Custom webhooks
+
+3. Advanced Features
+- AI-powered insights
+- Predictive analytics
+- Advanced automation
+- Custom workflows

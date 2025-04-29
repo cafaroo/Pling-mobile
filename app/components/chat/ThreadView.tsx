@@ -1,25 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Send } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { Message } from '../../types/chat';
 import { supabase } from '@/services/supabaseClient';
 import { MessageItem } from './MessageItem';
 import Button from '@/components/ui/Button';
+import { MentionPicker } from '../MentionPicker';
 
 type ThreadViewProps = {
   parentMessage: Message;
   onClose: () => void;
   onSendReply: (content: string, threadId: string, parentId: string) => Promise<void>;
+  teamId: string;
 };
 
-export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, onSendReply }) => {
+export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, onSendReply, teamId }) => {
   const { colors } = useTheme();
   const { user } = useUser();
   const [replies, setReplies] = useState<Message[]>([]);
   const [newReply, setNewReply] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionSearchQuery, setMentionSearchQuery] = useState('');
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
 
@@ -39,6 +44,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
           id,
           content,
           created_at,
+          team_id,
           user:user_id (
             id,
             name,
@@ -158,14 +164,66 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
     if (!newReply.trim()) return;
 
     const replyContent = newReply.trim();
+    const mentions = extractMentions(replyContent);
     setNewReply('');
 
+    if (!teamId) {
+      console.error('No team ID found');
+      return;
+    }
+
     try {
-      await onSendReply(replyContent, parentMessage.id, parentMessage.id);
+      const { data: message, error } = await supabase
+        .from('team_messages')
+        .insert({
+          content: replyContent,
+          thread_id: parentMessage.id,
+          parent_id: parentMessage.id,
+          user_id: user.id,
+          team_id: teamId,
+          mentions: mentions
+        })
+        .select('*, user:user_id(id, name, avatar_url)')
+        .single();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      if (message && mentions.length > 0) {
+        const mentionData = mentions.map((mention) => ({
+          message_id: message.id,
+          mentioned_user_id: mention.id,
+        }));
+
+        const { error: mentionError } = await supabase
+          .from('message_mentions')
+          .insert(mentionData);
+
+        if (mentionError) {
+          console.error('Error inserting mentions:', mentionError);
+        }
+      }
     } catch (error) {
       console.error('Error sending reply:', error);
       setNewReply(replyContent);
     }
+  };
+
+  const extractMentions = (text: string) => {
+    const mentions: { id: string; name: string }[] = [];
+    const regex = /@\[([^\]]+)\]\(([^)]+)\)/g;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      mentions.push({
+        name: match[1],
+        id: match[2],
+      });
+    }
+
+    return mentions;
   };
 
   const handleReaction = async (messageId: string, emoji: string) => {
@@ -195,6 +253,81 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
     } catch (error) {
       console.error('Error handling reaction:', error);
     }
+  };
+
+  const renderContent = (content: string, mentions?: { id: string; name: string }[]) => {
+    if (!content) return null;
+
+    let lastIndex = 0;
+    const parts: React.ReactNode[] = [];
+    const regex = /@\[([^\]]+)\]\(([^)]+)\)/g;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(
+          <Text key={`text-${lastIndex}`} style={{ color: colors.text.main }}>
+            {content.substring(lastIndex, match.index)}
+          </Text>
+        );
+      }
+
+      parts.push(
+        <Text
+          key={`mention-${match.index}`}
+          style={{
+            color: colors.primary.main,
+            fontWeight: 'bold',
+          }}
+        >
+          @{match[1]}
+        </Text>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < content.length) {
+      parts.push(
+        <Text key="text-end" style={{ color: colors.text.main }}>
+          {content.substring(lastIndex)}
+        </Text>
+      );
+    }
+
+    return <Text>{parts}</Text>;
+  };
+
+  const handleTextChange = (text: string) => {
+    setNewReply(text);
+    
+    // Check for @ symbol
+    const lastAtSymbol = text.lastIndexOf('@');
+    console.log('Text changed:', text, 'Last @ symbol at:', lastAtSymbol, 'Current mentionStartIndex:', mentionStartIndex);
+    
+    if (lastAtSymbol !== -1) {
+      const searchQuery = text.slice(lastAtSymbol + 1);
+      console.log('Setting mention picker visible with query:', searchQuery);
+      setMentionSearchQuery(searchQuery);
+      setShowMentionPicker(true);
+      setMentionStartIndex(lastAtSymbol);
+    } else if (mentionStartIndex !== -1 && text.length < mentionStartIndex) {
+      console.log('Hiding mention picker');
+      setShowMentionPicker(false);
+      setMentionStartIndex(-1);
+      setMentionSearchQuery('');
+    }
+  };
+
+  const handleMentionSelect = (member: { id: string; name: string }) => {
+    const beforeMention = newReply.slice(0, mentionStartIndex);
+    const afterMention = newReply.slice(mentionStartIndex + mentionSearchQuery.length + 1);
+    const newText = `${beforeMention}@[${member.name}](${member.id})${afterMention}`;
+    
+    setNewReply(newText);
+    setShowMentionPicker(false);
+    setMentionStartIndex(-1);
+    setMentionSearchQuery('');
   };
 
   return (
@@ -232,6 +365,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
               isThread 
               showReplies={false}
               onReaction={handleReaction}
+              renderContent={renderContent}
             />
           </View>
 
@@ -260,6 +394,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
                   isThread 
                   showReplies={false}
                   onReaction={handleReaction}
+                  renderContent={renderContent}
                 />
               )}
               keyExtractor={(item) => item.id}
@@ -277,26 +412,39 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
               backgroundColor: colors.neutral[900]
             }
           ]}>
-            <TextInput
-              ref={inputRef}
-              style={[
-                styles.input,
-                {
-                  borderColor: colors.neutral[500],
-                  color: colors.text.main,
-                  backgroundColor: colors.neutral[800],
-                },
-              ]}
-              value={newReply}
-              onChangeText={setNewReply}
-              placeholder="Skriv ett svar..."
-              placeholderTextColor={colors.neutral[400]}
-              multiline
-              numberOfLines={1}
-              maxLength={1000}
-              returnKeyType="default"
-              blurOnSubmit={false}
-            />
+            <View style={styles.inputWrapper}>
+              <TextInput
+                ref={inputRef}
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.neutral[500],
+                    color: colors.text.main,
+                    backgroundColor: colors.neutral[800],
+                  },
+                ]}
+                value={newReply}
+                onChangeText={handleTextChange}
+                placeholder="Skriv ett svar..."
+                placeholderTextColor={colors.neutral[400]}
+                multiline
+                numberOfLines={1}
+                maxLength={1000}
+                returnKeyType="default"
+                blurOnSubmit={false}
+              />
+
+              {showMentionPicker && (
+                <View style={styles.mentionPickerContainer}>
+                  <MentionPicker
+                    teamId={teamId}
+                    onSelect={handleMentionSelect}
+                    onClose={() => setShowMentionPicker(false)}
+                    searchQuery={mentionSearchQuery}
+                  />
+                </View>
+              )}
+            </View>
 
             <Button
               title=""
@@ -392,6 +540,11 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
   },
+  inputWrapper: {
+    flex: 1,
+    position: 'relative',
+    marginRight: 8,
+  },
   input: {
     flex: 1,
     minHeight: 40,
@@ -399,9 +552,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    marginRight: 8,
     fontFamily: 'Inter-Regular',
     fontSize: 16,
+  },
+  mentionPickerContainer: {
+    position: 'absolute',
+    bottom: '100%',
+    left: 0,
+    right: 0,
+    marginBottom: 8,
+    zIndex: 1000,
   },
   sendButton: {
     width: 40,

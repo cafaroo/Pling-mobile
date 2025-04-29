@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { Video as LucideIcon, ChevronLeft } from 'lucide-react-native';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 type HeaderProps = {
   title: string;
@@ -8,6 +9,7 @@ type HeaderProps = {
   onBackPress?: () => void;
   rightIcon?: LucideIcon;
   onRightIconPress?: () => void;
+  showNotifications?: boolean;
 };
 
 export default function Header({ 
@@ -15,7 +17,8 @@ export default function Header({
   icon: Icon, 
   onBackPress,
   rightIcon: RightIcon, 
-  onRightIconPress 
+  onRightIconPress,
+  showNotifications = true
 }: HeaderProps) {
   const { colors } = useTheme();
 
@@ -38,14 +41,21 @@ export default function Header({
         </Text>
       </View>
       
-      {RightIcon && onRightIconPress && (
-        <TouchableOpacity
-          style={[styles.rightButton, { borderColor: colors.neutral[500] }]}
-          onPress={onRightIconPress}
-        >
-          <RightIcon size={20} color={colors.text.light} />
-        </TouchableOpacity>
-      )}
+      <View style={styles.rightContainer}>
+        {showNotifications && (
+          <View style={styles.notificationContainer}>
+            <NotificationBell />
+          </View>
+        )}
+        {RightIcon && onRightIconPress && (
+          <TouchableOpacity
+            style={[styles.rightButton, { borderColor: colors.neutral[500] }]}
+            onPress={onRightIconPress}
+          >
+            <RightIcon size={20} color={colors.text.light} />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -68,6 +78,14 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginRight: 8,
+  },
+  rightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  notificationContainer: {
+    marginRight: 4,
   },
   rightButton: {
     width: 40,

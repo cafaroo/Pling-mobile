@@ -39,7 +39,7 @@ export function useUnreadMessages() {
     try {
       const { data, error } = await supabase
         .rpc('get_unread_message_count', {
-          team_id_param: user?.team?.id
+          team_id: user?.team?.id
         });
 
       if (error) throw error;
@@ -50,16 +50,15 @@ export function useUnreadMessages() {
     }
   };
 
-  const markAsRead = async (messageIds: string[]) => {
+  const markAsRead = async () => {
     try {
       const { error } = await supabase
-        .rpc('mark_messages_as_read', {
-          message_ids: messageIds
-        });
+        .rpc('mark_messages_as_read');
 
       if (error) throw error;
       
-      setUnreadCount(prev => Math.max(0, prev - messageIds.length));
+      // After marking messages as read, reload the unread count
+      await loadUnreadCount();
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }

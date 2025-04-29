@@ -4,14 +4,41 @@ export interface User {
   avatar_url?: string;
 }
 
-export interface Message {
+export type Message = {
   id: string;
+  user_id: string;
+  team_id: string;
   content: string;
-  user: User;
   created_at: string;
-  reply_count: number;
-  parent_id?: string;
   thread_id?: string;
-  replies?: Message[];
-  reactions?: { [emoji: string]: User[] };
-} 
+  parent_id?: string;
+  reply_count?: number;
+  message_type?: 'text' | 'image' | 'file' | 'mixed';
+  attachments?: MessageAttachment[];
+  reactions?: MessageReaction[];
+  user: {
+    id: string;
+    name: string;
+    avatar_url: string;
+  };
+  mentions?: {
+    id: string;
+    name: string;
+  }[];
+};
+
+export type MessageAttachment = {
+  type: 'image' | 'file';
+  url: string;
+  filename?: string;
+  size?: number;
+  mime_type?: string;
+};
+
+export type MessageReaction = {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  count?: number;
+}; 

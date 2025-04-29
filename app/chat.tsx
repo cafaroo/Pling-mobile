@@ -19,6 +19,7 @@ import Markdown from 'react-native-markdown-display';
 import { ThreadView } from './components/chat/ThreadView';
 import { MessageItem } from './components/chat/MessageItem';
 import { Message } from './types/chat';
+import { MentionPicker } from './components/chat/MentionPicker';
 
 type MessageAttachment = {
   type: 'image' | 'file';
@@ -47,6 +48,10 @@ type Message = {
     avatar_url: string;
   };
   reactions?: MessageReaction[];
+  mentions?: {
+    id: string;
+    name: string;
+  }[];
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -82,6 +87,9 @@ export default function TeamChatScreen() {
   const inputRef = useRef<TextInput>(null);
   const [showFormattingToolbar, setShowFormattingToolbar] = useState(false);
   const [selectedThread, setSelectedThread] = useState<Message | null>(null);
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionSearchQuery, setMentionSearchQuery] = useState('');
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
 
   useEffect(() => {
     if (!user?.team?.id) return;
@@ -377,38 +385,60 @@ export default function TeamChatScreen() {
           : attachments[0].type
         : 'text';
 
-      const { data, error } = await supabase
+      // Extract mentions from message content
+      const mentionRegex = /@(\w+)/g;
+      let match;
+      const mentionedNames = [];
+      while ((match = mentionRegex.exec(messageToSend)) !== null) {
+        mentionedNames.push(match[1]);
+      }
+
+      // Get user IDs for mentioned users
+      const { data: mentionedUsersData, error: mentionedUsersError } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('name', mentionedNames);
+
+      if (mentionedUsersError) throw mentionedUsersError;
+
+      const mentions = mentionedUsersData || [];
+
+      // Create the message
+      const { data: messageData, error: messageError } = await supabase
         .from('team_messages')
         .insert({
-          team_id: user.team.id,
-          user_id: user.id,
-          content: messageToSend || null,
+          team_id: user?.team?.id,
+          user_id: user?.id,
+          content: messageToSend,
           attachments,
           message_type: messageType,
           thread_id: threadId,
           parent_id: parentId,
+          mentions: mentions.map(m => ({ id: m.id, name: m.name }))
         })
         .select()
         .single();
 
-      if (error) {
-        setError('Failed to send message');
-        setNewMessage(messageToSend); // Restore message on error
-        throw error;
+      if (messageError) throw messageError;
+
+      // Create mention records
+      if (mentions.length > 0) {
+        const { error: mentionsError } = await supabase
+          .from('message_mentions')
+          .insert(
+            mentions.map(mention => ({
+              message_id: messageData.id,
+              mentioned_user_id: mention.id
+            }))
+          );
+
+        if (mentionsError) throw mentionsError;
       }
 
-      if (!threadId) {
-        setMessages((prev) => [...prev, data as Message]);
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
-
-      return data as Message;
+      setIsUploading(false);
     } catch (error) {
       console.error('Error sending message:', error);
-      return null;
-    } finally {
+      setError('Failed to send message. Please try again.');
       setIsUploading(false);
     }
   };
@@ -448,12 +478,93 @@ export default function TeamChatScreen() {
     }
   };
 
+  const handleTextChange = (text: string) => {
+    setNewMessage(text);
+    
+    // Check for @ symbol
+    const lastAtSymbol = text.lastIndexOf('@');
+    if (lastAtSymbol !== -1 && lastAtSymbol >= mentionStartIndex) {
+      const searchQuery = text.slice(lastAtSymbol + 1);
+      setMentionSearchQuery(searchQuery);
+      setShowMentionPicker(true);
+      setMentionStartIndex(lastAtSymbol);
+    } else if (mentionStartIndex !== -1 && text.length < mentionStartIndex) {
+      // User deleted the @ symbol
+      setShowMentionPicker(false);
+      setMentionStartIndex(-1);
+      setMentionSearchQuery('');
+    }
+  };
+
+  const handleMentionSelect = (member: { id: string; name: string }) => {
+    const beforeMention = newMessage.slice(0, mentionStartIndex);
+    const afterMention = newMessage.slice(mentionStartIndex + mentionSearchQuery.length + 1);
+    const newText = `${beforeMention}@${member.name} ${afterMention}`;
+    
+    setNewMessage(newText);
+    setShowMentionPicker(false);
+    setMentionStartIndex(-1);
+    setMentionSearchQuery('');
+  };
+
+  const renderMessageContent = (content: string, mentions?: { id: string; name: string }[]) => {
+    if (!content) return null;
+
+    let lastIndex = 0;
+    const parts: React.ReactNode[] = [];
+
+    if (mentions) {
+      mentions.forEach((mention, index) => {
+        const mentionText = `@${mention.name}`;
+        const mentionIndex = content.indexOf(mentionText, lastIndex);
+
+        if (mentionIndex !== -1) {
+          // Add text before mention
+          if (mentionIndex > lastIndex) {
+            parts.push(
+              <Text key={`text-${index}`} style={{ color: colors.text.main }}>
+                {content.substring(lastIndex, mentionIndex)}
+              </Text>
+            );
+          }
+
+          // Add mention
+          parts.push(
+            <Text
+              key={`mention-${index}`}
+              style={{
+                color: colors.primary.main,
+                fontWeight: 'bold',
+              }}
+            >
+              {mentionText}
+            </Text>
+          );
+
+          lastIndex = mentionIndex + mentionText.length;
+        }
+      });
+    }
+
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push(
+        <Text key="text-end" style={{ color: colors.text.main }}>
+          {content.substring(lastIndex)}
+        </Text>
+      );
+    }
+
+    return <Text>{parts}</Text>;
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     return (
       <MessageItem
         message={item}
         onThreadPress={handleThreadPress}
         onReaction={handleReaction}
+        renderContent={renderMessageContent}
       />
     );
   };
@@ -513,6 +624,7 @@ export default function TeamChatScreen() {
                   onSendReply={async (content, threadId, parentId) => {
                     await sendMessage(content, threadId, parentId);
                   }}
+                  teamId={user?.team?.id || selectedThread.team_id}
                 />
               ) : (
                 <FlatList
@@ -632,7 +744,7 @@ export default function TeamChatScreen() {
                       },
                     ]}
                     value={newMessage}
-                    onChangeText={setNewMessage}
+                    onChangeText={handleTextChange}
                     placeholder="Skriv ett meddelande..."
                     placeholderTextColor={colors.neutral[400]}
                     multiline
@@ -641,6 +753,15 @@ export default function TeamChatScreen() {
                     returnKeyType="default"
                     blurOnSubmit={false}
                   />
+
+                  {showMentionPicker && (
+                    <MentionPicker
+                      teamId={user?.team?.id || ''}
+                      onSelect={handleMentionSelect}
+                      onClose={() => setShowMentionPicker(false)}
+                      searchQuery={mentionSearchQuery}
+                    />
+                  )}
 
                   {isUploading ? (
                     <View style={[styles.sendButton, { backgroundColor: colors.primary.main }]}>

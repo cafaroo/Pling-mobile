@@ -421,7 +421,7 @@ export default function TeamChatScreen() {
     if (!user?.id) return;
 
     try {
-      const { data: existingReaction, error: fetchError } = await supabase
+      const { data: existingReaction } = await supabase
         .from('message_reactions')
         .select('id')
         .eq('message_id', messageId)
@@ -429,59 +429,22 @@ export default function TeamChatScreen() {
         .eq('emoji', emoji)
         .maybeSingle();
 
-      if (fetchError) throw fetchError;
-
-      const optimisticUpdate = (remove: boolean) => {
-        setMessages(prevMessages => 
-          prevMessages.map(msg => {
-            if (msg.id !== messageId) return msg;
-            
-            const updatedReactions = { ...msg.reactions } || {};
-            if (!updatedReactions[emoji]) {
-              updatedReactions[emoji] = [];
-            }
-
-            if (remove) {
-              updatedReactions[emoji] = updatedReactions[emoji].filter(r => r.user_id !== user.id);
-              if (updatedReactions[emoji].length === 0) {
-                delete updatedReactions[emoji];
-              }
-            } else {
-              updatedReactions[emoji].push({
-                id: Date.now().toString(),
-                user_id: user.id,
-                created_at: new Date().toISOString()
-              });
-            }
-
-            return { ...msg, reactions: updatedReactions };
-          })
-        );
-      };
-
       if (existingReaction) {
-        optimisticUpdate(true);
-        const { error: deleteError } = await supabase
+        await supabase
           .from('message_reactions')
           .delete()
           .eq('id', existingReaction.id);
-
-        if (deleteError) throw deleteError;
       } else {
-        optimisticUpdate(false);
-        const { error: insertError } = await supabase
+        await supabase
           .from('message_reactions')
           .insert({
             message_id: messageId,
             user_id: user.id,
             emoji: emoji
           });
-
-        if (insertError) throw insertError;
       }
     } catch (error) {
       console.error('Error handling reaction:', error);
-      loadMessages();
     }
   };
 

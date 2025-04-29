@@ -1,12 +1,11 @@
 // User types
 export type User = {
   id: string;
-  name: string;
   email: string;
-  avatarUrl?: string;
-  team?: Team;
-  organizations?: Organization[];
-  username?: string;
+  name: string | null;
+  avatar_url: string | null;
+  team_id: string | null;
+  created_at: string;
 };
 
 // Chat types
@@ -101,14 +100,7 @@ export type UserStats = {
 export type Team = {
   id: string;
   name: string;
-  organizationId?: string;
-  createdAt: string;
-  updatedAt: string;
-  members?: TeamMember[];
-  description?: string;
-  profileImage?: string;
-  notificationSettings: NotificationSettings;
-  roles: RoleSettings;
+  created_at: string;
 };
 
 export type TeamMember = {
@@ -238,11 +230,21 @@ export type MessageAttachment = {
 
 export type Message = {
   id: string;
-  teamId: string;
-  userId: string;
-  content?: string;
-  attachments: MessageAttachment[];
-  messageType: MessageType;
-  createdAt: string;
-  user?: User;
+  content: string | null;
+  created_at: string;
+  user_id: string;
+  team_id: string;
+  parent_id?: string;
+  thread_id?: string;
+  reply_count?: number;
+  user: {
+    name: string | null;
+    avatar_url: string | null;
+  };
+  reactions?: {
+    id: string;
+    emoji: string;
+    user_id: string;
+    created_at: string;
+  }[];
 };

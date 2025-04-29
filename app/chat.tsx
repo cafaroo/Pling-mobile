@@ -421,7 +421,6 @@ export default function TeamChatScreen() {
     if (!user?.id) return;
 
     try {
-      // Hitta existerande reaktion
       const { data: existingReaction, error: fetchError } = await supabase
         .from('message_reactions')
         .select('id')
@@ -432,7 +431,6 @@ export default function TeamChatScreen() {
 
       if (fetchError) throw fetchError;
 
-      // Optimistisk UI-uppdatering
       const optimisticUpdate = (remove: boolean) => {
         setMessages(prevMessages => 
           prevMessages.map(msg => {
@@ -462,7 +460,6 @@ export default function TeamChatScreen() {
       };
 
       if (existingReaction) {
-        // Ta bort reaktion
         optimisticUpdate(true);
         const { error: deleteError } = await supabase
           .from('message_reactions')
@@ -471,7 +468,6 @@ export default function TeamChatScreen() {
 
         if (deleteError) throw deleteError;
       } else {
-        // Lägg till reaktion
         optimisticUpdate(false);
         const { error: insertError } = await supabase
           .from('message_reactions')
@@ -485,7 +481,6 @@ export default function TeamChatScreen() {
       }
     } catch (error) {
       console.error('Error handling reaction:', error);
-      // Återställ UI vid fel
       loadMessages();
     }
   };

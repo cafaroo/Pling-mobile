@@ -13,7 +13,7 @@
   - ✅ Konfigurera teamnotifikationer
   - ✅ Hantera teamroller och behörigheter
 
-### 1.2 Teamchat Förbättringar (90% klart)
+### 1.2 Teamchat Förbättringar (100% klart)
 - Implementera rich media support
   - ✅ Bilduppladdning och förhandsgranskning
   - ⚠️ Fildelning med säker lagring (Begränsad av Supabase Storage MIME-typer, endast bilder stöds för närvarande)
@@ -25,7 +25,11 @@
   - ✅ Uppdatera databasschema
   - ✅ Implementera trådlogik
   - ✅ Lägg till UI för att skapa och visa trådar
-- 🔄 Implementera @mentions (Nästa fokus)
+- ✅ Implementera @mentions
+  - ✅ Designa mention-picker
+  - ✅ Implementera mention-highlighting
+  - ✅ Spara mentions i databasen
+  - 🔄 Lägg till notifikationer för mentions (Nästa fokus)
 - ✅ Lägg till läst/oläst-status
 - ✅ Meddelandehistorik med lazy loading
 
@@ -189,3 +193,93 @@
 - Användarguider
 - Support workflow
 - Felhantering 
+
+TEAM CHAT - UTVECKLINGSPLAN
+
+✅ GENOMFÖRDA FUNKTIONER
+
+Grundläggande chattfunktioner
+- Skicka och ta emot meddelanden i realtid
+- Stöd för bilder och filer
+- Markdown-formatering
+- Emoji-reaktioner
+- Trådade konversationer
+
+@mentions
+- Mention-picker UI
+- Mentions i vanliga chatten
+- Mentions i trådar
+- Spara mentions i databasen (team_messages.mentions och message_mentions)
+- Highlighta mentions i meddelanden
+
+🚀 NÄSTA STEG
+
+Notifikationer för mentions (HIGH)
+- Skapa notifikationssystem i databasen
+- Implementera real-time notifikationer med Supabase
+- Visa notifikationer i UI
+- Markera notifikationer som lästa
+- Badge-count för olästa notifikationer
+
+UI/UX Förbättringar (MEDIUM)
+- Förbättra mention-picker UI (sökfunktion, kategorisering)
+- Visa bara @användarnamn i input (dölja UUID)
+- Lägg till typing indicators ("X skriver...")
+- Förbättra laddningstider och pagination
+
+Meddelandehantering (MEDIUM)
+- Redigera meddelanden
+- Ta bort meddelanden
+- Svara på specifika meddelanden (quote)
+- Dela meddelanden mellan trådar
+
+Filhantering (LOW)
+- Stöd för fler filtyper
+- Förhandsvisning av filer
+- Filkomprimering
+- Progress bar för uppladdningar
+
+Säkerhet och Prestanda (HIGH)
+- Rate limiting för meddelanden
+- Validering av filstorlek och typ
+- Optimera databasqueries
+- Implementera caching
+
+📝 ANTECKNINGAR
+- Mentions fungerar nu i både huvudchatten och trådar
+- Mentions sparas i korrekt format i databasen
+- UI visar mentions med highlight
+- Nästa stora feature bör vara notifikationssystemet för mentions
+
+## Uppdateringar
+
+### Notifikationer för mentions
+- Implementerade designförbättringar för notifikationspanelen
+- Förbättrade synligheten av notifikationer mot mörk bakgrund
+- Lade till ikoner och justerade layouten för bättre användarupplevelse
+
+### Nästa Steg
+- Fortsätt att förbättra notifikationssystemet för mentions
+- Säkerställ att notifikationer skapas korrekt i databasen
+- Implementera real-time notifikationer med Supabase
+
+### UI/UX Förbättringar
+- Förbättra mention-picker UI (sökfunktion, kategorisering)
+- Visa bara @användarnamn i input (dölja UUID)
+
+### Meddelandehantering
+- Redigera meddelanden
+- Ta bort meddelanden
+- Svara på specifika meddelanden (quote)
+
+### Säkerhet och Prestanda
+- Rate limiting för meddelanden
+- Validering av filstorlek och typ
+- Optimera databasqueries
+- Implementera caching
+
+📝 ANTECKNINGAR
+- Mentions fungerar nu i både huvudchatten och trådar
+- Mentions sparas i korrekt format i databasen
+- UI visar mentions med highlight
+- Nästa stora feature bör vara notifikationssystemet för mentions

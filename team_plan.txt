@@ -1,17 +1,17 @@
 # Team Funktionalitet - Implementationsplan
 
 ## 1. Grundläggande Teamfunktioner (Prioritet: Hög)
-### 1.1 Teamhantering (85% klart)
+### 1.1 Teamhantering (90% klart)
 - ✅ Teamcreation
 - ✅ Team joining med inbjudningskoder
 - ✅ Godkännandeprocess för medlemmar
 - ✅ Rollhantering (owner, leader, member)
 - ✅ Grundläggande teamchat
 - 🔄 Förbättra teaminställningssidan
-  - Lägg till teamprofilbild
+  - ✅ Lägg till teamprofilbild
   - Lägg till teambeskrivning
   - Konfigurera teamnotifikationer
-  - Hantera teamroller och behörigheter
+  - ✅ Hantera teamroller och behörigheter
 
 ### 1.2 Teamchat Förbättringar (Prioritet: Hög)
 - Implementera rich media support
@@ -71,8 +71,8 @@
 
 ### 4.1 Rollbaserad Åtkomstkontroll
 - ✅ Grundläggande roller (owner, leader, member)
+- ✅ Detaljerad behörighetskontroll
 - Implementera custom roller
-- Detaljerad behörighetskontroll
 - Åtkomstloggar
 - Säkerhetsgranskningar
 

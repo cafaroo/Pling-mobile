@@ -728,3 +728,22 @@ export const removeTeamProfileImage = async (teamId: string, imageUrl: string): 
     return false;
   }
 };
+
+export const updateTeamNotificationSettings = async (
+  teamId: string,
+  settings: NotificationSettings
+): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .rpc('update_team_notification_settings', {
+        team_id_param: teamId,
+        settings
+      });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating team notification settings:', error);
+    return false;
+  }
+};

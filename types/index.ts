@@ -87,7 +87,7 @@ export type Team = {
   members?: TeamMember[];
   description?: string;
   profileImage?: string;
-  notifications: NotificationSettings;
+  notificationSettings: NotificationSettings;
   roles: RoleSettings;
 };
 
@@ -182,10 +182,10 @@ export type GoalMilestone = {
 };
 
 export interface NotificationSettings {
-  newMembers: boolean;
-  memberLeaves: boolean;
-  goalUpdates: boolean;
-  competitionUpdates: boolean;
+  new_member: boolean;
+  member_left: boolean;
+  goal_updates: boolean;
+  competition_updates: boolean;
 }
 
 export interface RoleSettings {

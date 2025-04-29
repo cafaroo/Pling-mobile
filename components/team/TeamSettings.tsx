@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from 'react-native';
-import { Camera, Bell, Shield, Users } from 'lucide-react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Switch, ScrollView } from 'react-native';
+import { Camera, Bell, Shield, Users, Bold, Italic, List, Link as LinkIcon } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { Team } from '@/types';
+import { Team, NotificationSettings } from '@/types';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import * as ImagePicker from 'expo-image-picker';
-import { uploadTeamProfileImage, removeTeamProfileImage } from '@/services/teamService';
+import Markdown from 'react-native-markdown-display';
+import { uploadTeamProfileImage, removeTeamProfileImage, updateTeamNotificationSettings } from '@/services/teamService';
 
 type TeamSettingsProps = {
   team: Team;
@@ -28,6 +29,19 @@ type RoleSettings = {
   canManageCompetitions: string[];
 };
 
+const MARKDOWN_GUIDE = `
+### Formatering:
+- **Fet text**: Använd **dubbla asterisker**
+- *Kursiv text*: Använd *enkla asterisker*
+- Punktlista: Börja rader med -
+- [Länk](url): Använd [text](url)
+
+### Tips:
+- Håll beskrivningen kort och koncis
+- Använd rubriker för att organisera
+- Lägg till relevanta länkar
+`;
+
 export default function TeamSettings({
   team,
   onUpdateTeam,
@@ -37,18 +51,22 @@ export default function TeamSettings({
   const { colors } = useTheme();
   const [description, setDescription] = useState(team.description || '');
   const [isEditing, setIsEditing] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationSettings>({
-    newMember: true,
-    memberLeft: true,
-    goalUpdates: true,
-    competitionUpdates: true
-  });
+  const [showMarkdownGuide, setShowMarkdownGuide] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationSettings>(
+    team.notificationSettings || {
+      newMember: true,
+      memberLeft: true,
+      goalUpdates: true,
+      competitionUpdates: true
+    }
+  );
   const [roles, setRoles] = useState<RoleSettings>({
     canInviteMembers: ['owner', 'leader'],
     canManageGoals: ['owner', 'leader'],
     canManageCompetitions: ['owner', 'leader']
   });
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleImagePick = async () => {
     try {
@@ -96,12 +114,24 @@ export default function TeamSettings({
   };
 
   const handleNotificationToggle = async (key: keyof NotificationSettings) => {
-    const newSettings = {
-      ...notifications,
-      [key]: !notifications[key]
-    };
-    setNotifications(newSettings);
-    await onUpdateNotifications(newSettings);
+    try {
+      setIsSaving(true);
+      const newSettings = {
+        ...notifications,
+        [key]: !notifications[key]
+      };
+      
+      const success = await updateTeamNotificationSettings(team.id, newSettings);
+      
+      if (success) {
+        setNotifications(newSettings);
+        await onUpdateTeam({ notificationSettings: newSettings });
+      }
+    } catch (error) {
+      console.error('Error updating notification settings:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleRoleToggle = async (role: string, permission: keyof RoleSettings) => {
@@ -115,8 +145,72 @@ export default function TeamSettings({
     await onUpdateRoles(newRoles);
   };
 
+  const getNotificationLabel = (key: keyof NotificationSettings): string => {
+    switch (key) {
+      case 'newMember':
+        return 'Nya medlemmar';
+      case 'memberLeft':
+        return 'Medlemmar som lämnar';
+      case 'goalUpdates':
+        return 'Måluppdateringar';
+      case 'competitionUpdates':
+        return 'Tävlingsuppdateringar';
+      default:
+        return '';
+    }
+  };
+
+  const insertMarkdownSyntax = (syntax: string, wrapper: string) => {
+    const textInput = description;
+    const selectionStart = textInput.length;
+    const selectionEnd = textInput.length;
+    const beforeText = textInput.substring(0, selectionStart);
+    const afterText = textInput.substring(selectionEnd);
+
+    if (syntax === 'list') {
+      setDescription(description + '\n- ');
+    } else {
+      setDescription(beforeText + wrapper + syntax + wrapper + afterText);
+    }
+  };
+
+  const renderMarkdownToolbar = () => (
+    <View style={styles.markdownToolbar}>
+      <TouchableOpacity
+        style={styles.toolbarButton}
+        onPress={() => insertMarkdownSyntax('text', '**')}
+      >
+        <Bold size={20} color={colors.text.main} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.toolbarButton}
+        onPress={() => insertMarkdownSyntax('text', '*')}
+      >
+        <Italic size={20} color={colors.text.main} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.toolbarButton}
+        onPress={() => insertMarkdownSyntax('list', '')}
+      >
+        <List size={20} color={colors.text.main} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.toolbarButton}
+        onPress={() => insertMarkdownSyntax('[länktext](url)', '')}
+      >
+        <LinkIcon size={20} color={colors.text.main} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.toolbarButton, styles.guideButton]}
+        onPress={() => setShowMarkdownGuide(!showMarkdownGuide)}
+      >
+        <Text style={{ color: colors.text.main }}>?</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       {/* Profilbild */}
       <Card style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
@@ -160,18 +254,55 @@ export default function TeamSettings({
         </Text>
         {isEditing ? (
           <View style={styles.descriptionEdit}>
+            {renderMarkdownToolbar()}
             <TextInput
               style={[styles.input, { color: colors.text.main, borderColor: colors.neutral[500] }]}
               value={description}
               onChangeText={setDescription}
-              placeholder="Beskriv ditt team..."
+              placeholder="Beskriv ditt team... (Markdown stöds)"
               placeholderTextColor={colors.neutral[400]}
               multiline
+              textAlignVertical="top"
             />
+            {showMarkdownGuide && (
+              <Card style={styles.markdownGuide}>
+                <Text style={[styles.guideTitle, { color: colors.text.main }]}>
+                  Markdown Guide
+                </Text>
+                <Markdown style={{
+                  body: { color: colors.text.main },
+                  heading3: { color: colors.text.main, fontFamily: 'Inter-Bold' },
+                  list: { color: colors.text.main },
+                  link: { color: colors.primary.main },
+                }}>
+                  {MARKDOWN_GUIDE}
+                </Markdown>
+              </Card>
+            )}
+            <View style={styles.previewSection}>
+              <Text style={[styles.previewTitle, { color: colors.text.main }]}>
+                Förhandsgranskning
+              </Text>
+              <Card style={styles.preview}>
+                <Markdown style={{
+                  body: { color: colors.text.main },
+                  heading1: { color: colors.text.main, fontFamily: 'Inter-Bold' },
+                  heading2: { color: colors.text.main, fontFamily: 'Inter-Bold' },
+                  heading3: { color: colors.text.main, fontFamily: 'Inter-Bold' },
+                  link: { color: colors.primary.main },
+                  list: { color: colors.text.main },
+                }}>
+                  {description || '*Ingen beskrivning än...*'}
+                </Markdown>
+              </Card>
+            </View>
             <View style={styles.buttonGroup}>
               <Button
                 title="Avbryt"
-                onPress={() => setIsEditing(false)}
+                onPress={() => {
+                  setIsEditing(false);
+                  setShowMarkdownGuide(false);
+                }}
                 variant="outline"
                 size="small"
               />
@@ -188,36 +319,42 @@ export default function TeamSettings({
             style={styles.descriptionView}
             onPress={() => setIsEditing(true)}
           >
-            <Text style={[styles.description, { color: colors.text.main }]}>
-              {description || 'Lägg till en beskrivning för ditt team...'}
-            </Text>
+            <Markdown style={{
+              body: { color: colors.text.main },
+              heading1: { color: colors.text.main, fontFamily: 'Inter-Bold' },
+              heading2: { color: colors.text.main, fontFamily: 'Inter-Bold' },
+              heading3: { color: colors.text.main, fontFamily: 'Inter-Bold' },
+              link: { color: colors.primary.main },
+              list: { color: colors.text.main },
+            }}>
+              {description || '*Lägg till en beskrivning för ditt team...*'}
+            </Markdown>
           </TouchableOpacity>
         )}
       </Card>
 
       {/* Notifikationer */}
       <Card style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
-          Notifikationer
-        </Text>
+        <View style={styles.sectionHeader}>
+          <Bell size={20} color={colors.text.main} />
+          <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
+            Notifikationer
+          </Text>
+        </View>
         <View style={styles.notificationList}>
-          {Object.entries(notifications).map(([key, value]) => (
-            <TouchableOpacity
-              key={key}
-              style={[styles.notificationItem, { borderBottomColor: colors.neutral[700] }]}
-              onPress={() => handleNotificationToggle(key as keyof NotificationSettings)}
-            >
-              <View style={styles.notificationInfo}>
-                <Bell size={20} color={colors.accent.yellow} />
-                <Text style={[styles.notificationText, { color: colors.text.main }]}>
-                  {key === 'newMember' && 'Nya medlemmar'}
-                  {key === 'memberLeft' && 'Medlemmar lämnar'}
-                  {key === 'goalUpdates' && 'Måluppdateringar'}
-                  {key === 'competitionUpdates' && 'Tävlingsuppdateringar'}
-                </Text>
-              </View>
-              <View style={[styles.toggle, { backgroundColor: value ? colors.accent.yellow : colors.neutral[700] }]} />
-            </TouchableOpacity>
+          {Object.keys(notifications).map((key) => (
+            <View key={key} style={styles.notificationItem}>
+              <Text style={[styles.notificationLabel, { color: colors.text.main }]}>
+                {getNotificationLabel(key as keyof NotificationSettings)}
+              </Text>
+              <Switch
+                value={notifications[key as keyof NotificationSettings]}
+                onValueChange={() => handleNotificationToggle(key as keyof NotificationSettings)}
+                disabled={isSaving}
+                trackColor={{ false: colors.neutral[300], true: colors.primary.main }}
+                thumbColor={colors.neutral[50]}
+              />
+            </View>
           ))}
         </View>
       </Card>
@@ -261,7 +398,7 @@ export default function TeamSettings({
           ))}
         </View>
       </Card>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -319,9 +456,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
-  description: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
   },
   notificationList: {
     gap: 12,
@@ -330,22 +469,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingVertical: 8,
   },
-  notificationInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  notificationText: {
-    fontFamily: 'Inter-Medium',
+  notificationLabel: {
     fontSize: 16,
-  },
-  toggle: {
-    width: 40,
-    height: 24,
-    borderRadius: 12,
   },
   rolesList: {
     gap: 20,
@@ -369,5 +496,45 @@ const styles = StyleSheet.create({
   roleText: {
     fontFamily: 'Inter-Medium',
     fontSize: 14,
+  },
+  markdownToolbar: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    gap: 8,
+  },
+  toolbarButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  guideButton: {
+    marginLeft: 'auto',
+  },
+  markdownGuide: {
+    marginTop: 12,
+    padding: 16,
+  },
+  guideTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  previewSection: {
+    marginTop: 16,
+  },
+  previewTitle: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  preview: {
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
 }); 

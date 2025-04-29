@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
-import { X, Send, ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { Message } from '../../types/chat';
@@ -81,7 +81,6 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
   };
 
   const subscribeToReplies = () => {
-    // Prenumerera på nya meddelanden i tråden
     const messagesChannel = supabase
       .channel('thread_messages')
       .on(
@@ -93,7 +92,6 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
           filter: `thread_id=eq.${parentMessage.id}`,
         },
         async (payload) => {
-          // Hämta det nya meddelandet med användarinfo
           const { data: messageData } = await supabase
             .from('team_messages')
             .select(`
@@ -114,7 +112,6 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
 
           if (messageData) {
             setReplies(prev => [...prev, { ...messageData, reactions: [] }]);
-            // Scroll to bottom on new reply
             setTimeout(() => {
               flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
@@ -123,26 +120,23 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
       )
       .subscribe();
 
-    // Prenumerera på reaktioner
     const reactionsChannel = supabase
       .channel('thread_reactions')
       .on(
         'postgres_changes',
         {
-          event: '*', // Lyssna på INSERT, UPDATE och DELETE
+          event: '*',
           schema: 'public',
           table: 'message_reactions',
         },
         async (payload) => {
           const messageId = payload.new?.message_id || payload.old?.message_id;
           
-          // Hämta alla reaktioner för meddelandet
           const { data: reactions } = await supabase
             .from('message_reactions')
             .select('*')
             .eq('message_id', messageId);
 
-          // Uppdatera meddelandet med de nya reaktionerna
           setReplies(prev => 
             prev.map(msg => 
               msg.id === messageId 

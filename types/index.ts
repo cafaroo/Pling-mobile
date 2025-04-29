@@ -6,6 +6,26 @@ export type User = {
   avatarUrl?: string;
   team?: Team;
   organizations?: Organization[];
+  username?: string;
+};
+
+// Chat types
+export type ChatUser = {
+  id: string;
+  username: string;
+  avatar_url?: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  content: string;
+  user: ChatUser;
+  created_at: string;
+  reply_count: number;
+  parent_id?: string;
+  thread_id?: string;
+  replies?: ChatMessage[];
+  reactions?: { [emoji: string]: ChatUser[] };
 };
 
 // Sales types

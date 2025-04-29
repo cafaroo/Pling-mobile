@@ -86,6 +86,9 @@ export type Team = {
   updatedAt: string;
   members?: TeamMember[];
   description?: string;
+  profileImage?: string;
+  notifications: NotificationSettings;
+  roles: RoleSettings;
 };
 
 export type TeamMember = {
@@ -177,3 +180,28 @@ export type GoalMilestone = {
   isCompleted: boolean;
   completedAt?: string;
 };
+
+export interface NotificationSettings {
+  newMembers: boolean;
+  memberLeaves: boolean;
+  goalUpdates: boolean;
+  competitionUpdates: boolean;
+}
+
+export interface RoleSettings {
+  owner: {
+    canInviteMembers: boolean;
+    canManageGoals: boolean;
+    canManageCompetitions: boolean;
+  };
+  leader: {
+    canInviteMembers: boolean;
+    canManageGoals: boolean;
+    canManageCompetitions: boolean;
+  };
+  member: {
+    canInviteMembers: boolean;
+    canManageGoals: boolean;
+    canManageCompetitions: boolean;
+  };
+}

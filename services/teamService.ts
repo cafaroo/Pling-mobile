@@ -658,3 +658,73 @@ export const changeTeamMemberRole = async (teamId: string, userId: string, newRo
     return false;
   }
 };
+
+// Ladda upp teamprofilbild till Supabase Storage
+export const uploadTeamProfileImage = async (teamId: string, file: File | Blob): Promise<string | null> => {
+  try {
+    const fileExt = (file instanceof File && file.name.split('.').pop()) || 'jpg';
+    const filePath = `team_${teamId}_${Date.now()}.${fileExt}`;
+    const { data, error } = await supabase.storage
+      .from('team-profile-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file instanceof File ? file.type : 'image/jpeg',
+      });
+    if (error) throw error;
+    // Hämta publika URL:en
+    const { data: publicUrlData } = supabase.storage
+      .from('team-profile-images')
+      .getPublicUrl(filePath);
+    return publicUrlData?.publicUrl || null;
+  } catch (error) {
+    console.error('Error uploading team profile image:', error);
+    return null;
+  }
+};
+
+// Uppdatera teamets profilbild och/eller beskrivning
+export const updateTeamProfile = async (
+  teamId: string,
+  updates: { profileImage?: string; description?: string }
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('teams')
+      .update({
+        ...(updates.profileImage && { profile_image: updates.profileImage }),
+        ...(updates.description !== undefined && { description: updates.description })
+      })
+      .eq('id', teamId);
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error updating team profile:', error);
+    return false;
+  }
+};
+
+// Ta bort teamets profilbild från Supabase Storage och nollställ i databasen
+export const removeTeamProfileImage = async (teamId: string, imageUrl: string): Promise<boolean> => {
+  try {
+    // Extrahera filnamnet från URL
+    const match = imageUrl.match(/team-profile-images\/(.*)$/);
+    const filePath = match ? match[1] : null;
+    if (!filePath) throw new Error('Kunde inte hitta filnamnet i URL');
+    // Ta bort från storage
+    const { error: storageError } = await supabase.storage
+      .from('team-profile-images')
+      .remove([filePath]);
+    if (storageError) throw storageError;
+    // Nollställ i databasen
+    const { error: dbError } = await supabase
+      .from('teams')
+      .update({ profile_image: null })
+      .eq('id', teamId);
+    if (dbError) throw dbError;
+    return true;
+  } catch (error) {
+    console.error('Error removing team profile image:', error);
+    return false;
+  }
+};

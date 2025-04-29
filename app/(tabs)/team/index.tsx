@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, Image, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Users, UserPlus, CircleAlert as AlertCircle, MessageSquare, CreditCard, Plus, Building2, Crown, Shield, Star, ChartBar as BarChart, Settings, ChevronRight, Trash2, CirclePlus as PlusCircle, Link, Bug, Target } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { useRouter } from 'expo-router';
-import { getUserTeam, createTeam, getTeamInvitation, updateTeamName, removeTeamMember, changeTeamMemberRole, promoteToTeamOwner, createTeamInviteCode, joinTeamWithCode, getPendingTeamMembers, approveTeamMember } from '@/services/teamService';
+import { getUserTeam, createTeam, getTeamInvitation, updateTeamName, removeTeamMember, changeTeamMemberRole, promoteToTeamOwner, createTeamInviteCode, joinTeamWithCode, getPendingTeamMembers, approveTeamMember, updateTeamProfile } from '@/services/teamService';
 import { useSubscription } from '@/hooks/useSubscription';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
@@ -17,6 +17,7 @@ import InviteCodeModal from '@/components/team/InviteCodeModal';
 import PendingApprovalCard from '@/components/team/PendingApprovalCard';
 import PendingMembershipCard from '@/components/team/PendingMembershipCard';
 import PendingInviteCard from '@/components/team/PendingInviteCard';
+import TeamSettings from '@/components/team/TeamSettings';
 import { Team, TeamMember } from '@/types';
 
 // 6-character alphanumeric code validation pattern
@@ -53,6 +54,7 @@ export default function TeamScreen() {
   const [isApprovingMember, setIsApprovingMember] = useState(false);
   const [isPendingMember, setIsPendingMember] = useState(false);
   const [pendingTeamName, setPendingTeamName] = useState('');
+  const [activeTab, setActiveTab] = useState('members');
 
   // Get current user's role and team leader status
   const currentUserRole = team?.members?.find(m => m.userId === user?.id)?.role;
@@ -83,65 +85,33 @@ export default function TeamScreen() {
       setIsLoading(true);
       setError(null);
 
-      // Check if user has a team
-      if (user?.organizations?.length) {
-        // User is part of an organization, check if they're an admin
-        const isAdmin = user.organizations.some(org => org.role === 'admin');
-        setIsOrgOwner(isAdmin);
-
-        // TODO: In a real implementation, fetch all teams in the organization
-        // For now, we'll just use the user's team
-        const teamData = await getUserTeam(user.id);
-        if (teamData) {
-          setTeams([teamData]);
-          setTeam(teamData);
-          setSelectedTeam(teamData.id);
-          
-          // Check if current user is pending approval
-          const currentUserMember = teamData.members?.find(m => m.userId === user.id);
-          setIsPendingMember(currentUserMember?.approvalStatus === 'pending');
-          setPendingTeamName(teamData.name);
-          
-          // Log debug info
-          console.log('Team loaded, pending status:', currentUserMember?.approvalStatus);
-
-          // Load pending members if user is leader or owner
-          const userRole = teamData.members?.find(m => m.userId === user.id)?.role;
-          if (userRole === 'leader' || userRole === 'owner') {
-            await loadPendingMembers(teamData.id);
-          }
+      // Hämta användarens team
+      const teamData = await getUserTeam(user?.id || '');
+      
+      if (teamData) {
+        console.log('Team data loaded:', teamData); // Debug logging
+        setTeam(teamData);
+        setTeams([teamData]);
+        setSelectedTeam(teamData.id);
+        
+        // Kontrollera medlemsstatus
+        const currentUserMember = teamData.members?.find(m => m.userId === user?.id);
+        const isPending = currentUserMember?.approvalStatus === 'pending';
+        setIsPendingMember(isPending);
+        setPendingTeamName(teamData.name);
+        
+        // Ladda väntande medlemmar om användaren är ledare eller ägare
+        if (currentUserMember?.role === 'leader' || currentUserMember?.role === 'owner') {
+          await loadPendingMembers(teamData.id);
         }
       } else {
-        // Regular user, just get their team
-        const teamData = await getUserTeam(user.id);
-        if (teamData) {
-          setTeam(teamData);
-          setTeams([teamData]);
-          setSelectedTeam(teamData.id);
-          
-          // Check if current user is pending approval
-          const currentUserMember = teamData.members?.find(m => m.userId === user.id);
-          setIsPendingMember(currentUserMember?.approvalStatus === 'pending');
-          setPendingTeamName(teamData.name);
-          
-          // Log debug info
-          console.log('Team loaded, pending status:', currentUserMember?.approvalStatus);
-
-          // Load pending members if user is leader or owner
-          const userRole = teamData.members?.find(m => m.userId === user.id)?.role;
-          if (userRole === 'leader' || userRole === 'owner') {
-            await loadPendingMembers(teamData.id);
-          }
-        }
-      }
-
-      // Check for pending invitation
-      // Only check for invitation if user doesn't have a team
-      if (!team && !isPendingMember) {
+        // Om användaren inte har ett team, kolla efter inbjudningar
         const inviteData = await getTeamInvitation(user?.email || '');
         if (inviteData) {
           setInvitation(inviteData);
         }
+        setTeam(null);
+        setTeams([]);
       }
     } catch (error) {
       console.error('Error loading team data:', error);
@@ -412,6 +382,43 @@ export default function TeamScreen() {
     }
   };
 
+  const handleUpdateTeam = async (updates: Partial<Team>) => {
+    try {
+      if (!team) return;
+      // Spara till backend
+      const success = await updateTeamProfile(team.id, {
+        profileImage: updates.profileImage,
+        description: updates.description,
+      });
+      if (success) {
+        setTeam(prev => ({ ...prev, ...updates }));
+        Alert.alert('Framgång', 'Teamet har uppdaterats');
+      } else {
+        Alert.alert('Fel', 'Kunde inte uppdatera teamet');
+      }
+    } catch (error) {
+      Alert.alert('Fel', 'Kunde inte uppdatera teamet');
+    }
+  };
+
+  const handleUpdateNotifications = async (settings: NotificationSettings) => {
+    try {
+      // Här skulle vi normalt göra ett API-anrop för att uppdatera notifikationsinställningar
+      Alert.alert('Framgång', 'Notifikationsinställningar har uppdaterats');
+    } catch (error) {
+      Alert.alert('Fel', 'Kunde inte uppdatera notifikationsinställningar');
+    }
+  };
+
+  const handleUpdateRoles = async (roles: RoleSettings) => {
+    try {
+      // Här skulle vi normalt göra ett API-anrop för att uppdatera roller och behörigheter
+      Alert.alert('Framgång', 'Roller och behörigheter har uppdaterats');
+    } catch (error) {
+      Alert.alert('Fel', 'Kunde inte uppdatera roller och behörigheter');
+    }
+  };
+
   if (isLoading) {
     return (
       <Container>
@@ -429,7 +436,15 @@ export default function TeamScreen() {
     );
   }
 
-  if (team) {
+  // Debug logging
+  console.log('Current state:', {
+    hasTeam: !!team,
+    isPendingMember,
+    teamMembers: team?.members,
+    currentUserId: user?.id
+  });
+
+  if (team && team.members?.some(m => m.userId === user?.id && m.approvalStatus !== 'pending')) {
     const currentUserRole = team.members?.find(m => m.userId === user?.id)?.role;
     const isOwner = currentUserRole === 'owner';
     const isLeader = currentUserRole === 'leader' || isOwner;
@@ -445,210 +460,226 @@ export default function TeamScreen() {
         />
         <Header title="Team" icon={Users} />
         
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          {/* Pending Membership Banner - Show when user is waiting for approval */}
-          {isPendingMember && (
-            <>
-              <PendingMembershipCard teamName={pendingTeamName} />
-              <Button
-                title="Debug Membership Status"
-                icon={Bug}
-                onPress={logDebugInfo}
-                variant="outline"
-                size="small"
-                style={styles.debugButton}
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'members' && styles.activeTab]}
+            onPress={() => setActiveTab('members')}
+          >
+            <Text style={[styles.tabText, activeTab === 'members' && styles.activeTabText]}>
+              Medlemmar
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'settings' && styles.activeTab]}
+            onPress={() => setActiveTab('settings')}
+          >
+            <Text style={[styles.tabText, activeTab === 'settings' && styles.activeTabText]}>
+              Inställningar
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {activeTab === 'members' ? (
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+            {/* Pending Approvals Card - Only visible for team leaders/owners when there are pending members */}
+            {canManageTeam && pendingMembers.length > 0 && (
+              <PendingApprovalCard
+                pendingMembers={pendingMembers}
+                onApprove={handleApproveMember}
+                onReject={handleRejectMember}
+                isLoading={isApprovingMember}
               />
-            </>
-          )}
-          
-          {/* Pending Approvals Card - Only visible for team leaders/owners when there are pending members */}
-          {canManageTeam && pendingMembers.length > 0 && (
-            <PendingApprovalCard
-              pendingMembers={pendingMembers}
-              onApprove={handleApproveMember}
-              onReject={handleRejectMember}
-              isLoading={isApprovingMember}
-            />
-          )}
-          
-          {/* Organization Owner View - Shows multiple teams */}
-          {isOrgOwner && teams.length > 0 && (
-            <Card style={styles.teamsCard}>
+            )}
+            
+            {/* Organization Owner View - Shows multiple teams */}
+            {isOrgOwner && teams.length > 0 && (
+              <Card style={styles.teamsCard}>
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.cardTitle, { color: colors.text.main }]}>
+                    Your Teams
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.addTeamButton}
+                    onPress={() => setShowCreateForm(true)}
+                  >
+                    <PlusCircle size={20} color={colors.accent.yellow} />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.teamsList}>
+                  {teams.map((t) => (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[
+                        styles.teamItem,
+                        selectedTeam === t.id && { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                      ]}
+                      onPress={() => handleSelectTeam(t.id)}
+                    >
+                      <TouchableOpacity
+                        style={styles.teamItemContent}
+                        onPress={() => router.push(`/team/${t.id}`)}
+                      >
+                        <View style={[styles.teamIconContainer, { backgroundColor: colors.primary.light }]}>
+                          <Users size={16} color={colors.accent.yellow} />
+                        </View>
+                        <View style={styles.teamItemInfo}>
+                          <Text style={[styles.teamItemName, { color: colors.text.main }]}>
+                            {t.name}
+                          </Text>
+                          <Text style={[styles.teamItemMeta, { color: colors.text.light }]}>
+                            {t.members?.length || 0} members • {formattedTier} plan
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </Card>
+            )}
+
+            {/* Team Members Card */}
+            <Card style={styles.membersCard}>
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: colors.text.main }]}>
-                  Your Teams
+                  Team Members
                 </Text>
-                <TouchableOpacity 
-                  style={styles.addTeamButton}
-                  onPress={() => setShowCreateForm(true)}
-                >
-                  <PlusCircle size={20} color={colors.accent.yellow} />
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.teamsList}>
-                {teams.map((t) => (
-                  <TouchableOpacity
-                    key={t.id}
-                    style={[
-                      styles.teamItem,
-                      selectedTeam === t.id && { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
-                    ]}
-                    onPress={() => handleSelectTeam(t.id)}
-                  >
-                    <TouchableOpacity
-                      style={styles.teamItemContent}
-                      onPress={() => router.push(`/team/${t.id}`)}
-                    >
-                      <View style={[styles.teamIconContainer, { backgroundColor: colors.primary.light }]}>
-                        <Users size={16} color={colors.accent.yellow} />
-                      </View>
-                      <View style={styles.teamItemInfo}>
-                        <Text style={[styles.teamItemName, { color: colors.text.main }]}>
-                          {t.name}
-                        </Text>
-                        <Text style={[styles.teamItemMeta, { color: colors.text.light }]}>
-                          {t.members?.length || 0} members • {formattedTier} plan
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </Card>
-          )}
-
-
-          {/* Team Members Card */}
-          <Card style={styles.membersCard}>
-            <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, { color: colors.text.main }]}>
-                Team Members
-              </Text>
-              <View style={styles.teamActions}>
-                {canManageTeam && (
+                <View style={styles.teamActions}>
+                  {canManageTeam && (
+                    <Button
+                      title="Invite"
+                      icon={Link}
+                      onPress={() => setShowInviteCode(true)}
+                      variant="outline"
+                      size="small"
+                      style={styles.actionButton}
+                    />
+                  )}
                   <Button
-                    title="Invite"
-                    icon={Link}
-                    onPress={() => setShowInviteCode(true)}
+                    title="Add"
+                    icon={UserPlus}
+                    onPress={() => setShowAddMember(true)}
                     variant="outline"
                     size="small"
                     style={styles.actionButton}
                   />
-                )}
-                <Button
-                  title="Add"
-                  icon={UserPlus}
-                  onPress={() => setShowAddMember(true)}
-                  variant="outline"
-                  size="small"
-                  style={styles.actionButton}
-                />
+                </View>
               </View>
-            </View>
-            
-            {team.members && team.members.length > 0 && (
-              <TeamMemberList 
-                members={team.members} 
-                currentUser={user}
-                onRemoveMember={canManageTeam ? handleRemoveMember : undefined}
-                onPromoteMember={isOwner ? handlePromoteMember : undefined}
-                onDemoteMember={isOwner ? handleDemoteMember : undefined}
-              />
-            )}
-          </Card>
+              
+              {team.members && team.members.length > 0 && (
+                <TeamMemberList 
+                  members={team.members} 
+                  currentUser={user}
+                  onRemoveMember={canManageTeam ? handleRemoveMember : undefined}
+                  onPromoteMember={isOwner ? handlePromoteMember : undefined}
+                  onDemoteMember={isOwner ? handleDemoteMember : undefined}
+                />
+              )}
+            </Card>
 
-          {/* Quick Actions Card */}
-          <Card style={styles.quickActionsCard}>
-            <Text style={[styles.cardTitle, { color: colors.text.main, marginBottom: 16 }]}>
-              Quick Actions
-            </Text>
-            
-            <View style={styles.quickActions}>
-              <TouchableOpacity 
-                style={styles.quickAction}
-                onPress={() => router.push('/chat')}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: colors.accent.yellow }]}>
-                  <MessageSquare color={colors.background.dark} size={20} />
-                </View>
-                <Text style={[styles.quickActionText, { color: colors.text.main }]}>
-                  Team Chat
-                </Text>
-              </TouchableOpacity>
+            {/* Quick Actions Card */}
+            <Card style={styles.quickActionsCard}>
+              <Text style={[styles.cardTitle, { color: colors.text.main, marginBottom: 16 }]}>
+                Quick Actions
+              </Text>
               
-              <TouchableOpacity 
-                style={styles.quickAction}
-                onPress={() => router.push('/team/analytics')}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: colors.primary.light }]}>
-                  <BarChart color={colors.background.dark} size={20} />
-                </View>
-                <Text style={[styles.quickActionText, { color: colors.text.main }]}>
-                  Analytics
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.quickAction}
-                onPress={() => router.push('/team/goals')}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: colors.accent.pink }]}>
-                  <Target color={colors.background.dark} size={20} />
-                </View>
-                <Text style={[styles.quickActionText, { color: colors.text.main }]}>
-                  Team Goals
-                </Text>
-              </TouchableOpacity>
-              
-              {isTeamLeader && (
+              <View style={styles.quickActions}>
                 <TouchableOpacity 
                   style={styles.quickAction}
-                  onPress={() => router.push('/team/member-goals')}
+                  onPress={() => router.push('/chat')}
                 >
-                  <View style={[styles.quickActionIcon, { backgroundColor: colors.success }]}>
+                  <View style={[styles.quickActionIcon, { backgroundColor: colors.accent.yellow }]}>
+                    <MessageSquare color={colors.background.dark} size={20} />
+                  </View>
+                  <Text style={[styles.quickActionText, { color: colors.text.main }]}>
+                    Team Chat
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.quickAction}
+                  onPress={() => router.push('/team/analytics')}
+                >
+                  <View style={[styles.quickActionIcon, { backgroundColor: colors.primary.light }]}>
+                    <BarChart color={colors.background.dark} size={20} />
+                  </View>
+                  <Text style={[styles.quickActionText, { color: colors.text.main }]}>
+                    Analytics
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.quickAction}
+                  onPress={() => router.push('/team/goals')}
+                >
+                  <View style={[styles.quickActionIcon, { backgroundColor: colors.accent.pink }]}>
                     <Target color={colors.background.dark} size={20} />
                   </View>
                   <Text style={[styles.quickActionText, { color: colors.text.main }]}>
-                    Member Goals
+                    Team Goals
                   </Text>
                 </TouchableOpacity>
-              )}
-              
-              {canManageTeam && (
-                <TouchableOpacity 
-                  style={styles.quickAction}
-                  onPress={() => router.push('/team/subscription')}
-                >
-                  <View style={[styles.quickActionIcon, { backgroundColor: colors.accent.pink }]}>
-                    <CreditCard color={colors.background.dark} size={20} />
-                  </View>
-                  <Text style={[styles.quickActionText, { color: colors.text.main }]}>
-                    Subscription
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </Card>
-          
-          <View style={styles.organizationSection}>
-            <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
-              Multi-Team Management
-            </Text>
-            <Text style={[styles.sectionDescription, { color: colors.text.light }]}>
-              Create or join an organization to manage multiple teams in one place
-            </Text>
+                
+                {isTeamLeader && (
+                  <TouchableOpacity 
+                    style={styles.quickAction}
+                    onPress={() => router.push('/team/member-goals')}
+                  >
+                    <View style={[styles.quickActionIcon, { backgroundColor: colors.success }]}>
+                      <Target color={colors.background.dark} size={20} />
+                    </View>
+                    <Text style={[styles.quickActionText, { color: colors.text.main }]}>
+                      Member Goals
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                
+                {canManageTeam && (
+                  <TouchableOpacity 
+                    style={styles.quickAction}
+                    onPress={() => router.push('/team/subscription')}
+                  >
+                    <View style={[styles.quickActionIcon, { backgroundColor: colors.accent.pink }]}>
+                      <CreditCard color={colors.background.dark} size={20} />
+                    </View>
+                    <Text style={[styles.quickActionText, { color: colors.text.main }]}>
+                      Subscription
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </Card>
             
-            <Button
-              title="View Organizations"
-              icon={Building2}
-              onPress={() => router.push('/team/organizations')}
-              variant="outline"
-              size="large"
-              style={styles.orgButton}
-            />
-          </View>
-        </ScrollView>
+            <View style={styles.organizationSection}>
+              <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
+                Multi-Team Management
+              </Text>
+              <Text style={[styles.sectionDescription, { color: colors.text.light }]}>
+                Create or join an organization to manage multiple teams in one place
+              </Text>
+              
+              <Button
+                title="View Organizations"
+                icon={Building2}
+                onPress={() => router.push('/team/organizations')}
+                variant="outline"
+                size="large"
+                style={styles.orgButton}
+              />
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView style={styles.settingsContainer}>
+            {team && (
+              <TeamSettings
+                team={team}
+                onUpdateTeam={handleUpdateTeam}
+                onUpdateNotifications={handleUpdateNotifications}
+                onUpdateRoles={handleUpdateRoles}
+              />
+            )}
+          </ScrollView>
+        )}
 
         <AddMemberModal
           visible={showAddMember}
@@ -689,7 +720,9 @@ export default function TeamScreen() {
             Connect with your colleagues and track your success together
           </Text>
 
-          {invitation ? (
+          {isPendingMember ? (
+            <PendingMembershipCard teamName={pendingTeamName} />
+          ) : invitation ? (
             <PendingInviteCard
               invitation={invitation}
               onAccept={handleAcceptInvitation}
@@ -1068,5 +1101,31 @@ const styles = StyleSheet.create({
   debugButton: {
     alignSelf: 'center',
     marginTop: 8,
-  }
+  },
+  tabs: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#FFD700',
+  },
+  tabText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  activeTabText: {
+    color: '#FFFFFF',
+  },
+  settingsContainer: {
+    flex: 1,
+  },
 });

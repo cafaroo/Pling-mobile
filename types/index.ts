@@ -205,3 +205,24 @@ export interface RoleSettings {
     canManageCompetitions: boolean;
   };
 }
+
+export type MessageType = 'text' | 'image' | 'file' | 'mixed';
+
+export type MessageAttachment = {
+  type: 'image' | 'file';
+  url: string;
+  filename?: string;
+  size?: number;
+  mime_type?: string;
+};
+
+export type Message = {
+  id: string;
+  teamId: string;
+  userId: string;
+  content?: string;
+  attachments: MessageAttachment[];
+  messageType: MessageType;
+  createdAt: string;
+  user?: User;
+};

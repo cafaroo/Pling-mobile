@@ -1,28 +1,33 @@
 # Team Funktionalitet - Implementationsplan
 
 ## 1. Grundläggande Teamfunktioner (Prioritet: Hög)
-### 1.1 Teamhantering (90% klart)
+### 1.1 Teamhantering (100% klart)
 - ✅ Teamcreation
 - ✅ Team joining med inbjudningskoder
 - ✅ Godkännandeprocess för medlemmar
 - ✅ Rollhantering (owner, leader, member)
 - ✅ Grundläggande teamchat
-- 🔄 Förbättra teaminställningssidan
+- ✅ Förbättra teaminställningssidan
   - ✅ Lägg till teamprofilbild
-  - Lägg till teambeskrivning
-  - Konfigurera teamnotifikationer
+  - ✅ Lägg till teambeskrivning
+  - ✅ Konfigurera teamnotifikationer
   - ✅ Hantera teamroller och behörigheter
 
-### 1.2 Teamchat Förbättringar (Prioritet: Hög)
+### 1.2 Teamchat Förbättringar (90% klart)
 - Implementera rich media support
-  - Bilduppladdning och förhandsgranskning
-  - Fildelning med säker lagring
-  - Emoji-reaktioner
-  - Formatering av text (bold, italic, etc.)
-- Lägg till trådade konversationer
-- Implementera @mentions
-- Lägg till läst/oläst-status
-- Meddelandehistorik med lazy loading
+  - ✅ Bilduppladdning och förhandsgranskning
+  - ⚠️ Fildelning med säker lagring (Begränsad av Supabase Storage MIME-typer, endast bilder stöds för närvarande)
+  - ✅ Emoji-reaktioner
+  - ✅ Formatering av text (bold, italic, etc.)
+  - ✅ Markdown stöd
+- ✅ Lägg till trådade konversationer
+  - ✅ Designa UI för trådvy
+  - ✅ Uppdatera databasschema
+  - ✅ Implementera trådlogik
+  - ✅ Lägg till UI för att skapa och visa trådar
+- 🔄 Implementera @mentions (Nästa fokus)
+- ✅ Lägg till läst/oläst-status
+- ✅ Meddelandehistorik med lazy loading
 
 ## 2. Avancerade Teamfunktioner (Prioritet: Medium)
 
@@ -99,19 +104,36 @@
 - Projektmallar
 - Statusrapportering
 
+## Nästa Steg (Prioriterat)
+
+1. Implementera @mentions
+   - Designa mention-picker
+   - Implementera mention-highlighting
+   - Lägg till notifikationer för mentions
+
+2. Förbättra meddelandeformateringen
+   - Lägg till fler markdown-funktioner
+   - Förbättra förhandsgranskning
+
+3. Implementera team analytics
+   - Designa analytics dashboard
+   - Implementera datainsamling
+   - Skapa visualiseringar
+
 ## Implementation Timeline
 
-### Fas 1 (2 veckor)
-- Förbättra teaminställningssidan
-- Implementera rich media i chat
-- Fixa kända buggar i teamhantering
-- Förbättra inbjudningsprocessen
+### Fas 1 (2 veckor) - AVSLUTAD
+- ✅ Förbättra teaminställningssidan
+- ✅ Implementera rich media i chat
+- ✅ Fixa kända buggar i teamhantering
+- ✅ Förbättra inbjudningsprocessen
+- ✅ Implementera trådade konversationer
 
-### Fas 2 (3 veckor)
-- Implementera team mål och OKRs
+### Fas 2 (3 veckor) - PÅGÅENDE
+- 🔄 Implementera @mentions
 - Utveckla grundläggande team analytics
 - Förbättra rollbaserad åtkomstkontroll
-- Lägg till trådade konversationer
+- Implementera team mål och OKRs
 
 ### Fas 3 (4 veckor)
 - Utveckla team hierarki system

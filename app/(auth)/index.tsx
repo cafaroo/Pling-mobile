@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, ArrowRight, Wand as Wand2 } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 
 export default function AuthScreen() {
   const { colors } = useTheme();
@@ -50,44 +50,36 @@ export default function AuthScreen() {
     Keyboard.dismiss();
     
     try {
-      let errorMessage = ''; // Initialize errorMessage outside try block
-
       if (useMagicLink) {
         await signInWithMagicLink(email);
         setIsSent(true);
-        return;
       } else if (isSignUp) {
         try {
           await signUp(email, password);
           setIsSent(true);
-          return;
         } catch (error) {
-          if (error instanceof Error) {
-            if (error.message.includes('already exists')) {
-              errorMessage = 'An account with this email already exists. Try signing in instead.';
-            } else {
-              errorMessage = 'Failed to create account. Please try again.';
-            }
+          let errorMessage = 'Failed to create account. Please try again.';
+          if (error instanceof Error && error.message.includes('already exists')) {
+            errorMessage = 'An account with this email already exists. Try signing in instead.';
           }
-          throw error;
+          setError(errorMessage);
         }
       } else {
         try {
           await signInWithEmail(email, password);
         } catch (error) {
-          if (error instanceof Error) {
-            if (error.message.includes('Invalid login credentials')) {
-              errorMessage = 'Invalid email or password.';
-            } else {
-              errorMessage = 'Failed to sign in. Please try again.';
-            }
+          let errorMessage = 'Failed to sign in. Please try again.';
+          if (error instanceof Error && error.message.includes('Invalid login credentials')) {
+            errorMessage = 'Invalid email or password.';
           }
-          throw error;
+          setError(errorMessage);
         }
       }
     } catch (error) {
       console.error('Auth error:', error);
-      setError(errorMessage || 'An unexpected error occurred. Please try again later.');
+      if (!error) {
+        setError('An unexpected error occurred. Please try again later.');
+      }
     } finally {
       setIsSending(false);
     }

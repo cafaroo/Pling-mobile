@@ -8,6 +8,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@exp
 import { ThemeProvider } from '@/context/ThemeContext';
 import { UserProvider } from '@/context/UserContext';
 import { AuthProvider } from '@/context/AuthContext';
+import { TeamProvider } from '@/context/TeamContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Prevent the splash screen from auto-hiding
@@ -82,16 +83,18 @@ export default function RootLayout() {
       <ThemeProvider>
         <AuthProvider>
           <UserProvider>
-            <Stack 
-              screenOptions={{ 
-                headerShown: false,
-                animation: 'slide_from_right',
-                contentStyle: Platform.OS === 'web' ? {
-                  pointerEvents: 'auto'
-                } : undefined
-              }}
-            />
-            <StatusBar style="light" />
+            <TeamProvider>
+              <Stack 
+                screenOptions={{ 
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                  contentStyle: Platform.OS === 'web' ? {
+                    pointerEvents: 'auto'
+                  } : undefined
+                }}
+              />
+              <StatusBar style="light" />
+            </TeamProvider>
           </UserProvider>
         </AuthProvider>
       </ThemeProvider>

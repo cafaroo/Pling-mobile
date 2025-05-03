@@ -183,10 +183,10 @@ export function ToastContainer() {
     >
       <View style={styles.content}>
         <Icon size={20} color={variantColors.icon} />
-        <Text style={[styles.message, { color: colors.text }]}>{message}</Text>
+        <Text style={[styles.message, { color: '#FFFFFF' }]}>{message}</Text>
       </View>
       <TouchableOpacity onPress={handleHide} style={styles.closeButton}>
-        <X size={20} color={colors.text} />
+        <X size={20} color="#FFFFFF" />
       </TouchableOpacity>
     </Container>
   );
@@ -195,7 +195,7 @@ export function ToastContainer() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 20,
+    bottom: Platform.OS === 'web' ? 100 : 120,
     left: 20,
     right: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 12,
     flex: 1,
+    color: '#FFFFFF',
   },
   closeButton: {
     padding: 4,

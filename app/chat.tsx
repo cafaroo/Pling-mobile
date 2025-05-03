@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, Image, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MessageSquare, Send, ArrowLeft, Image as ImageIcon, X, Paperclip, FileText, Download, Smile, Bold, Italic, List, Link as LinkIcon } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { MessageSquare, Send, Image as ImageIcon, X, Paperclip, FileText, Download, Smile, Bold, Italic, List, Link as LinkIcon } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -13,36 +14,30 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { supabase } from '@/services/supabaseClient';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import EmojiPicker from '@/components/ui/EmojiPicker';
 import Markdown from 'react-native-markdown-display';
-import { ThreadView } from './components/chat/ThreadView';
-import { MessageItem } from './components/chat/MessageItem';
+import ThreadView from './components/chat/ThreadView';
+import MessageItem from './components/chat/MessageItem';
+import { MentionPicker } from './components/chat/MentionPicker';
 import { Tables } from '@/types/supabase';
-import MentionPicker from './components/chat/MentionPicker';
+import { format } from 'date-fns';
+import { sv } from 'date-fns/locale';
+import { Message, MessageAttachment, MessageReaction } from './types/chat';
+import { TeamMemberWithProfile } from './types/team';
 
 type TeamMessage = Tables<'team_messages'>;
-type MessageAttachment = {
-  type: 'image' | 'file';
-  url: string;
-  filename?: string;
-  size?: number;
-  mime_type?: string;
-};
 
-type MessageReaction = Tables<'message_reactions'>;
+interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
 
-type Message = TeamMessage & {
-  user: {
-    name: string;
-    avatar_url: string;
-  };
-  reactions?: MessageReaction[];
-  mentions?: {
-    id: string;
-    name: string;
-  }[];
-  attachments: MessageAttachment[];
+type MessageWithReactions = Message & {
+  reactions: MessageReaction[];
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -62,12 +57,174 @@ const formatTime = (date: string) => {
   return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  headerContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: '#fff',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: 2,
+  },
+  content: {
+    flex: 1,
+  },
+  messagesList: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#fff',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#ff4444',
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+  },
+  inputContainer: {
+    borderTopWidth: 1,
+    padding: 12,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  textInputContainer: {
+    flex: 1,
+    marginRight: 8,
+    position: 'relative',
+  },
+  textInput: {
+    minHeight: 40,
+    maxHeight: 120,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingRight: 40,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+  },
+  formattingToolbar: {
+    flexDirection: 'row',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  toolbarButton: {
+    padding: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  attachButton: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    padding: 4,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  attachmentsPreview: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 8,
+    gap: 8,
+  },
+  imagePreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: '#2a2a2a',
+  },
+  filePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#2a2a2a',
+  },
+  fileName: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#fff',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#ff4444',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mentionPickerContainer: {
+    position: 'absolute',
+    bottom: '100%',
+    left: 0,
+    right: 0,
+    marginBottom: 8,
+    zIndex: 1000,
+  },
+});
+
 export default function TeamChatScreen() {
   const { colors } = useTheme();
   const { user } = useUser();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { markAsRead } = useUnreadMessages();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<MessageWithReactions[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,8 +239,13 @@ export default function TeamChatScreen() {
   const [mentionSearchQuery, setMentionSearchQuery] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
 
+  const teamId = params.teamId as string | undefined;
+
   useEffect(() => {
-    if (!user?.team?.id) return;
+    if (!teamId) {
+      setError('Du behöver välja ett team för att använda chatten');
+      return;
+    }
 
     loadMessages();
     markAsRead();
@@ -96,7 +258,7 @@ export default function TeamChatScreen() {
           event: 'INSERT',
           schema: 'public',
           table: 'team_messages',
-          filter: `team_id=eq.${user.team.id}`,
+          filter: `team_id=eq.${teamId}`,
         },
         handleNewMessage
       )
@@ -119,31 +281,96 @@ export default function TeamChatScreen() {
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(reactionsChannel);
     };
-  }, [user?.team?.id]);
+  }, [teamId]);
+
+  const loadMessages = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Hämta meddelanden
+      const { data: messages, error: messagesError } = await supabase
+        .from('team_messages')
+        .select(`
+          *,
+          profiles (
+            id,
+            name,
+            avatar_url
+          )
+        `)
+        .eq('team_id', teamId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (messagesError) throw messagesError;
+
+      // Hämta reaktioner för alla meddelanden
+      const messageIds = messages.map(msg => msg.id);
+      const { data: reactions, error: reactionsError } = await supabase
+        .from('message_reactions')
+        .select('*')
+        .in('message_id', messageIds);
+
+      if (reactionsError) throw reactionsError;
+
+      // Kombinera meddelanden med reaktioner
+      const enrichedMessages = messages.map(msg => ({
+        ...msg,
+        user: {
+          name: msg.profiles?.name || 'Okänd användare',
+          avatar_url: msg.profiles?.avatar_url
+        },
+        attachments: msg.attachments || [],
+        reactions: reactions?.filter(r => r.message_id === msg.id) || []
+      }));
+
+      setMessages(enrichedMessages.reverse());
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      setError('Kunde inte ladda meddelanden');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleNewMessage = async (payload: { new: TeamMessage }) => {
     const newMessage = payload.new;
-    const { data: userData } = await supabase
-      .from('profiles')
-      .select('name, avatar_url')
-      .eq('id', newMessage.user_id)
-      .single();
+    
+    try {
+      // Hämta användarinformation
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('name, avatar_url')
+        .eq('id', newMessage.user_id)
+        .single();
 
-    if (userData) {
-      const fullMessage: Message = {
+      if (userError) throw userError;
+
+      // Hämta eventuella reaktioner
+      const { data: reactions, error: reactionsError } = await supabase
+        .from('message_reactions')
+        .select('*')
+        .eq('message_id', newMessage.id);
+
+      if (reactionsError) throw reactionsError;
+
+      const fullMessage: MessageWithReactions = {
         ...newMessage,
         user: {
           name: userData.name,
           avatar_url: userData.avatar_url
         },
         attachments: [],
-        reactions: []
+        reactions: reactions || []
       };
 
       setMessages((prev) => [...prev, fullMessage]);
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
+    } catch (error) {
+      console.error('Error handling new message:', error);
     }
   };
 
@@ -161,50 +388,6 @@ export default function TeamChatScreen() {
             : msg
         )
       );
-    }
-  };
-
-  const loadMessages = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data: messages, error } = await supabase
-        .rpc('get_recent_team_messages', {
-          team_id_param: user?.team?.id,
-          limit_count: 50
-        });
-
-      if (error) throw error;
-
-      // Hämta användarinformation för alla meddelanden
-      const userIds = [...new Set(messages.map(m => m.user_id))];
-      const { data: users } = await supabase
-        .from('profiles')
-        .select('id, name, avatar_url')
-        .in('id', userIds);
-
-      const userMap = users?.reduce((acc, user) => ({
-        ...acc,
-        [user.id]: user
-      }), {}) || {};
-
-      const enrichedMessages = messages.map(msg => ({
-        ...msg,
-        user: {
-          name: userMap[msg.user_id]?.name || 'Okänd användare',
-          avatar_url: userMap[msg.user_id]?.avatar_url
-        },
-        attachments: msg.attachments || [],
-        reactions: []
-      }));
-
-      setMessages(enrichedMessages);
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      setError('Kunde inte ladda meddelanden');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -398,9 +581,9 @@ export default function TeamChatScreen() {
 
       // Create the message
       const { data: messageData, error: messageError } = await supabase
-        .from('team_messages_new')
+        .from('team_messages')
         .insert({
-          team_id: user?.team?.id,
+          team_id: teamId,
           user_id: user?.id,
           content: messageToSend,
           attachments,
@@ -499,7 +682,7 @@ export default function TeamChatScreen() {
     let lastIndex = 0;
     const parts: React.ReactNode[] = [];
 
-    if (mentions) {
+    if (mentions && Array.isArray(mentions)) {
       mentions.forEach((mention, index) => {
         const mentionText = `@${mention.name}`;
         const mentionIndex = content.indexOf(mentionText, lastIndex);
@@ -541,7 +724,7 @@ export default function TeamChatScreen() {
       );
     }
 
-    return <Text>{parts}</Text>;
+    return parts.length > 0 ? <Text>{parts}</Text> : <Text style={{ color: colors.text.main }}>{content}</Text>;
   };
 
   const renderMessage = ({ item }: { item: Message }) => (
@@ -549,6 +732,7 @@ export default function TeamChatScreen() {
       message={item}
       onThreadPress={handleThreadPress}
       onReaction={handleReaction}
+      renderContent={renderMessageContent}
       currentUserId={user?.id}
     />
   );
@@ -569,347 +753,190 @@ export default function TeamChatScreen() {
 
   return (
     <Container>
-      <LinearGradient
-        colors={[colors.background.dark, colors.primary.dark]}
-        style={styles.background}
-      />
-      <Header 
-        title="Team Chat" 
-        icon={MessageSquare}
+      <Header
+        title="Teamchatt"
         leftIcon={ArrowLeft}
-        onLeftIconPress={() => router.back()}
+        onLeftPress={() => router.push(`/(tabs)/team/${teamId}`)}
       />
 
       <KeyboardAvoidingView
-        style={styles.keyboardAvoidingView}
+        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <View style={styles.container}>
-          {!user?.team?.id ? (
-            <View style={styles.centeredContainer}>
-              <Text style={[styles.centeredText, { color: colors.text.light }]}>
-                Du behöver vara med i ett team för att använda chatten
-              </Text>
-            </View>
-          ) : isLoading ? (
-            <View style={styles.centeredContainer}>
-              <ActivityIndicator size="large" color={colors.primary.main} />
-              <Text style={[styles.centeredText, { color: colors.text.light }]}>
-                Laddar meddelanden...
-              </Text>
-            </View>
-          ) : (
-            <>
-              {selectedThread ? (
-                <ThreadView
-                  parentMessage={selectedThread}
-                  onClose={() => setSelectedThread(null)}
-                  onSendReply={async (content, threadId, parentId) => {
-                    await sendMessage(content, threadId, parentId);
-                  }}
-                  teamId={user?.team?.id || selectedThread.team_id}
-                />
+        {selectedThread ? (
+          <ThreadView
+            parentMessage={selectedThread}
+            onClose={() => setSelectedThread(null)}
+            onSendReply={sendMessage}
+            teamId={teamId || ''}
+          />
+        ) : (
+          <>
+            <View style={styles.content}>
+              {isLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={colors.primary.main} />
+                  <Text style={styles.loadingText}>Laddar meddelanden...</Text>
+                </View>
+              ) : error ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : messages.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>
+                    Inga meddelanden än. Var först med att skriva något!
+                  </Text>
+                </View>
               ) : (
                 <FlatList
                   ref={flatListRef}
+                  style={styles.messagesList}
                   data={messages}
-                  renderItem={renderMessage}
                   keyExtractor={(item) => item.id}
-                  contentContainerStyle={styles.messagesList}
-                  onLayout={() => {
-                    flatListRef.current?.scrollToEnd({ animated: false });
-                  }}
+                  renderItem={({ item }) => (
+                    <MessageItem
+                      message={item}
+                      onThreadPress={handleThreadPress}
+                      onReaction={handleReaction}
+                      renderContent={renderMessageContent}
+                      currentUserId={user?.id}
+                    />
+                  )}
+                  inverted
                 />
               )}
-              
-              {error && (
-                <View style={[styles.errorContainer, { backgroundColor: colors.error }]}>
-                  <Text style={styles.errorText}>{error}</Text>
-                  <TouchableOpacity 
-                    onPress={() => setError(null)}
-                    style={styles.errorDismiss}
+            </View>
+
+            <View style={[
+              styles.inputContainer,
+              { borderTopColor: colors.neutral[800] }
+            ]}>
+              {showFormattingToolbar && (
+                <View style={[
+                  styles.formattingToolbar,
+                  { backgroundColor: colors.neutral[800] }
+                ]}>
+                  <TouchableOpacity
+                    style={styles.toolbarButton}
+                    onPress={() => insertMarkdownSyntax('**', 'bold')}
                   >
-                    <X size={16} color="white" />
+                    <Bold size={20} color={colors.text.light} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.toolbarButton}
+                    onPress={() => insertMarkdownSyntax('*', 'italic')}
+                  >
+                    <Italic size={20} color={colors.text.light} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.toolbarButton}
+                    onPress={() => insertMarkdownSyntax('- ', 'list')}
+                  >
+                    <List size={20} color={colors.text.light} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.toolbarButton}
+                    onPress={() => insertMarkdownSyntax('[]()', 'link')}
+                  >
+                    <LinkIcon size={20} color={colors.text.light} />
                   </TouchableOpacity>
                 </View>
               )}
 
               {(selectedImage || selectedFile) && (
-                <View style={[
-                  styles.selectedMediaContainer, 
-                  { backgroundColor: colors.neutral[800] }
-                ]}>
+                <View style={styles.attachmentsPreview}>
                   {selectedImage && (
-                    <View style={styles.selectedMediaPreview}>
+                    <View>
                       <Image
                         source={{ uri: selectedImage.uri }}
-                        style={styles.selectedMediaImage}
-                        resizeMode="cover"
+                        style={styles.imagePreview}
                       />
                       <TouchableOpacity
+                        style={styles.removeButton}
                         onPress={() => setSelectedImage(null)}
-                        style={[styles.removeMediaButton, { backgroundColor: colors.error }]}
                       >
-                        <X size={16} color="white" />
+                        <X size={16} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {selectedFile && 'assets' in selectedFile && selectedFile.assets[0] && (
+                    <View style={styles.filePreview}>
+                      <FileText size={24} color={colors.text.light} />
+                      <Text style={styles.fileName} numberOfLines={1}>
+                        {selectedFile.assets[0].name}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => setSelectedFile(null)}
+                      >
+                        <X size={16} color="#fff" />
                       </TouchableOpacity>
                     </View>
                   )}
                 </View>
               )}
 
-              <View style={[
-                styles.inputContainer,
-                { backgroundColor: colors.background.light }
-              ]}>
-                {showFormattingToolbar && (
-                  <View style={[
-                    styles.formattingToolbar,
-                    { backgroundColor: colors.neutral[800] }
-                  ]}>
-                    <TouchableOpacity
-                      style={[styles.toolbarButton, { backgroundColor: colors.primary.main }]}
-                      onPress={() => insertMarkdownSyntax('text', '**')}
-                    >
-                      <Bold size={20} color={colors.text.light} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.toolbarButton, { backgroundColor: colors.primary.main }]}
-                      onPress={() => insertMarkdownSyntax('text', '*')}
-                    >
-                      <Italic size={20} color={colors.text.light} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.toolbarButton, { backgroundColor: colors.primary.main }]}
-                      onPress={() => insertMarkdownSyntax('list', '')}
-                    >
-                      <List size={20} color={colors.text.light} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.toolbarButton, { backgroundColor: colors.primary.main }]}
-                      onPress={() => insertMarkdownSyntax('[länktext](url)', '')}
-                    >
-                      <LinkIcon size={20} color={colors.text.light} />
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                <View style={styles.inputRow}>
-                  <TouchableOpacity
-                    onPress={pickImage}
-                    style={[styles.inputButton, { backgroundColor: colors.primary.main }]}
-                  >
-                    <ImageIcon size={20} color={colors.text.light} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => setShowFormattingToolbar(!showFormattingToolbar)}
-                    style={[
-                      styles.inputButton, 
-                      { 
-                        backgroundColor: showFormattingToolbar 
-                          ? colors.primary.dark 
-                          : colors.primary.main 
-                      }
-                    ]}
-                  >
-                    <Bold size={20} color={colors.text.light} />
-                  </TouchableOpacity>
-
+              <View style={styles.inputWrapper}>
+                <View style={styles.textInputContainer}>
                   <TextInput
                     ref={inputRef}
                     style={[
-                      styles.input,
+                      styles.textInput,
                       {
+                        backgroundColor: colors.neutral[800],
                         color: colors.text.main,
-                        backgroundColor: colors.neutral[50],
-                        borderColor: colors.neutral[200],
-                        borderWidth: 1,
-                      },
+                      }
                     ]}
                     value={newMessage}
                     onChangeText={handleTextChange}
                     placeholder="Skriv ett meddelande..."
                     placeholderTextColor={colors.neutral[400]}
                     multiline
-                    numberOfLines={1}
                     maxLength={1000}
-                    returnKeyType="default"
-                    blurOnSubmit={false}
                   />
 
-                  {showMentionPicker && (
-                    <MentionPicker
-                      teamId={user?.team?.id || ''}
-                      onSelect={handleMentionSelect}
-                      onClose={() => setShowMentionPicker(false)}
-                      searchQuery={mentionSearchQuery}
-                    />
-                  )}
+                  <TouchableOpacity
+                    style={styles.attachButton}
+                    onPress={() => {
+                      const options = [
+                        { label: 'Bild', onPress: pickImage },
+                        { label: 'Fil', onPress: pickFile },
+                      ];
+                      // Visa en ActionSheet eller liknande här
+                    }}
+                  >
+                    <Paperclip size={20} color={colors.text.light} />
+                  </TouchableOpacity>
 
-                  {isUploading ? (
-                    <View style={[styles.sendButton, { backgroundColor: colors.primary.main }]}>
-                      <ActivityIndicator color={colors.text.light} />
+                  {showMentionPicker && (
+                    <View style={styles.mentionPickerContainer}>
+                      <MentionPicker
+                        members={[]}  // Fyll i med teammedlemmar
+                        searchQuery={mentionSearchQuery}
+                        onSelect={handleMentionSelect}
+                      />
                     </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={[
-                        styles.sendButton,
-                        {
-                          backgroundColor: newMessage.trim() || selectedImage || selectedFile
-                            ? colors.primary.main
-                            : colors.neutral[400]
-                        }
-                      ]}
-                      onPress={() => {
-                        const message = newMessage.trim();
-                        if (message) {
-                          sendMessage(message);
-                        }
-                      }}
-                      disabled={!newMessage.trim() && !selectedImage && !selectedFile}
-                    >
-                      <Send size={20} color={colors.text.light} />
-                    </TouchableOpacity>
                   )}
                 </View>
+
+                <Button
+                  Icon={Send}
+                  onPress={() => sendMessage(newMessage)}
+                  variant="primary"
+                  size="medium"
+                  style={[
+                    styles.sendButton,
+                    !newMessage.trim() && { opacity: 0.5 }
+                  ]}
+                  disabled={!newMessage.trim() || isUploading}
+                />
               </View>
-            </>
-          )}
-        </View>
+            </View>
+          </>
+        )}
       </KeyboardAvoidingView>
     </Container>
   );
 }
-
-const styles = StyleSheet.create({
-  background: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-  },
-  centeredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  centeredText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 12,
-  },
-  messagesList: {
-    flexGrow: 1,
-  },
-  errorContainer: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    right: 20,
-    padding: 12,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    zIndex: 100,
-  },
-  errorText: {
-    color: 'white',
-    fontFamily: 'Inter-Medium',
-    fontSize: 14,
-    flex: 1,
-  },
-  errorDismiss: {
-    marginLeft: 12,
-  },
-  selectedMediaContainer: {
-    padding: 12,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  selectedMediaPreview: {
-    position: 'relative',
-    width: 120,
-    height: 120,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  selectedMediaImage: {
-    width: '100%',
-    height: '100%',
-  },
-  removeMediaButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  inputContainer: {
-    padding: 12,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  formattingToolbar: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 8,
-    marginBottom: 12,
-    gap: 8,
-  },
-  toolbarButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  inputButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    minHeight: 40,
-    maxHeight: 100,
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

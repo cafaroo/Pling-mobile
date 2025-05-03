@@ -4,33 +4,161 @@ import { ArrowLeft, Send } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { Message } from '@/types/chat';
-import { TeamMember } from '@/types/team';
+import { Tables } from '@/types/supabase';
 import { supabase } from '@/services/supabaseClient';
 import MessageItem from './MessageItem';
-import Button from '@/components/ui/Button';
-import MentionPicker from './MentionPicker';
+import { Button } from '@/components/ui/Button';
+import { MentionPicker } from './MentionPicker';
 
-type ThreadViewProps = {
-  parentMessage: Message;
+interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
+
+type MessageWithReactions = Message & {
+  reactions: MessageReaction[];
+};
+
+type TeamMemberWithProfile = Tables<'team_members'> & {
+  profiles: {
+    id: string;
+    name: string | null;
+    avatar_url: string | null;
+  } | null;
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  closeButton: {
+    marginRight: 16,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    marginTop: 2,
+    opacity: 0.8,
+  },
+  content: {
+    flex: 1,
+  },
+  parentMessage: {
+    padding: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  divider: {
+    height: 1,
+    marginHorizontal: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  repliesList: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: 16,
+    borderTopWidth: 1,
+  },
+  inputWrapper: {
+    flex: 1,
+    position: 'relative',
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 120,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontFamily: 'Inter-Regular',
+    fontSize: 16,
+  },
+  mentionPickerContainer: {
+    position: 'absolute',
+    bottom: '100%',
+    left: 0,
+    right: 0,
+    marginBottom: 8,
+    zIndex: 1000,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+});
+
+interface ThreadViewProps {
+  parentMessage: MessageWithReactions;
   onClose: () => void;
   onSendReply: (content: string, threadId: string, parentId: string) => Promise<void>;
   teamId: string;
-};
+}
 
 export default function ThreadView({ parentMessage, onClose, onSendReply, teamId }: ThreadViewProps) {
   const { colors } = useTheme();
   const { user } = useUser();
-  const [replies, setReplies] = useState<Message[]>([]);
+  const [replies, setReplies] = useState<MessageWithReactions[]>([]);
   const [newReply, setNewReply] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [mentionSearchQuery, setMentionSearchQuery] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberWithProfile[]>([]);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadReplies();
+    loadTeamMembers();
     const cleanup = subscribeToReplies();
     return () => {
       cleanup();
@@ -40,15 +168,44 @@ export default function ThreadView({ parentMessage, onClose, onSendReply, teamId
   const loadReplies = async () => {
     try {
       setIsLoading(true);
-      const { data: replies, error } = await supabase
-        .from('team_messages_with_user')
-        .select('*')
+      setError(null);
+
+      // Hämta svar
+      const { data: replies, error: repliesError } = await supabase
+        .from('team_messages')
+        .select(`
+          *,
+          profiles (
+            id,
+            name,
+            avatar_url
+          )
+        `)
         .eq('parent_id', parentMessage.id)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (repliesError) throw repliesError;
 
-      setReplies(replies || []);
+      // Hämta reaktioner för alla svar
+      const replyIds = replies.map(reply => reply.id);
+      const { data: reactions, error: reactionsError } = await supabase
+        .from('message_reactions')
+        .select('*')
+        .in('message_id', replyIds);
+
+      if (reactionsError) throw reactionsError;
+
+      // Kombinera svar med reaktioner
+      const enrichedReplies: MessageWithReactions[] = (replies || []).map(reply => ({
+        ...reply,
+        reactions: reactions?.filter(r => r.message_id === reply.id) || [],
+        user: {
+          name: reply.profiles?.name || 'Okänd användare',
+          avatar_url: reply.profiles?.avatar_url
+        }
+      }));
+
+      setReplies(enrichedReplies);
       setIsLoading(false);
 
       // Scroll to bottom after loading replies
@@ -61,32 +218,68 @@ export default function ThreadView({ parentMessage, onClose, onSendReply, teamId
     }
   };
 
+  const loadTeamMembers = async () => {
+    try {
+      const { data: members, error } = await supabase
+        .from('team_members')
+        .select(`
+          *,
+          profiles:profiles (*)
+        `)
+        .eq('team_id', teamId);
+
+      if (error) throw error;
+      setTeamMembers(members || []);
+    } catch (error) {
+      console.error('Error loading team members:', error);
+    }
+  };
+
   const subscribeToReplies = () => {
     const subscription = supabase
-      .channel('team_messages_new')
+      .channel('team_messages')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'team_messages_new',
+          table: 'team_messages',
           filter: `parent_id=eq.${parentMessage.id}`
         },
         async (payload) => {
-          const newReply = payload.new;
+          const newReply = payload.new as Message;
           
-          // Fetch user details
-          const { data: userData } = await supabase
-            .from('profiles')
-            .select('id, name, avatar_url')
-            .eq('id', newReply.user_id)
-            .single();
+          try {
+            // Hämta användarinformation
+            const { data: userData, error: userError } = await supabase
+              .from('profiles')
+              .select('name, avatar_url')
+              .eq('id', newReply.user_id)
+              .single();
 
-          if (userData) {
-            setReplies(prevReplies => [...prevReplies, {
+            if (userError) throw userError;
+
+            // Hämta eventuella reaktioner
+            const { data: reactions, error: reactionsError } = await supabase
+              .from('message_reactions')
+              .select('*')
+              .eq('message_id', newReply.id);
+
+            if (reactionsError) throw reactionsError;
+
+            const fullMessage: MessageWithReactions = {
               ...newReply,
-              user: userData
-            }]);
+              user: {
+                name: userData.name || 'Okänd användare',
+                avatar_url: userData.avatar_url || ''
+              },
+              attachments: [],
+              reactions: reactions || []
+            };
+            
+            setReplies(prevReplies => [...prevReplies, fullMessage]);
+          } catch (error) {
+            console.error('Error handling new reply:', error);
           }
         }
       )
@@ -98,7 +291,7 @@ export default function ThreadView({ parentMessage, onClose, onSendReply, teamId
   };
 
   const handleSendReply = async () => {
-    if (!newReply.trim()) return;
+    if (!newReply.trim() || !user?.id) return;
 
     const replyContent = newReply.trim();
     setNewReply('');
@@ -121,7 +314,7 @@ export default function ThreadView({ parentMessage, onClose, onSendReply, teamId
       }
 
       const { data: message, error } = await supabase
-        .from('team_messages_new')
+        .from('team_messages')
         .insert({
           content: replyContent,
           thread_id: parentMessage.id,
@@ -151,6 +344,8 @@ export default function ThreadView({ parentMessage, onClose, onSendReply, teamId
   };
 
   const handleReaction = async (messageId: string, emoji: string) => {
+    if (!user?.id) return;
+
     try {
       const { data: existingReaction } = await supabase
         .from('message_reactions')
@@ -161,18 +356,29 @@ export default function ThreadView({ parentMessage, onClose, onSendReply, teamId
         .maybeSingle();
 
       if (existingReaction) {
-        await supabase
+        const { error: deleteError } = await supabase
           .from('message_reactions')
           .delete()
           .eq('id', existingReaction.id);
+
+        if (deleteError) {
+          console.error('Error deleting reaction:', deleteError);
+          return;
+        }
       } else {
-        await supabase
+        const { error: insertError } = await supabase
           .from('message_reactions')
           .insert({
             message_id: messageId,
             user_id: user.id,
-            emoji: emoji
+            emoji: emoji,
+            team_id: teamId
           });
+
+        if (insertError) {
+          console.error('Error adding reaction:', insertError);
+          return;
+        }
       }
     } catch (error) {
       console.error('Error handling reaction:', error);
@@ -361,18 +567,24 @@ export default function ThreadView({ parentMessage, onClose, onSendReply, teamId
               {showMentionPicker && (
                 <View style={styles.mentionPickerContainer}>
                   <MentionPicker
-                    teamId={teamId}
-                    onSelect={handleMentionSelect}
-                    onClose={() => setShowMentionPicker(false)}
+                    members={teamMembers}
                     searchQuery={mentionSearchQuery}
+                    onSelect={handleMentionSelect}
+                    loading={isLoading}
+                    onSelectMember={(member) => {
+                      handleMentionSelect({
+                        id: member.user_id,
+                        name: member.profiles?.name || 'Okänd användare',
+                        role: member.role
+                      });
+                    }}
                   />
                 </View>
               )}
             </View>
 
             <Button
-              title=""
-              icon={Send}
+              Icon={Send}
               onPress={handleSendReply}
               variant="primary"
               size="medium"
@@ -388,108 +600,3 @@ export default function ThreadView({ parentMessage, onClose, onSendReply, teamId
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-  },
-  closeButton: {
-    marginRight: 16,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter-Bold',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    marginTop: 2,
-    opacity: 0.8,
-  },
-  content: {
-    flex: 1,
-  },
-  parentMessage: {
-    padding: 16,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-  },
-  divider: {
-    height: 1,
-    marginHorizontal: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-    textAlign: 'center',
-    opacity: 0.8,
-  },
-  repliesList: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 16,
-    borderTopWidth: 1,
-  },
-  inputWrapper: {
-    flex: 1,
-    position: 'relative',
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 120,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-  },
-  mentionPickerContainer: {
-    position: 'absolute',
-    bottom: '100%',
-    left: 0,
-    right: 0,
-    marginBottom: 8,
-    zIndex: 1000,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-});

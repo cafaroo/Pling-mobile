@@ -1,144 +1,113 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { MessageSquare, Heart } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { useUser } from '@/context/UserContext';
-import { MessageSquare, Smile } from 'lucide-react-native';
-import { Message } from '@/types/chat';
+import { formatRelativeTime } from '@/utils/dateUtils';
+import type { Message } from '@/types/chat';
 
-type MessageItemProps = {
-  message: Message;
-  onThreadPress: (message: Message) => void;
-  onReaction: (messageId: string, emoji: string) => void;
-  renderContent: (content: string, mentions?: { id: string; name: string }[]) => React.ReactNode;
+interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
+
+type MessageWithReactions = Message & {
+  reactions: MessageReaction[];
 };
 
-export default function MessageItem({
-  message,
-  onThreadPress,
+interface MessageItemProps {
+  message: MessageWithReactions;
+  onThreadPress?: (message: MessageWithReactions) => void;
+  onReaction?: (messageId: string, emoji: string) => void;
+  renderContent?: (content: string, mentions?: { id: string; name: string }[]) => React.ReactNode;
+  currentUserId?: string;
+  isThread?: boolean;
+  showReplies?: boolean;
+}
+
+export default function MessageItem({ 
+  message, 
+  onThreadPress, 
   onReaction,
   renderContent,
+  currentUserId,
+  isThread = false,
+  showReplies = true 
 }: MessageItemProps) {
   const { colors } = useTheme();
-  const { user } = useUser();
-  const isOwnMessage = message.user_id === user?.id;
 
-  const formatTime = (date: string) => {
-    const messageDate = new Date(date);
-    return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const getReactionCount = (emoji: string): number => {
+    if (!Array.isArray(message.reactions)) return 0;
+    return message.reactions.filter(reaction => reaction.emoji === emoji).length;
   };
 
+  const hasReacted = (emoji: string): boolean => {
+    if (!Array.isArray(message.reactions) || !currentUserId) return false;
+    return message.reactions.some(reaction => 
+      reaction.emoji === emoji && reaction.user_id === currentUserId
+    );
+  };
+
+  const messageContent = message.content || '';
+  const createdAt = message.created_at || new Date().toISOString();
+  const userName = message?.user?.name || 'Okänd användare';
+  const avatarUrl = message?.user?.avatar_url || 'https://via.placeholder.com/40';
+
   return (
-    <View
-      style={[
-        styles.messageContainer,
-        isOwnMessage ? styles.ownMessage : styles.otherMessage,
-      ]}
-    >
-      {!isOwnMessage && (
-        <View style={styles.avatarContainer}>
-          {message.user.avatar_url ? (
-            <Image
-              source={{ uri: message.user.avatar_url }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View
-              style={[
-                styles.avatarPlaceholder,
-                { backgroundColor: colors.primary.light },
-              ]}
-            >
-              <Text style={styles.avatarInitial}>
-                {message.user.name?.charAt(0) || '?'}
-              </Text>
-            </View>
-          )}
+    <View style={[styles.container, { backgroundColor: colors.neutral[900] }]}>
+      <View style={styles.header}>
+        <Image
+          source={{ uri: avatarUrl }}
+          style={styles.avatar}
+        />
+        <View style={styles.headerContent}>
+          <Text style={[styles.userName, { color: colors.text.light }]}>
+            {userName}
+          </Text>
+          <Text style={[styles.timestamp, { color: colors.text.light }]}>
+            {formatRelativeTime(createdAt)}
+          </Text>
         </View>
-      )}
+      </View>
 
-      <View
-        style={[
-          styles.messageBubble,
-          {
-            backgroundColor: isOwnMessage
-              ? colors.accent.yellow
-              : colors.primary.light,
-          },
-        ]}
-      >
-        {!isOwnMessage && (
-          <Text
-            style={[
-              styles.messageAuthor,
-              { color: isOwnMessage ? colors.text.dark : colors.text.light },
-            ]}
-          >
-            {message.user.name}
+      <View style={styles.content}>
+        {renderContent ? (
+          renderContent(messageContent, message.mentions)
+        ) : (
+          <Text style={[styles.messageText, { color: colors.text.main }]}>
+            {messageContent}
           </Text>
         )}
-        
-        {message.content && renderContent(message.content, message.mentions)}
-        
-        {message.attachments && message.attachments.length > 0 && (
-          <View style={styles.attachmentsContainer}>
-            {message.attachments.map((attachment, index) => (
-              <View key={index} style={styles.attachment}>
-                {attachment.type === 'image' && (
-                  <Image
-                    source={{ uri: attachment.url }}
-                    style={styles.attachmentImage}
-                    resizeMode="cover"
-                  />
-                )}
-              </View>
-            ))}
-          </View>
+      </View>
+
+      <View style={styles.footer}>
+        {onThreadPress && (
+          <TouchableOpacity
+            style={styles.threadButton}
+            onPress={() => onThreadPress(message)}
+          >
+            <MessageSquare size={16} color={colors.text.light} />
+            <Text style={[styles.threadCount, { color: colors.text.light }]}>
+              {message.reply_count || 0}
+            </Text>
+          </TouchableOpacity>
         )}
 
-        <View style={styles.messageFooter}>
-          <Text
+        {onReaction && (
+          <TouchableOpacity
             style={[
-              styles.messageTime,
-              { color: isOwnMessage ? colors.text.dark : colors.text.light },
+              styles.reactionButton,
+              hasReacted('❤️') && { backgroundColor: colors.primary.main }
             ]}
+            onPress={() => onReaction(message.id, '❤️')}
           >
-            {formatTime(message.created_at)}
-          </Text>
-
-          <View style={styles.messageActions}>
-            <TouchableOpacity
-              onPress={() => onThreadPress(message)}
-              style={styles.actionButton}
-            >
-              <MessageSquare size={16} color={colors.text.light} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => onReaction(message.id, '👍')}
-              style={styles.actionButton}
-            >
-              <Smile size={16} color={colors.text.light} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {message.reactions && message.reactions.length > 0 && (
-          <View style={styles.reactionsContainer}>
-            {message.reactions.map((reaction, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.reaction,
-                  { backgroundColor: colors.neutral[800] },
-                ]}
-              >
-                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
-                <Text style={[styles.reactionCount, { color: colors.text.light }]}>
-                  {reaction.count}
-                </Text>
-              </View>
-            ))}
-          </View>
+            <Heart size={16} color={colors.text.light} />
+            <Text style={[styles.reactionCount, { color: colors.text.light }]}>
+              {getReactionCount('❤️')}
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -146,96 +115,67 @@ export default function MessageItem({
 }
 
 const styles = StyleSheet.create({
-  messageContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    maxWidth: '80%',
-  },
-  ownMessage: {
-    marginLeft: 'auto',
-  },
-  otherMessage: {
-    marginRight: 'auto',
-  },
-  avatarContainer: {
-    marginRight: 8,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  avatarPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarInitial: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 14,
-    color: 'white',
-  },
-  messageBubble: {
-    padding: 12,
-    borderRadius: 16,
-    maxWidth: '100%',
-  },
-  messageAuthor: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  messageFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  messageTime: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
-  },
-  messageActions: {
-    flexDirection: 'row',
-    marginLeft: 8,
-  },
-  actionButton: {
-    padding: 4,
-    marginLeft: 4,
-  },
-  attachmentsContainer: {
-    marginTop: 8,
-  },
-  attachment: {
+  container: {
+    padding: 16,
     marginBottom: 8,
-  },
-  attachmentImage: {
-    width: 200,
-    height: 200,
     borderRadius: 8,
   },
-  reactionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-  },
-  reaction: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 4,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  reactionEmoji: {
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 16,
+    fontFamily: 'Inter-Medium',
+  },
+  timestamp: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  content: {
+    marginBottom: 12,
+  },
+  messageText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    lineHeight: 24,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  threadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 4,
+  },
+  threadCount: {
     fontSize: 14,
-    marginRight: 4,
+    fontFamily: 'Inter-Regular',
+  },
+  reactionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 4,
+    borderRadius: 4,
   },
   reactionCount: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
   },
 }); 

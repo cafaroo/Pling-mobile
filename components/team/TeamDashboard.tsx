@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
 import { Team, TeamRole } from '@/types/team';
-import { Users, Settings, UserPlus, Bell, Shield } from 'lucide-react-native';
+import { Users, Settings, UserPlus, Bell, Shield, MessageCircle } from 'lucide-react-native';
 
 interface TeamDashboardProps {
   team: Team;
@@ -12,6 +12,7 @@ interface TeamDashboardProps {
   onManageSettings?: () => void;
   onManageInvites?: () => void;
   onManageNotifications?: () => void;
+  onManageChat?: () => void;
 }
 
 export const TeamDashboard: React.FC<TeamDashboardProps> = ({
@@ -21,6 +22,7 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   onManageSettings,
   onManageInvites,
   onManageNotifications,
+  onManageChat,
 }) => {
   const { colors } = useTheme();
   const isOwnerOrAdmin = userRole === 'owner' || userRole === 'admin';
@@ -67,6 +69,15 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
         'Medlemmar',
         `${team.members?.length || 0} aktiva medlemmar`,
         onManageMembers
+      )}
+
+      {/* Chatkort */}
+      {renderCard(
+        <MessageCircle />,
+        'Team Chat',
+        'Chatta med ditt team',
+        onManageChat,
+        true
       )}
 
       {/* Inställningskort (endast för ägare/admin) */}

@@ -4,6 +4,7 @@ import { Team, TeamMember, TeamRole, TeamSettings, TeamInvitation, CreateTeamInv
 import { Profile } from '@/types/profile';
 import { TeamServiceResponse } from '@/types/service';
 import { Database } from '@/lib/database.types';
+import { nanoid } from 'nanoid';
 
 /**
  * Standardiserad felhantering för teamService
@@ -264,30 +265,74 @@ export const removeTeamMember = async (
 
 /**
  * Skapar en inbjudningskod för ett team
- * 
- * @param teamId - ID för teamet som inbjudningskoden ska skapas för
- * @param expiresIn - Tid i sekunder tills koden upphör att gälla (standard: 7 dagar)
- * @returns En inbjudningskod om framgångsrikt, annars ett fel
+ * @param teamId - ID för teamet
+ * @returns Ett löfte som innehåller inbjudningskoden eller ett felmeddelande
  */
-export const createTeamInviteCode = async (
-  teamId: string,
-  expiresIn: number = 7 * 24 * 60 * 60 // 7 days in seconds
-): Promise<string> => {
+const createTeamInviteCode = async (
+  teamId: string
+): Promise<TeamServiceResponse<string>> => {
   try {
-    // Generate a random code
-    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+    // Hämta användarens ID
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    // Store the code in the database
-    const { error } = await supabase.from('team_invite_codes').insert({
-      team_id: teamId,
-      code,
-      expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
-    });
-    
-    if (error) throw new Error('Failed to create invite code');
-    return code;
+    if (userError || !user) {
+      return {
+        success: false,
+        error: {
+          message: 'Kunde inte hämta användarinformation',
+          details: userError?.message
+        }
+      };
+    }
+
+    // Kontrollera att teamet existerar
+    const { data: team, error: teamError } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('id', teamId)
+      .single();
+
+    if (teamError || !team) {
+      return {
+        success: false,
+        error: {
+          message: 'Kunde inte hitta teamet',
+          details: teamError?.message
+        }
+      };
+    }
+
+    // Generera en unik kod
+    const inviteCode = nanoid(10);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // Koden är giltig i 7 dagar
+
+    // Spara koden i databasen
+    const { error: insertError } = await supabase
+      .from('team_invite_codes')
+      .insert({
+        team_id: teamId,
+        code: inviteCode,
+        expires_at: expiresAt.toISOString(),
+        created_by: user.id
+      });
+
+    if (insertError) {
+      return {
+        success: false,
+        error: {
+          message: 'Kunde inte skapa inbjudningskod',
+          details: insertError.message
+        }
+      };
+    }
+
+    return {
+      success: true,
+      data: inviteCode
+    };
   } catch (error) {
-    throw handleError(error, 'createTeamInviteCode');
+    return handleError(error, 'Kunde inte skapa inbjudningskod');
   }
 };
 
@@ -565,15 +610,16 @@ export const getUserTeams = async (userId: string): Promise<TeamServiceResponse<
 
 /**
  * Genererar en inbjudningskod för ett team
- * 
- * @param teamId - ID för teamet som inbjudningskoden ska genereras för
- * @returns En slumpmässig inbjudningskod om framgångsrikt, annars ett fel
+ * @param teamId - ID för teamet
+ * @returns Ett löfte som innehåller inbjudningskoden eller ett felmeddelande
  */
-export const generateInviteCode = async (teamId: string): Promise<string> => {
+const generateInviteCode = async (
+  teamId: string
+): Promise<TeamServiceResponse<string>> => {
   try {
     return await createTeamInviteCode(teamId);
   } catch (error) {
-    throw handleError(error, 'generateInviteCode');
+    return handleError(error, 'Kunde inte generera inbjudningskod');
   }
 };
 
@@ -847,3 +893,30 @@ export const createTeamInvitation = async (
     return handleError(error, 'createTeamInvitation');
   }
 };
+
+const teamService = {
+  createTeam,
+  getTeam,
+  updateTeam,
+  deleteTeam,
+  getTeamMembers,
+  addTeamMember,
+  updateTeamMemberRole,
+  updateTeamMemberStatus,
+  removeTeamMember,
+  createTeamInviteCode,
+  joinTeamWithCode,
+  updateTeamSettings,
+  uploadTeamProfileImage,
+  removeTeamProfileImage,
+  getUserTeams,
+  generateInviteCode,
+  acceptTeamInvite,
+  declineTeamInvite,
+  cancelTeamMembership,
+  getPendingTeamMembers,
+  getTeamInvitation,
+  createTeamInvitation
+};
+
+export default teamService;

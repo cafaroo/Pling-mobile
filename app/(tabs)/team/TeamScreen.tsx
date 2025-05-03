@@ -9,18 +9,18 @@ import { useTeamQueries } from '@/hooks/useTeamQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import Container from '@/components/ui/Container';
 import { TeamHeader } from '@/components/team/TeamHeader';
-import { TeamActions } from '@/components/team/TeamActions';
 import { TeamDashboard } from '@/components/team/TeamDashboard';
-import { TeamInviteSection } from '@/components/team/TeamInviteSection';
 import { TeamPendingSection } from '@/components/team/TeamPendingSection';
-import { TeamMembers } from '@/components/team/TeamMembers';
-import type { Team, TeamMember, TeamRole, TeamInvitation } from '@/types/team';
+import type { Team, TeamMember, TeamRole } from '@/types/team';
 import { useTeamMutations } from '@/hooks/useTeamMutations';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ToastContainer, ToastService } from '@/components/ui/Toast';
+import { InviteCodeModal } from '@/components/team/InviteCodeModal';
+import { useTeamContext } from '@/context/TeamContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function TeamScreen() {
   const { colors } = useTheme();
@@ -29,24 +29,36 @@ export default function TeamScreen() {
   const teamQueries = useTeamQueries();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const { teams, selectedTeam, setSelectedTeam } = useTeamContext();
+  const { user: authUser } = useAuth();
   
   // State
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  
+  const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
+  const [inviteCode, setInviteCode] = useState<string>('');
+  const [userRole, setUserRole] = useState<TeamRole>();
+
   // Använd React Query för att hämta team-data
   const {
-    data: teams = [],
+    data: teamsData = [],
     isLoading: isLoadingTeams,
     error: teamsError,
     refetch: refetchTeams
   } = teamQueries.getUserTeams(user?.id || '');
 
   // Säkerställ att teams är en array
-  const teamsArray = Array.isArray(teams) ? teams : [];
+  const teamsArray = Array.isArray(teamsData) ? teamsData : [];
+
+  // Sätt initialt team när data laddas
+  useEffect(() => {
+    if (teamsArray.length > 0 && !selectedTeamId) {
+      setSelectedTeamId(teamsArray[0].id);
+    }
+  }, [teamsArray.length, selectedTeamId]);
 
   // Hämta valt team
   const {
-    data: selectedTeam,
+    data: selectedTeamData,
     isLoading: isLoadingSelectedTeam,
     error: selectedTeamError
   } = teamQueries.getTeam(selectedTeamId || '', {
@@ -62,15 +74,6 @@ export default function TeamScreen() {
     enabled: !!selectedTeamId
   });
 
-  // Hämta inbjudningar om användaren inte har något team
-  const {
-    data: invitation,
-    isLoading: isLoadingInvitation,
-    error: invitationError
-  } = teamQueries.getTeamInvitation(user?.email || '', {
-    enabled: teamsArray.length === 0 && !!user?.email
-  });
-
   // Använd useTeamMutations för alla mutationer
   const {
     createTeam,
@@ -82,15 +85,8 @@ export default function TeamScreen() {
     generateInviteCode,
   } = useTeamMutations();
 
-  // Sätt initialt team när data laddas
-  useEffect(() => {
-    if (teamsArray.length > 0 && !selectedTeamId) {
-      setSelectedTeamId(teamsArray[0].id);
-    }
-  }, [teamsArray.length, selectedTeamId]);
-
   // Beräkna användarroller
-  const currentTeamMember = selectedTeam?.team_members?.find(
+  const currentTeamMember = selectedTeamData?.team_members?.find(
     (member) => member.user_id === user?.id
   ) || null;
   
@@ -105,7 +101,7 @@ export default function TeamScreen() {
 
   const handleCreateTeam = async (name: string) => {
     try {
-      await createTeam({ name });
+      await createTeam.mutateAsync({ name });
       refetchTeams();
       ToastService.show({ title: 'Team skapat!', type: 'success' });
     } catch (error) {
@@ -128,7 +124,7 @@ export default function TeamScreen() {
 
   const handleJoinTeam = async (code: string) => {
     try {
-      await joinTeam(code);
+      await joinTeam.mutateAsync(code);
       refetchTeams();
       ToastService.show({ title: 'Gick med i team!', type: 'success' });
     } catch (error) {
@@ -138,9 +134,9 @@ export default function TeamScreen() {
   };
 
   const handleAcceptInvitation = async () => {
-    if (!invitation) return;
+    if (!selectedTeamData) return;
     try {
-      await acceptInvitation(invitation.id);
+      await acceptInvitation.mutateAsync(selectedTeamData.id);
       refetchTeams();
       ToastService.show({ title: 'Accepterade inbjudan!', type: 'success' });
     } catch (error) {
@@ -149,11 +145,33 @@ export default function TeamScreen() {
     }
   };
 
+  const handleGenerateInviteCode = async () => {
+    if (!selectedTeamId) return;
+    try {
+      const code = await generateInviteCode.mutateAsync({ teamId: selectedTeamId });
+      setInviteCode(code);
+      setTimeout(() => {
+        setShowInviteModal(true);
+      }, 100);
+    } catch (error) {
+      console.error('Error generating invite code:', error);
+      ToastService.show({
+        title: 'Kunde inte generera inbjudningskod',
+        description: 'Ett fel uppstod. Försök igen senare.',
+        type: 'error'
+      });
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowInviteModal(false);
+    setInviteCode('');
+  };
+
   const handleApproveMember = async (userId: string) => {
     if (!selectedTeamId) return;
     try {
-      await approveMember({ teamId: selectedTeamId, userId });
-      queryClient.invalidateQueries({ queryKey: ['pending-team-members', selectedTeamId] });
+      await approveMember.mutateAsync({ teamId: selectedTeamId, userId });
       ToastService.show({ title: 'Godkände medlem!', type: 'success' });
     } catch (error) {
       ToastService.show({ title: 'Kunde inte godkänna medlem', type: 'error' });
@@ -164,8 +182,7 @@ export default function TeamScreen() {
   const handleRejectMember = async (userId: string) => {
     if (!selectedTeamId) return;
     try {
-      await rejectMember({ teamId: selectedTeamId, userId });
-      queryClient.invalidateQueries({ queryKey: ['pending-team-members', selectedTeamId] });
+      await rejectMember.mutateAsync({ teamId: selectedTeamId, userId });
       ToastService.show({ title: 'Avvisade medlem', type: 'success' });
     } catch (error) {
       ToastService.show({ title: 'Kunde inte avvisa medlem', type: 'error' });
@@ -173,25 +190,27 @@ export default function TeamScreen() {
     }
   };
 
-  const handleGenerateInviteCode = async () => {
-    try {
-      const code = await generateInviteCode.mutateAsync({ teamId: selectedTeamId! });
-      ToastService.show({
-        title: 'Inbjudningskod genererad',
-        description: `Koden är: ${code}`,
-        type: 'success'
-      });
-    } catch (error) {
-      ToastService.show({
-        title: 'Kunde inte generera inbjudningskod',
-        description: 'Ett fel uppstod. Försök igen senare.',
-        type: 'error'
-      });
+  const handleNavigateToChat = () => {
+    if (!selectedTeamData?.id) {
+      return;
     }
+    router.push({
+      pathname: '/chat',
+      params: {
+        teamId: selectedTeamData.id
+      }
+    });
   };
 
+  useEffect(() => {
+    if (selectedTeam && user) {
+      const member = selectedTeam.team_members?.find((m: TeamMember) => m.user_id === user.id);
+      setUserRole(member?.role);
+    }
+  }, [selectedTeam, user]);
+
   // Laddar initial data
-  if (isLoadingTeams || (selectedTeamId && isLoadingSelectedTeam)) {
+  if (isLoadingTeams || (selectedTeamId && selectedTeamData === null)) {
     return (
       <Container>
         <LoadingState message="Laddar team..." />
@@ -200,20 +219,7 @@ export default function TeamScreen() {
   }
 
   // Visa fel
-  if (teamsError || selectedTeamError) {
-    return (
-      <Container>
-        <ErrorState 
-          title="Kunde inte ladda team"
-          message="Ett fel uppstod när team skulle laddas." 
-          retry={refetchTeams} 
-        />
-      </Container>
-    );
-  }
-
-  // Visa tom state om användaren inte har några team
-  if (teamsArray.length === 0 && !invitation) {
+  if (teamsArray.length === 0 && !selectedTeamData) {
     return (
       <Container>
         <EmptyState
@@ -230,62 +236,62 @@ export default function TeamScreen() {
 
   return (
     <Container>
-      <ToastContainer />
-      <TeamHeader
-        teams={teamsArray}
-        selectedTeam={selectedTeam || null}
-        onTeamSelect={handleTeamSelect}
+      <LinearGradient
+        colors={[colors.background.dark, colors.background.main]}
+        style={[styles.gradient, { paddingTop: insets.top }]}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoadingTeams}
+              onRefresh={refetchTeams}
+              tintColor={colors.text.main}
+            />
+          }
+        >
+          <TeamHeader
+            teams={teamsArray}
+            selectedTeam={selectedTeamData || null}
+            onTeamSelect={handleTeamSelect}
+            userRole={userRole}
+            style={styles.header}
+          />
+
+          {selectedTeamData && (
+            <TeamDashboard
+              team={selectedTeamData}
+              userRole={currentTeamMember?.role || 'member'}
+              onManageMembers={() => router.push(`/team/${selectedTeamData.id}/members`)}
+              onManageSettings={() => router.push(`/team/${selectedTeamData.id}/settings`)}
+              onManageInvites={handleGenerateInviteCode}
+              onManageNotifications={() => router.push(`/team/${selectedTeamData.id}/notifications`)}
+              onManageChat={handleNavigateToChat}
+            />
+          )}
+        </ScrollView>
+      </LinearGradient>
+
+      <InviteCodeModal
+        isVisible={showInviteModal}
+        onClose={handleCloseModal}
+        inviteCode={inviteCode}
+        teamId={selectedTeamId || ''}
       />
-      
-      {selectedTeam && (
-        <TeamDashboard
-          team={selectedTeam}
-          userRole={currentTeamMember?.role || 'guest'}
-          onManageMembers={() => {}}
-          onManageSettings={() => {}}
-          onManageInvites={handleGenerateInviteCode}
-          onManageNotifications={() => {}}
-        />
-      )}
 
-      {selectedTeam && isLeader && (
-        <TeamInviteSection
-          selectedTeam={selectedTeam}
-          isLeader={isLeader}
-          inviteCode={null}
-          inviteError={null}
-          onJoinTeam={handleJoinTeam}
-          onGenerateInviteCode={handleGenerateInviteCode}
-          inviteCodeData={null}
-        />
-      )}
-
-      {selectedTeam && isLeader && pendingMembers.length > 0 && (
-        <TeamPendingSection
-          selectedTeam={selectedTeam}
-          isLeader={isLeader}
-          pendingMembers={pendingMembers}
-          invitation={null}
-          isPendingMember={false}
-          pendingTeamName=""
-          onApproveMember={handleApproveMember}
-          onRejectMember={handleRejectMember}
-          onAcceptInvitation={handleAcceptInvitation}
-        />
-      )}
+      <ToastContainer />
     </Container>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-  },
   gradient: {
     flex: 1,
-    padding: 16,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    // Add any necessary styles for the header
   },
 });

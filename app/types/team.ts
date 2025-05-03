@@ -1,41 +1,46 @@
 import React from 'react';
 import { Team as BaseTeam, TeamMemberStatus, TeamRole } from '../../types/team';
+import { Tables } from './supabase';
 
 export type Team = BaseTeam;
 
-export interface TeamMember {
-  id: string;
-  team_id: string;
-  user_id: string;
-  userId?: string; // För kompatibilitet med äldre kod
-  role: TeamRole;
-  status: TeamMemberStatus;
-  created_at: string;
-  updated_at: string;
-  user?: {
+export interface TeamMember extends Tables<'team_members'> {
+  user: {
     id: string;
-    email: string;
-    name?: string;
-    created_at: string;
+    name: string;
+    avatar_url: string;
   };
-  invited_by?: string;
 }
 
-export interface TeamInvitation {
-  id: string;
-  team_id: string;
-  email: string;
-  role: TeamRole;
-  expires_at: string;
-  created_at: string;
-  accepted_at: string | null;
-  created_by: string;
-  team?: Team;
+export interface TeamMemberWithProfile extends Tables<'team_members'> {
+  user: {
+    id: string;
+    name: string;
+    avatar_url: string;
+  };
+}
+
+export interface TeamInvitation extends Tables<'team_invitations'> {
+  team: {
+    id: string;
+    name: string;
+  };
+  inviter: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface CreateTeamInvitationInput {
+  teamId: string;
   email: string;
-  role: TeamRole;
+  role: 'admin' | 'member';
+}
+
+export interface User {
+  id: string;
+  name: string;
+  avatar_url: string;
 }
 
 export interface TeamInvite {
@@ -70,7 +75,7 @@ export interface User {
   updated_at: string;
 }
 
-// Dummy component för att tillfredsställa Expo Router-krav
+// Dummy component för Expo Router
 export default function TeamTypes() {
   return null;
 } 

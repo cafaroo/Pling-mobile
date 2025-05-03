@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.2.3",
-    "@gorhom/bottom-sheet": "^4.6.1",
+    "@gorhom/bottom-sheet": "^4.6.4",
     "@lottiefiles/dotlottie-react": "^0.6.5",
     "@react-native-async-storage/async-storage": "1.21.0",
     "@react-native-community/slider": "^4.5.6",
@@ -54,7 +54,7 @@
     "react": "18.3.1",
     "react-hook-form": "^7.56.1",
     "react-native": "0.76.9",
-    "react-native-gesture-handler": "^2.15.0",
+    "react-native-gesture-handler": "^2.25.0",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "^7.0.2",
     "react-native-paper": "^5.14.0",

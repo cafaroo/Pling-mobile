@@ -12,12 +12,12 @@ type MessageItemProps = {
   renderContent: (content: string, mentions?: { id: string; name: string }[]) => React.ReactNode;
 };
 
-export const MessageItem: React.FC<MessageItemProps> = ({
+export default function MessageItem({
   message,
   onThreadPress,
   onReaction,
   renderContent,
-}) => {
+}: MessageItemProps) {
   const { colors } = useTheme();
   const { user } = useUser();
   const isOwnMessage = message.user_id === user?.id;
@@ -143,7 +143,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   messageContainer: {

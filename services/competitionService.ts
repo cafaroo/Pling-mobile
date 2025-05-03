@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from '@/lib/supabase';
 import { Competition, CompetitionDetails, CompetitionCategory } from '@/types';
 
 type CreateCompetitionData = {

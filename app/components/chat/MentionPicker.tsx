@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { supabase } from '@/services/supabaseClient';
-
-type TeamMember = {
-  id: string;
-  name: string;
-  avatar_url?: string;
-};
+import { chatService } from '@/services/chatService';
+import PlingModal from '@/components/sales/PlingModal';
+import { TeamMember } from '@/types/team';
 
 type MentionPickerProps = {
   teamId: string;
@@ -16,17 +12,18 @@ type MentionPickerProps = {
   searchQuery: string;
 };
 
-export const MentionPicker: React.FC<MentionPickerProps> = ({
+export default function MentionPicker({
   teamId,
   onSelect,
   onClose,
   searchQuery,
-}) => {
+}: MentionPickerProps) {
   const { colors } = useTheme();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     if (teamId) {
@@ -35,11 +32,10 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
   }, [teamId]);
 
   useEffect(() => {
-    if (members.length > 0) {
-      const filtered = members.filter(member =>
-        member.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredMembers(filtered);
+    if (searchQuery && members.length > 0) {
+      searchMembers();
+    } else {
+      setFilteredMembers(members);
     }
   }, [searchQuery, members]);
 
@@ -48,46 +44,9 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
       setIsLoading(true);
       setError(null);
       
-      const { data: teamMembers, error: queryError } = await supabase
-        .from('team_members')
-        .select(`
-          user_id,
-          profiles!team_members_user_id_fkey (
-            id,
-            name,
-            avatar_url
-          )
-        `)
-        .eq('team_id', teamId);
-
-      if (queryError) throw queryError;
-
-      if (!teamMembers) {
-        setMembers([]);
-        setFilteredMembers([]);
-        return;
-      }
-
-      console.log('Raw team members data:', teamMembers);
-
-      // Validera och formatera team members
-      const formattedMembers = teamMembers
-        .map(member => member.profiles)
-        .filter((profile): profile is NonNullable<typeof profile> => 
-          profile !== null && 
-          typeof profile === 'object' && 
-          typeof profile.id === 'string' && 
-          typeof profile.name === 'string'
-        )
-        .map(profile => ({
-          id: profile.id,
-          name: profile.name,
-          avatar_url: profile.avatar_url,
-        }));
-
-      console.log('Formatted members:', formattedMembers);
-      setMembers(formattedMembers);
-      setFilteredMembers(formattedMembers);
+      const teamMembers = await chatService.getTeamMembers(teamId);
+      setMembers(teamMembers);
+      setFilteredMembers(teamMembers);
     } catch (error) {
       console.error('Error loading team members:', error);
       setError('Kunde inte ladda teammedlemmar');
@@ -98,8 +57,22 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
     }
   };
 
+  const searchMembers = async () => {
+    try {
+      const searchResults = await chatService.searchTeamMembers(teamId, searchQuery);
+      setFilteredMembers(searchResults);
+    } catch (error) {
+      console.error('Error searching members:', error);
+      setError('Kunde inte söka efter medlemmar');
+    }
+  };
+
+  const handlePlingPress = () => {
+    setModalVisible(true);
+  };
+
   const renderMember = ({ item }: { item: TeamMember }) => {
-    if (!item || !item.name) {
+    if (!item?.profile?.name) {
       console.error('Invalid member item:', item);
       return null;
     }
@@ -109,19 +82,26 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
         style={[styles.memberItem, { backgroundColor: colors.neutral[800] }]}
         onPress={() => onSelect(item)}
       >
-        {item.avatar_url ? (
+        {item.profile.avatar_url ? (
           <Image
-            source={{ uri: item.avatar_url }}
+            source={{ uri: item.profile.avatar_url }}
             style={styles.avatar}
           />
         ) : (
           <View style={[styles.avatarPlaceholder, { backgroundColor: colors.neutral[600] }]}>
             <Text style={[styles.avatarText, { color: colors.text.light }]}>
-              {item.name.charAt(0).toUpperCase()}
+              {item.profile.name.charAt(0).toUpperCase()}
             </Text>
           </View>
         )}
-        <Text style={[styles.memberName, { color: colors.text.main }]}>{item.name}</Text>
+        <View style={styles.memberInfo}>
+          <Text style={[styles.memberName, { color: colors.text.main }]}>
+            {item.profile.name}
+          </Text>
+          <Text style={[styles.memberRole, { color: colors.text.light }]}>
+            {item.role.charAt(0).toUpperCase() + item.role.slice(1)}
+          </Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -161,20 +141,29 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
         style={styles.list}
         contentContainerStyle={styles.listContent}
       />
+      <PlingModal 
+        visible={modalVisible} 
+        onClose={() => setModalVisible(false)} 
+      />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     maxHeight: 200,
     borderRadius: 8,
     overflow: 'hidden',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 2px 4px rgba(0, 0, 0, 0.25)' }
+      : Platform.OS === 'android'
+      ? { elevation: 4 }
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+        }),
   },
   centerContent: {
     justifyContent: 'center',
@@ -210,10 +199,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter-Bold',
   },
-  memberName: {
+  memberInfo: {
     marginLeft: 12,
+    flex: 1,
+  },
+  memberName: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
+  },
+  memberRole: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    opacity: 0.7,
   },
   errorText: {
     fontSize: 14,

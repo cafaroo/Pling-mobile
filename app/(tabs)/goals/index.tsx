@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { LinearGradient } from 'expo-linear-gradient';
 import { Target, Plus, Filter, TrendingUp } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme } from '@/constants';
 import { useUser } from '@/context/UserContext';
 import { getUserGoals } from '@/services/goalService';
 import { Goal, GoalStatus } from '@/types';
@@ -12,12 +12,15 @@ import Header from '@/components/ui/Header';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Tabs from '@/components/ui/Tabs';
-import GoalCard from '@/components/goals/GoalCard';
+import { GoalCard } from '@/components/goals/GoalCard';
+import { useStyles } from '@/hooks/useStyles';
+import { commonStyles } from '@/styles/common';
 
 export default function GoalsScreen() {
   const { colors } = useTheme();
   const { user } = useUser();
   const router = useRouter();
+  const styles = useStyles();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -160,7 +163,7 @@ export default function GoalsScreen() {
       </ScrollView>
       
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.accent.yellow }]}
+        style={styles.fab}
         onPress={() => router.push('/goals/create')}
         activeOpacity={0.8}
       >
@@ -278,21 +281,6 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 90,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...commonStyles.fab,
   },
 });

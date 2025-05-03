@@ -1,37 +1,60 @@
-import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, Platform, ViewStyle, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 
-type CardProps = {
+interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle;
   onPress?: () => void;
-};
+  variant?: 'standard' | 'interactive' | 'highlighted';
+}
 
-export default function Card({ children, style, onPress }: CardProps) {
+export function Card({ children, style, onPress, variant = 'standard' }: CardProps) {
   const { colors } = useTheme();
-  
+
+  const getBackgroundColor = () => {
+    switch (variant) {
+      case 'highlighted':
+        return `${colors.accent.yellow}10`; // 10% opacity
+      default:
+        return colors.background.card;
+    }
+  };
+
+  const cardStyle = [
+    styles.card,
+    { 
+      backgroundColor: getBackgroundColor(),
+      borderColor: colors.border.subtle,
+      borderWidth: 1,
+      ...(Platform.OS === 'web' 
+        ? { boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }
+        : {
+            elevation: 2,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+          }
+      )
+    },
+    style,
+  ];
+
   if (onPress) {
     return (
-      <TouchableOpacity
+      <TouchableOpacity 
+        style={cardStyle} 
         onPress={onPress}
         activeOpacity={0.8}
-        style={[
-          styles.card,
-          { backgroundColor: 'rgba(0, 0, 0, 0.2)' },
-          style
-        ]}
       >
         {children}
       </TouchableOpacity>
     );
   }
-  
+
   return (
-    <View style={[
-      styles.card,
-      { backgroundColor: 'rgba(0, 0, 0, 0.2)' },
-      style
-    ]}>
+    <View style={cardStyle}>
       {children}
     </View>
   );
@@ -44,3 +67,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
+
+export default Card;

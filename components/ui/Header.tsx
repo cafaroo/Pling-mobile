@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { Video as LucideIcon, ChevronLeft } from 'lucide-react-native';
-import { NotificationBell } from '../notifications/NotificationBell';
+import NotificationBell from '../notifications/NotificationBell';
 
 type HeaderProps = {
   title: string;

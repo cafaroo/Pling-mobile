@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,14 +11,17 @@ import { Goal, GoalStatus, TeamMember } from '@/types';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import Tabs from '@/components/ui/Tabs';
-import GoalCard from '@/components/goals/GoalCard';
+import { GoalCard } from '@/components/goals/GoalCard';
+import { useStyles } from '@/hooks/useStyles';
+import { commonStyles } from '@/styles/common';
 
 export default function MemberGoalsScreen() {
   const { colors } = useTheme();
   const { user } = useUser();
   const router = useRouter();
+  const styles = useStyles();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,26 +29,26 @@ export default function MemberGoalsScreen() {
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   
   useEffect(() => {
-    if (user?.team?.id && selectedMember) {
+    if (user?.teams?.id && selectedMember) {
       loadMemberGoals();
-    } else if (user?.team?.members && user.team.members.length > 0) {
+    } else if (user?.teams?.members && user.teams.members.length > 0) {
       // Select first member by default
-      const firstMember = user.team.members.find(m => m.userId !== user.id);
+      const firstMember = user.teams.members.find((m: TeamMember) => m.userId !== user.id);
       if (firstMember) {
         setSelectedMember(firstMember.userId);
       }
     }
-  }, [user?.team?.id, selectedMember, activeTab]);
+  }, [user?.teams?.id, selectedMember, activeTab]);
 
   const loadMemberGoals = async () => {
-    if (!user?.team?.id || !selectedMember) return;
+    if (!user?.teams?.id || !selectedMember) return;
     
     try {
       setIsLoading(true);
       setError(null);
       
       const status = activeTab !== 'all' ? activeTab : undefined;
-      const data = await getTeamMemberGoals(user.team.id, selectedMember, status);
+      const data = await getTeamMemberGoals(user.teams.id, selectedMember, status);
       setGoals(data);
     } catch (error) {
       console.error('Error loading member goals:', error);
@@ -55,15 +59,15 @@ export default function MemberGoalsScreen() {
   };
 
   // Check if user is team leader or owner
-  const isTeamLeader = user?.team?.members?.some(
-    m => m.userId === user.id && (m.role === 'leader' || m.role === 'owner')
+  const isTeamLeader = user?.teams?.members?.some(
+    (m: TeamMember) => m.userId === user.id && (m.role === 'leader' || m.role === 'owner')
   );
 
   // Filter team members (exclude current user)
-  const teamMembers = user?.team?.members?.filter(m => m.userId !== user.id) || [];
+  const teamMembers = user?.teams?.members?.filter((m: TeamMember) => m.userId !== user.id) || [];
 
   // Get selected member name
-  const selectedMemberName = user?.team?.members?.find(m => m.userId === selectedMember)?.user?.name || 'Team Member';
+  const selectedMemberName = user?.teams?.members?.find((m: TeamMember) => m.userId === selectedMember)?.user?.name || 'Team Member';
 
   if (!isTeamLeader) {
     router.replace('/team');
@@ -189,7 +193,7 @@ export default function MemberGoalsScreen() {
       </ScrollView>
       
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.accent.yellow }]}
+        style={styles.fab}
         onPress={() => router.push('/team/member-goals/create')}
         activeOpacity={0.8}
       >
@@ -309,21 +313,6 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 90,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...commonStyles.fab,
   },
 });

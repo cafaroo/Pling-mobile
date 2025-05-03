@@ -5,16 +5,26 @@ import { Bell, TrendingUp, Target, Trophy, Users, ChevronRight, Plus } from 'luc
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
+import { User } from '@/types/user';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import PlingModal from '@/components/sales/PlingModal';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const { user } = useUser();
   const router = useRouter();
+  const [isPlingModalVisible, setIsPlingModalVisible] = useState(false);
+  
+  const handlePlingPress = () => {
+    setIsPlingModalVisible(true);
+  };
+
+  const handlePlingModalClose = () => {
+    setIsPlingModalVisible(false);
+  };
   
   return (
     <Container>
@@ -39,13 +49,14 @@ export default function HomeScreen() {
             </Text>
           </View>
           <Button
-            title="PLING!"
-            icon={Plus}
-            onPress={() => router.push('/pling')}
+            Icon={Plus}
+            onPress={handlePlingPress}
             variant="primary"
             size="large"
             style={styles.plingButton}
-          />
+          >
+            PLING!
+          </Button>
         </View>
 
         {/* Quick Stats */}
@@ -225,6 +236,11 @@ export default function HomeScreen() {
           </Card>
         </View>
       </ScrollView>
+      
+      <PlingModal 
+        visible={isPlingModalVisible}
+        onClose={handlePlingModalClose}
+      />
     </Container>
   );
 }

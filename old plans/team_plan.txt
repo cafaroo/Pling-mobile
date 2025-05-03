@@ -86,27 +86,11 @@
 - Säkerhetsgranskningar
 
 ### 4.2 Säkerhetsfunktioner
-- Implementera 2FA för känsliga operationer
-- Säker fildelning
-- Kryptering av känslig data
 - Session hantering
 - IP-baserad åtkomstkontroll
 
 ## 5. Team Samarbetsfunktioner (Prioritet: Medium)
 
-### 5.1 Dokumenthantering
-- Implementera team wiki
-- Dokumentbibliotek
-- Versionhantering
-- Samarbetsredigering
-- Sökfunktionalitet
-
-### 5.2 Projekthantering
-- Uppgiftshantering
-- Deadlines och påminnelser
-- Resursallokering
-- Projektmallar
-- Statusrapportering
 
 ## Nästa Steg (Prioriterat)
 
@@ -116,7 +100,6 @@
    - Lägg till notifikationer för mentions
 
 2. Förbättra meddelandeformateringen
-   - Lägg till fler markdown-funktioner
    - Förbättra förhandsgranskning
 
 3. Implementera team analytics

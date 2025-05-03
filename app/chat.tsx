@@ -18,9 +18,10 @@ import EmojiPicker from '@/components/ui/EmojiPicker';
 import Markdown from 'react-native-markdown-display';
 import { ThreadView } from './components/chat/ThreadView';
 import { MessageItem } from './components/chat/MessageItem';
-import { Message } from './types/chat';
-import { MentionPicker } from './components/chat/MentionPicker';
+import { Tables } from '@/types/supabase';
+import MentionPicker from './components/chat/MentionPicker';
 
+type TeamMessage = Tables<'team_messages'>;
 type MessageAttachment = {
   type: 'image' | 'file';
   url: string;
@@ -29,20 +30,9 @@ type MessageAttachment = {
   mime_type?: string;
 };
 
-type MessageReaction = {
-  id: string;
-  emoji: string;
-  user_id: string;
-  created_at: string;
-};
+type MessageReaction = Tables<'message_reactions'>;
 
-type Message = {
-  id: string;
-  user_id: string;
-  content?: string;
-  attachments: MessageAttachment[];
-  message_type: 'text' | 'image' | 'file' | 'mixed';
-  created_at: string;
+type Message = TeamMessage & {
   user: {
     name: string;
     avatar_url: string;
@@ -52,6 +42,7 @@ type Message = {
     id: string;
     name: string;
   }[];
+  attachments: MessageAttachment[];
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -94,14 +85,10 @@ export default function TeamChatScreen() {
   useEffect(() => {
     if (!user?.team?.id) return;
 
-    // Load initial messages
     loadMessages();
-    
-    // Mark messages as read when opening chat
     markAsRead();
 
-    // Subscribe to new messages
-    const channel = supabase
+    const messageChannel = supabase
       .channel('team_chat')
       .on(
         'postgres_changes',
@@ -111,99 +98,112 @@ export default function TeamChatScreen() {
           table: 'team_messages',
           filter: `team_id=eq.${user.team.id}`,
         },
-        (payload) => {
-          const newMessage = payload.new as Message;
-          setMessages((prev) => [...prev, newMessage]);
-          // Scroll to bottom on new message
-          setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }, 100);
-        }
+        handleNewMessage
       )
       .subscribe();
 
-    // Prenumerera på reaktioner
     const reactionsChannel = supabase
       .channel('message_reactions')
       .on(
         'postgres_changes',
         {
-          event: '*', // Lyssna på INSERT, UPDATE och DELETE
+          event: '*',
           schema: 'public',
           table: 'message_reactions',
         },
-        (payload) => {
-          // Uppdatera meddelandet med den nya reaktionen
-          setMessages(prevMessages => {
-            return prevMessages.map(msg => {
-              if (msg.id === payload.new.message_id) {
-                // Hämta alla reaktioner för meddelandet
-                supabase
-                  .from('message_reactions')
-                  .select('*')
-                  .eq('message_id', msg.id)
-                  .then(({ data }) => {
-                    if (data) {
-                      setMessages(prev => 
-                        prev.map(m => 
-                          m.id === msg.id 
-                            ? { ...m, reactions: data }
-                            : m
-                        )
-                      );
-                    }
-                  });
-              }
-              return msg;
-            });
-          });
-        }
+        handleReactionChange
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messageChannel);
       supabase.removeChannel(reactionsChannel);
     };
   }, [user?.team?.id]);
 
+  const handleNewMessage = async (payload: { new: TeamMessage }) => {
+    const newMessage = payload.new;
+    const { data: userData } = await supabase
+      .from('profiles')
+      .select('name, avatar_url')
+      .eq('id', newMessage.user_id)
+      .single();
+
+    if (userData) {
+      const fullMessage: Message = {
+        ...newMessage,
+        user: {
+          name: userData.name,
+          avatar_url: userData.avatar_url
+        },
+        attachments: [],
+        reactions: []
+      };
+
+      setMessages((prev) => [...prev, fullMessage]);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  };
+
+  const handleReactionChange = async (payload: { new: MessageReaction; old: MessageReaction }) => {
+    const { data: reactions } = await supabase
+      .from('message_reactions')
+      .select('*')
+      .eq('message_id', payload.new.message_id);
+
+    if (reactions) {
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === payload.new.message_id 
+            ? { ...msg, reactions }
+            : msg
+        )
+      );
+    }
+  };
+
   const loadMessages = async () => {
     try {
-      const { data, error } = await supabase
-        .from('team_messages')
-        .select(`
-          id,
-          user_id,
-          content,
-          attachments,
-          message_type,
-          created_at,
-          profiles (
-            name,
-            avatar_url
-          )
-        `)
-        .eq('team_id', user?.team?.id)
-        .order('created_at', { ascending: true });
+      setIsLoading(true);
+      setError(null);
+
+      const { data: messages, error } = await supabase
+        .rpc('get_recent_team_messages', {
+          team_id_param: user?.team?.id,
+          limit_count: 50
+        });
 
       if (error) throw error;
 
-      const formattedMessages = data.map(msg => ({
-        ...msg,
-        user: msg.profiles,
-        // Ensure attachments is always an array
-        attachments: msg.attachments || []
-      }));
-      
-      setMessages(formattedMessages as Message[]);
-      setIsLoading(false);
+      // Hämta användarinformation för alla meddelanden
+      const userIds = [...new Set(messages.map(m => m.user_id))];
+      const { data: users } = await supabase
+        .from('profiles')
+        .select('id, name, avatar_url')
+        .in('id', userIds);
 
-      // Scroll to bottom after loading messages
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: false });
-      }, 100);
+      const userMap = users?.reduce((acc, user) => ({
+        ...acc,
+        [user.id]: user
+      }), {}) || {};
+
+      const enrichedMessages = messages.map(msg => ({
+        ...msg,
+        user: {
+          name: userMap[msg.user_id]?.name || 'Okänd användare',
+          avatar_url: userMap[msg.user_id]?.avatar_url
+        },
+        attachments: msg.attachments || [],
+        reactions: []
+      }));
+
+      setMessages(enrichedMessages);
     } catch (error) {
       console.error('Error loading messages:', error);
+      setError('Kunde inte ladda meddelanden');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -386,26 +386,19 @@ export default function TeamChatScreen() {
         : 'text';
 
       // Extract mentions from message content
-      const mentionRegex = /@(\w+)/g;
+      const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
       let match;
-      const mentionedNames = [];
+      const mentions = [];
       while ((match = mentionRegex.exec(messageToSend)) !== null) {
-        mentionedNames.push(match[1]);
+        mentions.push({
+          name: match[1],
+          id: match[2]
+        });
       }
-
-      // Get user IDs for mentioned users
-      const { data: mentionedUsersData, error: mentionedUsersError } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .in('name', mentionedNames);
-
-      if (mentionedUsersError) throw mentionedUsersError;
-
-      const mentions = mentionedUsersData || [];
 
       // Create the message
       const { data: messageData, error: messageError } = await supabase
-        .from('team_messages')
+        .from('team_messages_new')
         .insert({
           team_id: user?.team?.id,
           user_id: user?.id,
@@ -414,26 +407,19 @@ export default function TeamChatScreen() {
           message_type: messageType,
           thread_id: threadId,
           parent_id: parentId,
-          mentions: mentions.map(m => ({ id: m.id, name: m.name }))
+          mentions: mentions
         })
-        .select()
+        .select(`
+          *,
+          user:user_id (
+            id,
+            name,
+            avatar_url
+          )
+        `)
         .single();
 
       if (messageError) throw messageError;
-
-      // Create mention records
-      if (mentions.length > 0) {
-        const { error: mentionsError } = await supabase
-          .from('message_mentions')
-          .insert(
-            mentions.map(mention => ({
-              message_id: messageData.id,
-              mentioned_user_id: mention.id
-            }))
-          );
-
-        if (mentionsError) throw mentionsError;
-      }
 
       setIsUploading(false);
     } catch (error) {
@@ -496,10 +482,10 @@ export default function TeamChatScreen() {
     }
   };
 
-  const handleMentionSelect = (member: { id: string; name: string }) => {
+  const handleMentionSelect = (member: { id: string; name: string; role: string }) => {
     const beforeMention = newMessage.slice(0, mentionStartIndex);
     const afterMention = newMessage.slice(mentionStartIndex + mentionSearchQuery.length + 1);
-    const newText = `${beforeMention}@${member.name} ${afterMention}`;
+    const newText = `${beforeMention}@[${member.name}](${member.id})${afterMention}`;
     
     setNewMessage(newText);
     setShowMentionPicker(false);
@@ -558,16 +544,14 @@ export default function TeamChatScreen() {
     return <Text>{parts}</Text>;
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    return (
-      <MessageItem
-        message={item}
-        onThreadPress={handleThreadPress}
-        onReaction={handleReaction}
-        renderContent={renderMessageContent}
-      />
-    );
-  };
+  const renderMessage = ({ item }: { item: Message }) => (
+    <MessageItem
+      message={item}
+      onThreadPress={handleThreadPress}
+      onReaction={handleReaction}
+      currentUserId={user?.id}
+    />
+  );
 
   const insertMarkdownSyntax = (syntax: string, wrapper: string) => {
     const textInput = newMessage;

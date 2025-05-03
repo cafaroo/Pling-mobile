@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import { X, Filter, Calendar } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import DateTimePicker from '@/components/ui/DateTimePicker';
 
 type FilterOptions = {
@@ -244,11 +244,11 @@ export default function FilterModal({
             />
             <Button
               title="Apply Filters"
-              icon={Filter}
+              Icon={Filter}
               onPress={handleApply}
               variant="primary"
               size="large"
-              style={styles.applyButton}
+              style={{ flex: 1 }}
             />
           </View>
         </View>

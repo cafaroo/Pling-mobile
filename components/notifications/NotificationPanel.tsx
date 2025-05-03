@@ -25,7 +25,7 @@ interface Notification {
   action_label?: string;
 }
 
-export const NotificationPanel = ({ notifications, onClose }: NotificationPanelProps) => {
+export default function NotificationPanel({ notifications, onClose }: NotificationPanelProps) {
   const { user } = useAuth();
   const router = useRouter();
 
@@ -102,4 +102,4 @@ export const NotificationPanel = ({ notifications, onClose }: NotificationPanelP
       </ScrollView>
     </View>
   );
-}; 
+} 

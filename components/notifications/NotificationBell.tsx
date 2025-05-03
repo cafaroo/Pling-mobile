@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, Text } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Bell } from 'lucide-react-native';
-import { supabase } from '../../services/supabaseClient';
-import { useAuth } from '../../context/AuthContext';
-import { NotificationPanel } from './NotificationPanel';
+import { supabase } from '@/services/supabaseClient';
+import { useAuth } from '@/context/AuthContext';
+import NotificationPanel from './NotificationPanel';
+import { useTheme } from '@/context/ThemeContext';
 
 interface Notification {
   id: string;
@@ -18,8 +19,9 @@ interface Notification {
   action_label?: string;
 }
 
-export const NotificationBell = () => {
+export default function NotificationBell() {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
@@ -66,9 +68,8 @@ export const NotificationBell = () => {
             setNotifications((prev) =>
               prev.map((n) => (n.id === payload.new.id ? payload.new as Notification : n))
             );
-            // Uppdatera unreadCount om notifikationen markerades som läst
             if ((payload.new as Notification).read) {
-              setUnreadCount((prev) => prev - 1);
+              setUnreadCount((prev) => Math.max(0, prev - 1));
             }
           }
         }
@@ -84,12 +85,21 @@ export const NotificationBell = () => {
     <View>
       <TouchableOpacity
         onPress={() => setShowPanel(!showPanel)}
+        activeOpacity={0.7}
+        style={styles.touchable}
       >
-        <View className="relative">
-          <Bell className="text-gray-600" size={24} />
+        <View style={styles.bellContainer}>
+          <Bell 
+            size={24} 
+            color={colors.text.light}
+            strokeWidth={2}
+          />
           {unreadCount > 0 && (
-            <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[16px] h-4 flex items-center justify-center">
-              <Text className="text-white text-xs px-1">
+            <View style={[styles.badge, { backgroundColor: colors.error }]}>
+              <Text style={[
+                styles.badgeText, 
+                { color: colors.text.main }
+              ]}>
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Text>
             </View>
@@ -105,4 +115,36 @@ export const NotificationBell = () => {
       )}
     </View>
   );
-}; 
+}
+
+const styles = StyleSheet.create({
+  touchable: {
+    padding: 8, // Större tryckyta för bättre tillgänglighet
+  },
+  bellContainer: {
+    position: 'relative',
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontFamily: 'Inter-Medium',
+    textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+}); 

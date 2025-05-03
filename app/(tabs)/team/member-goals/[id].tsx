@@ -9,7 +9,7 @@ import { getGoalDetails, updateGoalStatus, deleteGoal, getGoalEntries, addGoalEn
 import { Goal, GoalStatus } from '@/types';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import GoalDetailCard from '@/components/goals/GoalDetailCard';
 import MilestonesList from '@/components/goals/MilestonesList';
 import GoalEntriesList from '@/components/goals/GoalEntriesList';

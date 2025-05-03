@@ -10,10 +10,11 @@ import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
 import Card from '@/components/ui/Card';
 import ProgressBar from '@/components/ui/ProgressBar';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import FilterModal from '@/components/competition/FilterModal';
 import { Competition } from '@/types';
 import { useState, useEffect } from 'react';
+import { useUser } from '@/context/UserContext';
 
 export default function CompetitionsScreen() {
   const [filters, setFilters] = useState({
@@ -342,7 +343,7 @@ export default function CompetitionsScreen() {
           </Text>
           <Button
             title="Skapa tävling"
-            icon={Plus}
+            Icon={Plus}
             onPress={() => router.push('/competitions/create')}
             variant="primary"
             size="large"

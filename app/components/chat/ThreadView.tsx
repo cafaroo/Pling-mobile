@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
-import { Message } from '../../types/chat';
+import { Message } from '@/types/chat';
+import { TeamMember } from '@/types/team';
 import { supabase } from '@/services/supabaseClient';
-import { MessageItem } from './MessageItem';
+import MessageItem from './MessageItem';
 import Button from '@/components/ui/Button';
-import { MentionPicker } from '../MentionPicker';
+import MentionPicker from './MentionPicker';
 
 type ThreadViewProps = {
   parentMessage: Message;
@@ -16,7 +17,7 @@ type ThreadViewProps = {
   teamId: string;
 };
 
-export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, onSendReply, teamId }) => {
+export default function ThreadView({ parentMessage, onClose, onSendReply, teamId }: ThreadViewProps) {
   const { colors } = useTheme();
   const { user } = useUser();
   const [replies, setReplies] = useState<Message[]>([]);
@@ -38,45 +39,19 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
 
   const loadReplies = async () => {
     try {
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('team_messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          team_id,
-          user:user_id (
-            id,
-            name,
-            avatar_url
-          ),
-          parent_id,
-          thread_id,
-          reply_count
-        `)
-        .eq('thread_id', parentMessage.id)
+      setIsLoading(true);
+      const { data: replies, error } = await supabase
+        .from('team_messages_with_user')
+        .select('*')
+        .eq('parent_id', parentMessage.id)
         .order('created_at', { ascending: true });
 
-      if (messagesError) throw messagesError;
+      if (error) throw error;
 
-      const messageIds = messagesData.map(msg => msg.id);
-      const { data: reactionsData, error: reactionsError } = await supabase
-        .from('message_reactions')
-        .select('*')
-        .in('message_id', messageIds);
-
-      if (reactionsError) throw reactionsError;
-
-      const messagesWithReactions = messagesData.map(msg => ({
-        ...msg,
-        reactions: reactionsData
-          ? reactionsData.filter(r => r.message_id === msg.id)
-          : []
-      }));
-
-      setReplies(messagesWithReactions as Message[]);
+      setReplies(replies || []);
       setIsLoading(false);
 
+      // Scroll to bottom after loading replies
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: false });
       }, 100);
@@ -87,76 +62,38 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
   };
 
   const subscribeToReplies = () => {
-    const messagesChannel = supabase
-      .channel('thread_messages')
+    const subscription = supabase
+      .channel('team_messages_new')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'team_messages',
-          filter: `thread_id=eq.${parentMessage.id}`,
+          table: 'team_messages_new',
+          filter: `parent_id=eq.${parentMessage.id}`
         },
         async (payload) => {
-          const { data: messageData } = await supabase
-            .from('team_messages')
-            .select(`
-              id,
-              content,
-              created_at,
-              user:user_id (
-                id,
-                name,
-                avatar_url
-              ),
-              parent_id,
-              thread_id,
-              reply_count
-            `)
-            .eq('id', payload.new.id)
+          const newReply = payload.new;
+          
+          // Fetch user details
+          const { data: userData } = await supabase
+            .from('profiles')
+            .select('id, name, avatar_url')
+            .eq('id', newReply.user_id)
             .single();
 
-          if (messageData) {
-            setReplies(prev => [...prev, { ...messageData, reactions: [] }]);
-            setTimeout(() => {
-              flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
+          if (userData) {
+            setReplies(prevReplies => [...prevReplies, {
+              ...newReply,
+              user: userData
+            }]);
           }
         }
       )
       .subscribe();
 
-    const reactionsChannel = supabase
-      .channel('thread_reactions')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'message_reactions',
-        },
-        async (payload) => {
-          const messageId = payload.new?.message_id || payload.old?.message_id;
-          
-          const { data: reactions } = await supabase
-            .from('message_reactions')
-            .select('*')
-            .eq('message_id', messageId);
-
-          setReplies(prev => 
-            prev.map(msg => 
-              msg.id === messageId 
-                ? { ...msg, reactions: reactions || [] }
-                : msg
-            )
-          );
-        }
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(messagesChannel);
-      supabase.removeChannel(reactionsChannel);
+      subscription.unsubscribe();
     };
   };
 
@@ -164,7 +101,6 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
     if (!newReply.trim()) return;
 
     const replyContent = newReply.trim();
-    const mentions = extractMentions(replyContent);
     setNewReply('');
 
     if (!teamId) {
@@ -173,8 +109,19 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
     }
 
     try {
+      // Extract mentions from reply content
+      const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
+      let match;
+      const mentions = [];
+      while ((match = mentionRegex.exec(replyContent)) !== null) {
+        mentions.push({
+          name: match[1],
+          id: match[2]
+        });
+      }
+
       const { data: message, error } = await supabase
-        .from('team_messages')
+        .from('team_messages_new')
         .insert({
           content: replyContent,
           thread_id: parentMessage.id,
@@ -183,47 +130,24 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
           team_id: teamId,
           mentions: mentions
         })
-        .select('*, user:user_id(id, name, avatar_url)')
+        .select(`
+          *,
+          user:user_id (
+            id,
+            name,
+            avatar_url
+          )
+        `)
         .single();
 
       if (error) {
         console.error('Supabase error:', error);
         throw error;
       }
-
-      if (message && mentions.length > 0) {
-        const mentionData = mentions.map((mention) => ({
-          message_id: message.id,
-          mentioned_user_id: mention.id,
-        }));
-
-        const { error: mentionError } = await supabase
-          .from('message_mentions')
-          .insert(mentionData);
-
-        if (mentionError) {
-          console.error('Error inserting mentions:', mentionError);
-        }
-      }
     } catch (error) {
       console.error('Error sending reply:', error);
       setNewReply(replyContent);
     }
-  };
-
-  const extractMentions = (text: string) => {
-    const mentions: { id: string; name: string }[] = [];
-    const regex = /@\[([^\]]+)\]\(([^)]+)\)/g;
-    let match;
-
-    while ((match = regex.exec(text)) !== null) {
-      mentions.push({
-        name: match[1],
-        id: match[2],
-      });
-    }
-
-    return mentions;
   };
 
   const handleReaction = async (messageId: string, emoji: string) => {
@@ -319,7 +243,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ parentMessage, onClose, 
     }
   };
 
-  const handleMentionSelect = (member: { id: string; name: string }) => {
+  const handleMentionSelect = (member: { id: string; name: string; role: string }) => {
     const beforeMention = newReply.slice(0, mentionStartIndex);
     const afterMention = newReply.slice(mentionStartIndex + mentionSearchQuery.length + 1);
     const newText = `${beforeMention}@[${member.name}](${member.id})${afterMention}`;

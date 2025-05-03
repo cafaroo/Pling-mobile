@@ -1,31 +1,14 @@
-// User types
-export type User = {
-  id: string;
-  email: string;
-  name: string | null;
-  avatar_url: string | null;
-  team_id: string | null;
-  created_at: string;
-};
+import React from 'react';
+import { View } from 'react-native';
 
-// Chat types
-export type ChatUser = {
-  id: string;
-  username: string;
-  avatar_url?: string;
-};
+// Dummy-komponent för att tillfredsställa Expo Router's krav
+export default function Types() {
+  return null;
+}
 
-export type ChatMessage = {
-  id: string;
-  content: string;
-  user: ChatUser;
-  created_at: string;
-  reply_count: number;
-  parent_id?: string;
-  thread_id?: string;
-  replies?: ChatMessage[];
-  reactions?: { [emoji: string]: ChatUser[] };
-};
+export * from '../lib/user';
+export * from '../lib/team';
+export * from '../lib/database.types';
 
 // Sales types
 export type Sale = {
@@ -43,15 +26,6 @@ export type LeaderboardEntry = {
   name: string;
   amount: number;
   avatarUrl?: string;
-  positionChange: number;
-};
-
-// Team types
-export type TeamRanking = {
-  teamId: string;
-  teamName: string;
-  rank: number;
-  totalAmount: number;
   positionChange: number;
 };
 
@@ -96,23 +70,6 @@ export type UserStats = {
   level: number;
 };
 
-// Team types
-export type Team = {
-  id: string;
-  name: string;
-  created_at: string;
-};
-
-export type TeamMember = {
-  id: string;
-  teamId: string;
-  userId: string;
-  role: 'member' | 'leader' | 'owner';
-  approvalStatus?: 'pending' | 'approved' | 'rejected';
-  user?: User;
-  createdAt: string;
-};
-
 // Organization types
 export type Organization = {
   id: string;
@@ -130,18 +87,6 @@ type OrganizationMember = {
   role: 'member' | 'admin';
   user?: User;
   createdAt: string;
-};
-
-// Team invitation type
-export type TeamInvitation = {
-  id: string;
-  teamId: string;
-  email: string;
-  role: 'member' | 'leader' | 'owner';
-  token: string;
-  expiresAt: string;
-  createdAt: string;
-  acceptedAt?: string;
 };
 
 // Badge types
@@ -173,14 +118,14 @@ export type Goal = {
   status: GoalStatus;
   userId?: string;
   teamId?: string;
-  assigneeId?: string; // ID of the team member this goal is assigned to
-  assigneeType?: GoalAssigneeType; // Whether this is a team or individual goal
+  assigneeId?: string;
+  assigneeType?: GoalAssigneeType;
   createdAt: string;
   updatedAt: string;
   createdBy: string;
   milestones?: GoalMilestone[];
   progress: number;
-  assigneeName?: string; // Name of the team member this goal is assigned to
+  assigneeName?: string;
 };
 
 export type GoalMilestone = {

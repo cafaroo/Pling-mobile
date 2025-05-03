@@ -1,0 +1,278 @@
+# Databas Migrationsplan
+
+## 1. Analys av Skillnader
+
+### Teams vs Teams_new
+Skillnader i struktur:
+- teams_new har följande extra kolumner:
+  * created_by (uuid)
+  * status (team_status, default 'active')
+  * max_members (integer, default 50)
+  * settings (jsonb med utökade inställningar)
+- Båda har notification_settings men teams_new har mer omfattande struktur
+- teams_new har bättre standardvärden och constraints
+
+### Team_messages vs Team_messages_new
+Skillnader i struktur:
+- team_messages_new har updated_at kolumn
+- team_messages har thread_id som inte finns i _new
+- Små skillnader i default värden och nullable status
+- team_messages_new har bättre strukturerad datamodell
+
+## 2. Frontend Analys och Problem
+
+### Duplicerade Filer och Inkonsistens
+- Duplicerade teamService:
+  * `/services/teamService.ts` och `/app/services/teamService.ts` med olika implementationer
+- Duplicerade TeamSettings:
+  * `/components/team/TeamSettings.tsx` och `/app/components/team/TeamSettings.tsx` med olika implementationer
+- Duplicerade TeamMemberList:
+  * `/components/team/TeamMemberList.tsx` och `/app/components/team/TeamMemberList.tsx` med olika roller och implementationer
+
+### Typeproblem
+- Inkonsekventa typdefinitioner mellan komponenterna:
+  * `TeamPermission` vs `TeamRole` för medlemsroller
+  * Olika strukturer för TeamMember i olika filer
+  * Olika notifikationsinställningar och behörighetsmodeller
+
+### Implementationsproblem
+- Olika modeller för behörighetshantering
+- Inkonsekvent hantering av rolluppdateringar
+- Funktionalitet spridd över flera ställen med olika logik
+- Olika UI-komponenter för samma funktionalitet
+
+## 3. Migrationsordning för Backend
+
+### Steg 1: Förberedelser
+1. Skapa backup av all data
+2. Skapa temporära vyer för att underlätta datamigrering
+3. Validera att alla beroenden är identifierade
+
+### Steg 2: Teams Migration
+1. Kopiera data från teams till teams_new
+   - Mappa befintliga kolumner
+   - Sätt standardvärden för nya kolumner
+2. Validera dataintegritet
+3. Uppdatera alla foreign keys och beroenden
+4. Byt namn på tabellerna:
+   - Rename teams -> teams_old
+   - Rename teams_new -> teams
+
+### Steg 3: Team Messages Migration
+1. Analysera användning av thread_id i befintlig kod
+2. Migrera data från team_messages till team_messages_new
+   - Hantera thread_id data på lämpligt sätt
+3. Validera dataintegritet
+4. Uppdatera alla foreign keys och beroenden
+5. Byt namn på tabellerna:
+   - Rename team_messages -> team_messages_old
+   - Rename team_messages_new -> team_messages
+
+### Steg 4: Policies och Permissions
+1. Granska och uppdatera RLS policies
+2. Migrera relevanta permissions
+3. Uppdatera vyer och funktioner som använder dessa tabeller
+
+### Steg 5: Cleanup Backend
+1. Ta bort temporära vyer
+2. Ta bort gamla tabeller efter en säkerhetsperiod
+3. Uppdatera dokumentation
+
+## 4. Frontend Refactoring Plan
+
+### Steg 1: Typhantering
+1. Konsolidera typdefinitioner i `/types` katalogen:
+   - Standardisera `TeamRole` och `Permission` typer
+   - Skapa en enhetlig modell för TeamMember
+   - Definiera tydliga interfaces för TeamSettings och notifikationsinställningar
+
+### Steg 2: Service Refactoring
+1. Konsolidera teamService:
+   - Migrera till en enda implementation i `/services/teamService.ts`
+   - Implementera alla metoder med korrekt typning
+   - Använd funktionell programmeringsstil
+   - Implementera korrekt felhantering med typer
+
+### Steg 3: Komponentrefactoring
+1. Slå ihop TeamSettings-komponenter:
+   - Använd mer funktionell React-struktur
+   - Implementera bättre tillståndhantering med useReducer
+   - Skapa återanvändbara underkomponenter
+   - Förbättra accessibility med ARIA-roller
+   - Använd styled-components för styling
+
+2. Slå ihop TeamMemberList-komponenter:
+   - Standardisera rollrepresentation
+   - Förbättra UI för rolländring (Modal istället för toggle)
+   - Implementera mer robust användarhantering
+   - Förbättra feltillstånd och laddningstillstånd
+
+### Steg 4: Öka Kodkvaliteten
+1. Standardisera namnkonventioner:
+   - Använd lowercase med bindestreck för katalognamn
+   - Använd PascalCase för komponentnamn
+   - Använd camelCase för funktioner och variabler
+   - Använd descriptive names med hjälpverb (isLoading, hasError)
+
+2. Förbättra prestanda:
+   - Implementera React.memo för tunga komponenter
+   - Använd useMemo och useCallback för att minimera omrendrering
+   - Implementera virtualiserad lista för TeamMemberList
+
+3. Förbättra användarupplevelse:
+   - Implementera bättre laddningstillstånd
+   - Lägg till feedback vid användaraktioner
+   - Förbättra tillgänglighet och läsbarhet
+
+### Steg 5: Test och Dokumentation
+1. Skriv enhetstester för de nya komponenterna
+2. Skapa dokumentation för de refaktorerade komponenterna
+3. Uppdatera README och koddokumentation
+
+## 5. SQL Migrationssekvens
+
+```sql
+-- Steg 1: Förberedelser
+CREATE SCHEMA IF NOT EXISTS backup;
+CREATE TABLE backup.teams AS SELECT * FROM teams;
+CREATE TABLE backup.team_messages AS SELECT * FROM team_messages;
+
+-- Steg 2: Teams Migration
+-- Kopiera data till teams_new
+INSERT INTO teams_new (
+    id, name, description, created_at, updated_at,
+    organization_id, profile_image, notification_settings
+)
+SELECT 
+    id, name, description, created_at, updated_at,
+    organization_id, profile_image, notification_settings
+FROM teams;
+
+-- Uppdatera nya kolumner
+UPDATE teams_new
+SET 
+    created_by = (
+        SELECT user_id 
+        FROM team_members 
+        WHERE team_id = teams_new.id 
+        AND role = 'owner' 
+        LIMIT 1
+    ),
+    status = 'active',
+    max_members = 50,
+    settings = jsonb_build_object(
+        'allow_member_invites', false,
+        'require_admin_approval', true,
+        'notification_preferences', notification_settings
+    );
+
+-- Steg 3: Team Messages Migration
+INSERT INTO team_messages_new (
+    id, team_id, user_id, content, created_at,
+    parent_id, mentions, attachments, message_type, reply_count
+)
+SELECT 
+    id, team_id, user_id, content, created_at,
+    COALESCE(parent_id, thread_id) as parent_id,
+    mentions, attachments, message_type, reply_count
+FROM team_messages;
+
+-- Steg 4: Byt namn på tabeller
+ALTER TABLE teams RENAME TO teams_old;
+ALTER TABLE teams_new RENAME TO teams;
+ALTER TABLE team_messages RENAME TO team_messages_old;
+ALTER TABLE team_messages_new RENAME TO team_messages;
+
+-- Steg 5: Uppdatera constraints och index
+-- (Specifika constraints och index kommer att läggas till här)
+
+-- Steg 6: Cleanup efter en säkerhetsperiod
+-- DROP TABLE teams_old;
+-- DROP TABLE team_messages_old;
+```
+
+## 6. Rollback Plan
+
+### Backend Rollback
+1. Återställ original tabellnamn
+2. Återställ data från backup schema
+3. Validera applikationsfunktionalitet
+4. Ta bort temporära objekt
+
+### Frontend Rollback
+1. Behåll både gamla och nya versioner tills allt är testat
+2. Implementera feature flaggor för att stegvis migrera
+3. Möjliggör enkel återgång till tidigare version vid problem
+
+## 7. Verifieringssteg
+
+### Backend Verifiering
+1. Kontrollera dataintegritet
+2. Verifiera alla foreign key relationer
+3. Testa applikationsfunktionalitet
+4. Kontrollera prestanda
+5. Validera säkerhetspolicies
+
+### Frontend Verifiering
+1. Enhetstesta alla refaktorerade komponenter
+2. Köra integrationstester för användarflöden
+3. Manuellt testa kritiska funktioner
+4. Validera prestanda med profileringsverktyg
+5. Validera tillgänglighet och användarupplevelse
+
+## 8. Uppskattad Tidsåtgång
+
+### Backend
+- Förberedelser: 1 timme
+- Migration: 30 minuter
+- Verifiering: 2 timmar
+
+### Frontend
+- Typhantering: 2 timmar
+- Service Refactoring: 3 timmar
+- Komponentrefactoring: 6 timmar
+- Kodkvalitetsförbättringar: 4 timmar
+- Testning: 3 timmar
+
+### Total tid
+- Total tid med säkerhetsmarginal: ~24 timmar (3 arbetsdagar)
+
+## 9. Rekommendationer
+
+1. Utför migrationen under lågtrafik
+2. Ha en detaljerad rollback plan redo
+3. Testa migrationen i staging miljö först
+4. Dokumentera alla ändringar noggrant
+5. Ha backup av all data innan migration påbörjas
+6. Använd feature branches för frontend-ändringar
+7. Implementera stegvis frontend-ändringar med code review för varje steg
+8. Fokusera på kodkvalitet och läsbarhet enligt Expo React Native TypeScript best practices 
+
+## 10. Framsteg och Status
+
+### Genomförda Steg
+- Skapade initial migrationsplan
+- Dokumenterade alla nödvändiga steg för både backend och frontend
+- Identifierade potentiella risker och skapade rollback-strategier
+- Genomförde backend-migrering:
+  * Skapade backup-schema och säkerhetskopierade data
+  * Verifierade struktur på nya tabeller
+  * Migrerade data till nya tabeller
+  * Bytte namn på tabeller (teams -> teams_old, teams_new -> teams)
+  * Bytte namn på meddelandetabeller
+- Säkerhet och dataintegritet:
+  * Verifierade och aktiverade RLS policies
+  * Kontrollerade alla foreign key constraints
+  * Verifierade datakonsistens och referensintegritet
+  * Bekräftade att trådstrukturen i meddelanden är intakt
+- Funktionstester:
+  * Verifierade team-creation med nya inställningar
+  * Testade medlemshantering
+  * Bekräftade meddelandefunktionalitet inklusive mentions
+  * Validerade trådhantering och svar
+  * Kontrollerade användarrelationer och profildata
+
+### Nästa Steg
+1. Påbörja frontend typkonsolidering
+2. Implementera nya frontend-funktioner baserade på utökad datamodell
+3. Genomföra end-to-end tester av hela systemet 

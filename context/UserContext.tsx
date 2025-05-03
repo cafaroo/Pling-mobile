@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { supabase } from '@/services/supabaseClient';
-import { User, Team } from '@/types';
-import { getUserTeam, getUserOrganizations } from '@/services/teamService';
+import { supabase } from '@/lib/supabase';
+import { User } from '@/types';
+import { getUserTeams } from '@/services/teamService';
 
 // Define the user context type
 type UserContextType = {
   user: User | null;
+  isLoading: boolean;
 };
 
 // Create the user context
@@ -31,11 +32,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
           (payload) => {
             // Update user when profile changes
             const updatedProfile = payload.new as any;
-            setUser({
-              ...user!,
+            setUser(prev => prev ? {
+              ...prev,
               name: updatedProfile.name,
               avatarUrl: updatedProfile.avatar_url,
-            });
+            } : null);
           }
         )
         .subscribe();
@@ -52,17 +53,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoadingUserData(true);
       
-      // Get user's team
-      const teamData = await getUserTeam(authUser.id);
-      
-      // Get user's organizations
-      const organizationsData = await getUserOrganizations(authUser.id);
+      // Get user's teams
+      const teamsData = await getUserTeams(authUser.id);
       
       // Update user with additional data
       setUser({
         ...authUser,
-        team: teamData || undefined,
-        organizations: organizationsData.length > 0 ? organizationsData : undefined
+        teams: teamsData
       });
     } catch (error) {
       console.error('Error loading user data:', error);

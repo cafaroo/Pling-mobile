@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, Platform } from 'react-native';
 import { SmilePlus } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -93,11 +93,16 @@ const styles = StyleSheet.create({
     width: '80%',
     maxWidth: 300,
     borderWidth: 1,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 2px 4px rgba(0, 0, 0, 0.25)' }
+      : Platform.OS === 'android'
+      ? { elevation: 5 }
+      : {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+        }),
   },
   title: {
     fontSize: 16,

@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,13 +10,16 @@ import { getUserOrganizations } from '@/services/teamService';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import { Organization } from '@/types';
+import { useStyles } from '@/hooks/useStyles';
+import { commonStyles } from '@/styles/common';
 
 export default function OrganizationsScreen() {
   const { colors } = useTheme();
   const { user } = useUser();
   const router = useRouter();
+  const styles = useStyles();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,8 +158,8 @@ export default function OrganizationsScreen() {
       
       {organizations.length > 0 && (
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: colors.accent.yellow }]}
-          onPress={() => router.push('/organizations/create')}
+          style={styles.fab}
+          onPress={() => router.push('/team/organizations/create')}
           activeOpacity={0.8}
         >
           <Plus color={colors.background.dark} size={24} />
@@ -301,21 +305,6 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 90,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...commonStyles.fab,
   },
 });

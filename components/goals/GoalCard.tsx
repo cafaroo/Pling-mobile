@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Target, Calendar, TrendingUp, Award, ChevronRight, User } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
@@ -6,13 +7,13 @@ import Card from '@/components/ui/Card';
 import ProgressBar from '@/components/ui/ProgressBar';
 import { format, differenceInDays } from 'date-fns';
 
-type GoalCardProps = {
+interface GoalCardProps {
   goal: Goal;
-  onPress?: () => void;
+  onPress?: (goalId: string) => void;
   style?: object;
-};
+}
 
-export default function GoalCard({ goal, onPress, style }: GoalCardProps) {
+export const GoalCard = memo(function GoalCard({ goal, onPress, style }: GoalCardProps) {
   const { colors } = useTheme();
   
   const getStatusColor = (status: string) => {
@@ -46,10 +47,14 @@ export default function GoalCard({ goal, onPress, style }: GoalCardProps) {
       : new Intl.NumberFormat('sv-SE').format(value);
   };
 
+  const handlePress = () => {
+    onPress?.(goal.id);
+  };
+
   return (
     <Card 
       style={[styles.container, style]}
-      onPress={onPress}
+      onPress={handlePress}
     >
       <View style={styles.header}>
         <View style={styles.titleContainer}>
@@ -135,7 +140,7 @@ export default function GoalCard({ goal, onPress, style }: GoalCardProps) {
         <View style={styles.footer}>
           <TouchableOpacity 
             style={[styles.detailsButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
-            onPress={onPress}
+            onPress={handlePress}
           >
             <Text style={[styles.detailsText, { color: colors.accent.yellow }]}>
               View Details
@@ -146,7 +151,7 @@ export default function GoalCard({ goal, onPress, style }: GoalCardProps) {
       )}
     </Card>
   );
-}
+}, (prevProps, nextProps) => prevProps.goal.id === nextProps.goal.id);
 
 const styles = StyleSheet.create({
   container: {

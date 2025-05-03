@@ -1,0 +1,504 @@
+# UX & GRAFISK FRONTEND-PLAN FÖR TEAM-MODULEN
+
+## 1. ÖVERSIKT
+
+Denna plan beskriver användargränssnittet och designen för team-funktionaliteten i Pling-applikationen, med fokus på att leverera en konsekvent, intuitiv och visuellt tilltalande användarupplevelse som följer applikationens övergripande designspråk.
+
+## 2. ANVÄNDARFLÖDEN
+
+### 2.1 Skapa team
+
+**Startskärm (när användaren inte har team):**
+- Centrerad välkomstbild med illustration
+- Beskrivande text: "Skapa ditt första team för att samarbeta med andra"
+- Primär CTA-knapp: "Skapa team"
+- Sekundär länk: "Har du blivit inbjuden? Öppna din inbjudan här"
+
+**Skapa team-formulär:**
+- Tydlig stegindikatorer (1/2, 2/2)
+- Steg 1: Basinformation
+  - Teamnamn (obligatoriskt)
+  - Beskrivning (valfritt)
+  - Avatar-uppladdning med förhandsgranskningsområde
+- Steg 2: Teamkonfiguration
+  - Synlighet (öppen/privat)
+  - Inbjudningsmetod (direktinbjudan/länk/kod)
+  - Standardroller för nya medlemmar
+- Knappar: "Avbryt", "Föregående", "Nästa", "Skapa team"
+
+**Bekräftelseskärm:**
+- Animated checkmark-indikator
+- "Ditt team har skapats!"
+- Sammanfattning av teaminformation
+- CTA: "Gå till teamet"
+- Sekundär CTA: "Bjud in medlemmar nu"
+
+### 2.2 Team-översikt
+
+**Team-header:**
+- Team-avatar (cirkulär, 64dp)
+- Teamnamn (H1)
+- Dropdown för teamval (om användaren har flera team)
+- Synlighetsindikator (ikon för privat/publik)
+- Medlemsantal med miniaturavatar-stack
+- Inställningsknapp (endast för ägare/admin)
+
+**Team-navigering:**
+- Tabbmeny med ikontext-kombinationer:
+  - Översikt (hemikon)
+  - Medlemmar (personikoner)
+  - Aktivitet (tidslinje-ikon)
+  - Inställningar (kugghjul, endast för ägare/admin)
+
+**Översiktsflik:**
+- Teambeskrivning
+- Aktivitetskort med senaste aktiviteter
+- Snabbåtgärder: "Bjud in medlemmar", "Dela kod", "Skapa aktivitet"
+- Teamstatistik (medlemmar, aktiviteter, tid)
+- Team-relaterade meddelanden/notiser
+
+### 2.3 Medlemshantering
+
+**Medlemslistvy:**
+- Sökfält för filtrering av medlemmar
+- Flikknappar för att filtrera på roller (Alla, Ägare, Administratörer, Medlemmar)
+- Sorteringsväljare (nyast, äldst, namn A-Z)
+- Medlemslista med:
+  - Användaravatar
+  - Namn och e-post
+  - Rollbadge (färgkodad)
+  - Statusindikator (aktiv/inaktiv)
+  - Åtgärdsmeny (3-punkts-meny)
+
+**Medlemsåtgärder:**
+- Ändra roll (dropdown)
+- Ta bort från team (med bekräftelsedialog)
+- Visa profil
+- Ändra status (aktivera/inaktivera)
+
+**Bjud in medlemmar:**
+- Flikknappar för olika inbjudningsmetoder:
+  - Via e-post (formulär med e-post och rollval)
+  - Via länk (genererbar och kopierbar länk)
+  - Via kod (6-siffrig kod i stor text)
+- Tidigare inbjudningar med status och möjlighet att återkalla
+
+**Väntande medlemskap:**
+- Lista över inbjudningar som väntar på godkännande
+- För varje inbjudan:
+  - Användarinformation (e-post)
+  - När inbjudan skickades
+  - Åtgärdsknappar: Påminn, Återkalla
+
+### 2.4 Team-inställningar
+
+**Grundinställningar:**
+- Uppdatera teamnamn
+- Uppdatera teambeskrivning
+- Ändra teamavatar
+- Synlighetsinställningar (publik/privat)
+
+**Avancerade inställningar:**
+- Medlemskapsinställningar:
+  - Vem kan bjuda in medlemmar
+  - Kräv godkännande för nya medlemmar
+  - Standardroll för nya medlemmar
+- Notifikationsinställningar:
+  - Nya medlemmar
+  - Medlemsaktivitet
+  - Meddelanden
+- Integrationer (om tillämpligt)
+
+**Fara-zon:**
+- Tydligt avgränsat område med varningsikon
+- Knapp för att lämna team (för medlemmar)
+- Knapp för att ta bort team (för ägare)
+- Tydlig varningstext och krav på bekräftelse (skriv "RADERA")
+
+### 2.5 Inbjudningsacceptans
+
+**Inbjudningsskärm:**
+- Tilltalande visuell presentation av teamet
+- Teamavatar och namn
+- Informationsöversikt:
+  - Vem bjöd in dig
+  - Din tilldelade roll
+  - Kort teambeskrivning
+- Tydliga åtgärdsknappar: "Acceptera inbjudan", "Avböj"
+- Inloggningsuppmaning om användaren inte är inloggad
+
+**Bekräftelseskärm:**
+- Animerad välkomsthälsning
+- "Du är nu medlem i [Team]!"
+- Översikt över nästa steg
+- CTA: "Gå till teamet"
+
+## 3. DESIGNSYSTEM
+
+### 3.1 Färgschema
+
+**Teamrelaterade färger:**
+- Primär teamfärg: `#5B21B6` (Primary Main)
+- Sekundär teamfärg: `#7C3AED` (Primary Light)
+- Accentfärg: `#FACC15` (Yellow)
+
+**Rollbaserade färgkoder:**
+- Ägare: `#EC4899` (Pink)
+- Administratör: `#FACC15` (Yellow)
+- Medlem: `#7C3AED` (Primary Light)
+
+**Statusfärger:**
+- Aktiv: `#10B981` (Success)
+- Inaktiv: `#6B7280` (Neutral 500)
+- Väntande: `#FACC15` (Yellow)
+- Fel: `#EF4444` (Error)
+
+### 3.2 Typografi
+
+**Teamspecifika typografiska element:**
+- Teamnamn: Inter-Bold, 28px
+- Teamflikar: Inter-Medium, 16px
+- Medlemsnamn: Inter-Medium, 16px
+- Rollbadge: Inter-Bold, 12px, uppercase
+- Inbjudningskod: Inter-Bold, 24px, monospace, med mellanrum
+
+### 3.3 Komponenter
+
+**Team-kort:**
+- Rundade hörn: 12px
+- Höjd: 120dp
+- Interaktivt: Skalning vid tryck
+- Innehåll:
+  - Teamavatar: 48dp cirkel
+  - Teamnamn: H2
+  - Beskrivning: 2 rader max, ellipsis
+  - Medlemsantal med avatar-stack
+  - Pilindikator för expansion
+
+**Medlemskort:**
+- Höjd: 72dp
+- Innehåll:
+  - Avatar: 40dp cirkel
+  - Namn: H3
+  - E-post/användarnamn: Ljusare text
+  - Rollbadge: Pill-formad med färgkod
+  - Statusindikator: Liten cirkel med hover-tooltip
+  - Åtgärdsknapp: 3-punkter med dropdown
+
+**Badge-design:**
+- Rollbadge: Pill-formad, 4px padding, färgkodad bakgrund, 12px text
+- Statusbadge: Liten cirkel (8dp), färgkodad
+
+**Formulärelement:**
+- Textinmatning:
+  - Höjd: 48dp
+  - Padding: 16dp
+  - Tydligt fokustillstånd: Border färgändring
+- Dropdown:
+  - Samma höjd och padding som textinmatning
+  - Ikon för expansion
+  - Konsekvent utseende i listor
+
+### 3.4 Animations- och interaktionsriktlinjer
+
+**Animationer:**
+- Sidor glider in från höger (forward navigation)
+- Sidor glider in från vänster (backward navigation)
+- Modalfönster glider upp från botten
+- Memberlistor: Fade-in och staggered animation
+- Kortinteraktioner: Mjuk skalning (0.98) vid tryck
+- Knappinteraktioner: Färgövergång vid hover, skalning vid tryck
+
+**Feedback:**
+- Visuell bekräftelse vid alla åtgärder (färgändring, ikoner, toast)
+- Optimistisk UI-uppdatering följt av nätverksbekräftelse
+- Felmeddelanden: Tydliga, beskrivande, med återställningsåtgärder
+
+## 4. SKÄRMSPECIFIKA MÅTT OCH LAYOUTER
+
+### 4.1 Mobile (< 768px)
+
+**Team-översikt:**
+- Full bredd minus 32px padding (16px per sida)
+- Team-header: 64dp höjd
+- Navigation: Botten-tab-bar, 60dp höjd
+- Kort: Full bredd, 16px vertikal spacing
+
+**Medlemslista:**
+- Liststorlek: Full bredd
+- Medlem row height: 72dp
+- Sökfält: Full bredd, placerat överst
+- Filterknappar: Horisontellt rullande
+
+**Skapa/redigera team:**
+- Ett steg per skärm
+- Formulärelement: Full bredd
+- CTA-knappar: 48dp höjd, full bredd
+
+### 4.2 Tablet (768px - 1024px)
+
+**Team-översikt:**
+- Container: 700px maxbredd, centrerad
+- Team-header: 80dp höjd
+- Navigation: Övre tab-bar under header
+- Kortlayout: 2 kolumner, 24px spacing
+
+**Medlemslista:**
+- Liststorlek: Full containerbredd
+- Medlem row height: 72dp
+- Sökfält + filter: Rad med delad bredd
+- Medlemskort: Mer information synlig
+
+**Skapa/redigera team:**
+- Stegindikatorer som visar alla steg
+- Formulärelement: 2-kolumner layout där möjligt
+- CTA-knappar: 48dp höjd, 30% bredd, höger-justerade
+
+### 4.3 Desktop (> 1024px)
+
+**Team-översikt:**
+- Container: 960px maxbredd, centrerad
+- Sidopanel för snabbnavigering: 240px
+- Innehåll: Flytande bredd med 3-kolumners layout
+- Team-header: Större, 96dp höjd
+
+**Medlemslista:**
+- Tabellayout med mer information
+- Avancerade filterfunktioner
+- Inline-redigering av roller och statusar
+- Batch-åtgärder för flera medlemmar
+
+**Skapa/redigera team:**
+- Multi-kolumnslayout
+- Förhandsgranskningspanel
+- Drag-and-drop för bilduppladdning
+- Integrerad hjälp och tips
+
+## 5. TILLGÄNGLIGHET
+
+### 5.1 Riktlinjer för tillgänglighet
+
+- Alla interaktiva element har minst 48dp tryckmål
+- Färgkontrast följer WCAG AA-standard (4.5:1 för text)
+- Alla funktioner kan nås med endast tangentbord
+- Skärmläsarstöd med beskrivande alt-text och ARIA-attribut
+- Textstorlekar skalas korrekt med systeminställningar
+
+### 5.2 Stöd för olika inmatningsmetoder
+
+- Touch-optimerade element på mobila enheter
+- Dra-och-släpp-stöd för filuppladdning på desktop
+- Tangentbordsgenvägar för viktiga åtgärder
+- Anpassade gester för navigering i listor och filter
+
+## 6. FUNKTIONALITETSMATRIS
+
+| Funktion | Ägare | Admin | Medlem | Utanför Team |
+|----------|-------|-------|--------|--------------|
+| Visa teaminformation | ✓ | ✓ | ✓ | Om publik |
+| Visa medlemslista | ✓ | ✓ | ✓ | Begränsad vy |
+| Skapa team | ✓ | ✓ | ✓ | ✓ |
+| Radera team | ✓ | - | - | - |
+| Uppdatera teaminformation | ✓ | ✓ | - | - |
+| Ändra teamavatar | ✓ | ✓ | - | - |
+| Bjud in medlemmar | ✓ | ✓ | Konfigurerbart | - |
+| Ta bort medlemmar | ✓ | ✓* | - | - |
+| Ändra medlemsroller | ✓ | ✓** | - | - |
+| Se inbjudningar | ✓ | ✓ | - | - |
+| Återkalla inbjudningar | ✓ | ✓ | - | - |
+| Lämna team | ✓*** | ✓ | ✓ | - |
+
+\* Admin kan inte ta bort ägare
+\** Admin kan ändra roller förutom ägare
+\*** Ägare måste överföra ägarskap först
+
+## 7. IMPLEMENTATIONSPRIORITERING
+
+### 7.1 Minimal funktionell version (MVP)
+
+1. **Grundläggande teamhantering:**
+   - Skapa team
+   - Visa teamlista
+   - Grundläggande teaminformation
+
+2. **Grundläggande medlemshantering:**
+   - Visa medlemmar
+   - Bjud in via e-post
+   - Acceptera/avböj inbjudningar
+
+3. **Användarbehörigheter:**
+   - Rollbaserad behörighetshantering (ägare/medlem)
+   - Grundläggande rollbegränsningar
+
+### 7.2 Version 1.0
+
+4. **Fullständig teamhantering:**
+   - Uppdatera teaminformation
+   - Hantera teamavatar
+   - Ta bort team
+
+5. **Avancerad medlemshantering:**
+   - Medlemsroller (ägare/admin/medlem)
+   - Statushantering (aktiv/inaktiv)
+   - Borttagning av medlemmar
+
+6. **Förbättrad uppladdning:**
+   - Bildförhandsgranskning
+   - Bildbeskärning
+   - Felhantering vid uppladdning
+
+### 7.3 Framtida förbättringar
+
+7. **Avancerade inbjudningar:**
+   - Inbjudningar via länk
+   - Inbjudningskodsystem
+   - Inbjudningshantering
+
+8. **Teamaktivitet:**
+   - Aktivitetsflöde
+   - Aktivitetsnotifieringar
+   - Aktivitetsfiltrering
+
+9. **Integrationer:**
+   - Notifieringar
+   - Kalenderintegration
+   - Extern delning
+
+## 8. MOBIL-SPECIFIKA ANPASSNINGAR
+
+### 8.1 Navigationsanpassningar
+
+- Botten-navigation istället för sidonavigation
+- Prioriterad innehållsvisning med mindre metadata
+- Sammanfällbar filtersektion för att spara utrymme
+
+### 8.2 Inmatningsanpassningar
+
+- Större, mer touch-vänliga kontroller
+- Anpassade mobila tangentbord för olika inmatningstyper
+- Stegvist formulärflöde istället för komplext multi-fält
+
+### 8.3 Offline-stöd
+
+- Cachelagra teaminformation för offline-visning
+- Köade åtgärder för när användaren kommer online igen
+- Tydliga indikatorer för offline-tillstånd och väntande åtgärder
+
+## 9. UX-KOMPONENTBIBLIOTEK
+
+Följande komponenter behöver implementeras:
+
+1. **TeamCard**
+   - Används för att visa team i listor
+   - Tillstånd: normal, hover, pressed, disabled
+
+2. **MemberItem**
+   - Används för att visa teammedlemmar
+   - Tillstånd: normal, hover, selected, actionable
+
+3. **RoleBadge**
+   - Visar en användares roll i teamet
+   - Varianter: owner, admin, member
+
+4. **StatusBadge**
+   - Visar en användares/teams status
+   - Varianter: active, inactive, pending
+
+5. **TeamAvatar**
+   - Visar team-profilbild
+   - Varianter: small, medium, large
+   - Fallback: Genererad initial-baserad avatar
+
+6. **InvitationCard**
+   - Visar information om en inbjudan
+   - Tillstånd: pending, accepted, declined, expired
+
+7. **TeamActionBar**
+   - Visar kontext-specifika åtgärder för team
+   - Anpassningsbart innehåll baserat på behörigheter
+
+8. **TeamSettingsPanel**
+   - Container för teaminställningar
+   - Sektionsbaserad layout med grupperade inställningar
+
+9. **AvatarUploader**
+   - Drag-drop och klickbar uppladdningsfunktion
+   - Visuell förhandsgranskning och beskärning
+
+10. **MembershipControls**
+    - Kombinerad komponent för rollhantering och medlemskapsåtgärder
+    - Kontextbaserade behörigheter
+
+## 10. MICROCOPY-GUIDELINES
+
+### 10.1 Toner och röst
+
+- **Vänlig och inkluderande**: Använd "vi" och "ditt team"
+- **Handlingsorienterad**: Tydlig, konkret instruktion
+- **Professionell men informell**: Balanserad ton, undvik slang
+- **Aktiv röst**: "Bjud in medlemmar" istället för "Medlemmar kan bjudas in"
+
+### 10.2 Exempeltext för viktiga flöden
+
+**Team-skapande:**
+- Rubrik: "Skapa ditt team"
+- CTA: "Starta teamet"
+- Bekräftelse: "Ditt team är redo!"
+
+**Medlemsinbjudan:**
+- E-postinmatning: "E-postadress för inbjudan"
+- Rollväljare: "Välj roll för nya medlemmen"
+- CTA: "Skicka inbjudan"
+- Bekräftelse: "Inbjudan skickad till [email]"
+
+**Felmeddelanden:**
+- Teamnamn saknas: "Ett namn hjälper medlemmar att hitta ditt team"
+- Inbjudningsfel: "Kunde inte skicka inbjudan. Kontrollera e-postadressen och försök igen."
+- Behörighetsfel: "Du behöver vara admin eller ägare för att göra denna ändring"
+
+## 11. TESTPLAN
+
+### 11.1 Användbarhetstester
+
+- 5-10 användare per testrunda
+- Testa kritiska flöden:
+  - Skapa team
+  - Bjuda in medlemmar
+  - Hantera medlemsroller
+  - Hitta och uppdatera inställningar
+- Mäta:
+  - Tid till slutförande
+  - Antal fel
+  - Subjektiv tillfredställelse (SUS-poäng)
+
+### 11.2 A/B-tester
+
+- Testvariant för inbjudningsflöde: E-post vs. länkgenerering
+- Testvariant för medlemslistvisning: Kortvy vs. listvy
+- Testvariant för rollväljare: Dropdown vs. segmenterade knappar
+
+## 12. ADAPTIV DESIGN
+
+Designen anpassas för att fungera sömlöst över plattformar och enheter:
+
+### 12.1 Responsiv strategi
+
+- Flexibla gridlayouter som anpassas efter skärmbredd
+- Brytpunkter vid 768px och 1024px
+- Stackade element på mobil, bredvid varandra på större skärmar
+- Touch-optimerade områden på mobila enheter
+
+### 12.2 Komponentvariationer
+
+- MemberList: Kompakt lista på mobil, mer detaljerad på desktop
+- TeamHeader: Kondenserad på mobil, expanderad på desktop
+- Inställningsformulär: Stackade på mobil, två kolumner på desktop
+- Navigationselement: Botten-tab på mobil, sidopanel på desktop
+
+---
+
+BILAGOR:
+
+1. Wireframes för kritiska flöden (separat fil)
+2. Komponentspecifikationer (separat fil)
+3. Färgpalett med kodvärden (importerade från design system) 

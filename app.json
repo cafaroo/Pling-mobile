@@ -4,7 +4,7 @@
     "slug": "bolt-expo-nativewind",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "@/assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -23,6 +23,14 @@
         {
           "photosPermission": "Appen behöver åtkomst till dina foton för att ladda upp teamprofilbilder.",
           "cameraPermission": "Appen behöver åtkomst till din kamera för att ta teamprofilbilder."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain"
         }
       ]
     ],

@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,38 +7,41 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { getTeamGoals } from '@/services/goalService';
-import { Goal, GoalStatus } from '@/types';
+import { Goal, GoalStatus, TeamMember } from '@/types';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import Tabs from '@/components/ui/Tabs';
-import GoalCard from '@/components/goals/GoalCard';
+import { GoalCard } from '@/components/goals/GoalCard';
+import { useStyles } from '@/hooks/useStyles';
+import { commonStyles } from '@/styles/common';
 
 export default function TeamGoalsScreen() {
   const { colors } = useTheme();
   const { user } = useUser();
   const router = useRouter();
+  const styles = useStyles();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<GoalStatus | 'all'>('active');
   
   useEffect(() => {
-    if (user?.team?.id) {
+    if (user?.teams?.id) {
       loadGoals();
     }
-  }, [user?.team?.id, activeTab]);
+  }, [user?.teams?.id, activeTab]);
 
   const loadGoals = async () => {
-    if (!user?.team?.id) return;
+    if (!user?.teams?.id) return;
     
     try {
       setIsLoading(true);
       setError(null);
       
       const status = activeTab !== 'all' ? activeTab : undefined;
-      const data = await getTeamGoals(user.team.id, status);
+      const data = await getTeamGoals(user.teams.id, status);
       setGoals(data);
     } catch (error) {
       console.error('Error loading team goals:', error);
@@ -48,8 +52,8 @@ export default function TeamGoalsScreen() {
   };
 
   // Check if user is team leader or owner
-  const isTeamLeader = user?.team?.members?.some(
-    m => m.userId === user.id && (m.role === 'leader' || m.role === 'owner')
+  const isTeamLeader = user?.teams?.members?.some(
+    (m: TeamMember) => m.userId === user.id && (m.role === 'leader' || m.role === 'owner')
   );
 
   return (
@@ -182,7 +186,7 @@ export default function TeamGoalsScreen() {
       
       {isTeamLeader && (
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: colors.accent.yellow }]}
+          style={styles.fab}
           onPress={() => router.push('/team/goals/create')}
           activeOpacity={0.8}
         >
@@ -301,21 +305,6 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 90,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...commonStyles.fab,
   },
 });

@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from '@/lib/supabase';
 import { UserStats, Badge } from '@/types';
 
 // Get user statistics

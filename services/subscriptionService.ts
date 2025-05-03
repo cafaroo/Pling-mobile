@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from '@/lib/supabase';
 import { Subscription, SubscriptionTier, TierLimits, TIER_LIMITS } from '@/types/subscription';
 
 // Get team's subscription

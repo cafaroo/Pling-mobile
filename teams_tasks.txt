@@ -1,0 +1,304 @@
+# ÅTGÄRDSPLAN FÖR TEAM-FUNKTIONALITETEN
+
+## ÖVERSIKT
+
+Denna åtgärdsplan baseras på kodgranskningen i `teams_audit.txt` och innehåller konkreta uppgifter för att förbättra team-funktionaliteten i Pling-appen. Uppgifterna är organiserade efter prioritet och uppskattad tidsåtgång.
+
+## STATUSUPPDATERING (2024-04-30)
+
+### Slutförda uppgifter:
+- ✅ Databasprestanda med index (P1-06, P1-07, P1-08)
+- ✅ Tillägg av nya kolumner i team_messages (P4-01, P4-02, P4-03)
+- ✅ Implementation av JSON-schema validering för team settings
+- ✅ Standardiserad felhantering i teamService (P1-09, P1-10, P1-11, P1-12, P1-13, P1-14)
+  - Implementerat TeamServiceResponse typ
+  - Skapat handleServiceError hjälpfunktion
+  - Uppdaterat alla teamService funktioner med ny felhantering
+- ✅ Korrigering av propnamnsfel i komponenter (P1-01 till P1-05)
+  - PendingApprovalCard: icon → Icon
+  - PendingMembershipCard: icon → Icon
+  - PendingInviteCard: icon → Icon
+  - TeamList: Ingen åtgärd krävdes (använder inte Button)
+  - Övriga komponenter: title → children i TeamSettings, InviteCodeModal och AddMemberModal
+- ✅ Uppdatering av queries för nya kolumner (P4-04)
+  - Uppdaterat databasstruktur med mentions (jsonb), attachments (text[]) och message_type (text)
+  - Uppdaterat SELECT, INSERT och realtime subscriptions i chat.tsx
+  - Lagt till stöd för olika meddelandetyper (text, image, file)
+  - Implementerat visning av mentions och attachments i chattgränssnittet
+- ✅ Uppdelning av team/index.tsx i mindre komponenter (P2-01 till P2-06)
+  - Skapat TeamHeader för navigering och teamval
+  - Skapat TeamActions för teamrelaterade åtgärder
+  - Skapat TeamMembers för medlemshantering och inställningar
+  - Skapat TeamLoadingState för laddningstillstånd
+  - Refaktoriserat team/index.tsx att använda nya komponenter
+  - Överfört state och logik till respektive komponent
+- ✅ Implementera React Query konsekvent (P2-07 till P2-10)
+  - Skapat useTeamQueries hook för att hantera alla team-relaterade queries
+  - Implementerat React Query i TeamScreen
+  - Skapat förbättrad hantering av laddningstillstånd med React Query
+  - Implementerat felhantering med React Query
+  - Skapat optimistiska uppdateringar för bättre användarupplevelse
+- ✅ Förbättra typhantering (P2-11 till P2-14)
+  - Refaktoriserat 'any'-typer i teamService
+  - Skapat centrala typ-exporter
+  - Förbättrat typning i TeamMemberList-komponenten
+  - Implementerat diskriminerande union-typer för tillstånd
+- ✅ Förbättra kodsökning i TeamMemberList (P3-01 till P3-02)
+  - Skapat gemensam MemberItem-komponent för att hantera medlemsvisning
+  - Refaktoriserat TeamMemberList, PendingApprovalCard, PendingMembershipCard, PendingInviteCard
+
+### Nästa steg:
+1. Fortsätt konsolidera duplicerad kod i TeamMemberList (P3-03 till P3-04):
+   - Ta bort dubblerad kod i TeamMemberList
+   - Förbättra typning med diskriminerande unions
+
+---
+
+## PRIORITET 1: AKUTA PROBLEM (1-2 ARBETSDAGAR)
+
+### 1.1 Korrigera propnamnsfel `icon` till `Icon` i komponenter
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P1-01 | Korrigera `icon` till `Icon` i PendingApprovalCard | 15 min | ✅ Klar | components/team/PendingApprovalCard.tsx |
+| P1-02 | Korrigera `icon` till `Icon` i PendingMembershipCard | 15 min | ✅ Klar | components/team/PendingMembershipCard.tsx |
+| P1-03 | Korrigera `icon` till `Icon` i PendingInviteCard | 15 min | ✅ Klar | components/team/PendingInviteCard.tsx |
+| P1-04 | Korrigera `icon` till `Icon` i TeamList | 15 min | ✅ Klar (N/A) | components/team/TeamList.tsx |
+| P1-05 | Korrigera andra komponenter som använder Button | 30 min | ✅ Klar | Övriga filer |
+
+### 1.2 Databasprestanda med index
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P1-06 | Skapa index för `user_id` i `team_members` | 20 min | ✅ Klar | DB-migrering |
+| P1-07 | Skapa index för `team_id` i `team_members` | 20 min | ✅ Klar | DB-migrering |
+| P1-08 | Skapa index för `team_id` i `team_messages` | 20 min | ✅ Klar | DB-migrering |
+
+### 1.3 Standardisera felhantering i teamService
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P1-09 | Skapa hjälpfunktion för felhantering | 30 min | ✅ Klar | services/teamService.ts |
+| P1-10 | Implementera standardiserad felhantering i `createTeam` | 15 min | ✅ Klar | services/teamService.ts |
+| P1-11 | Implementera standardiserad felhantering i `getTeam` | 15 min | ✅ Klar | services/teamService.ts |
+| P1-12 | Implementera standardiserad felhantering i `updateTeam` | 15 min | ✅ Klar | services/teamService.ts |
+| P1-13 | Implementera standardiserad felhantering i `getUserTeams` | 15 min | ✅ Klar | services/teamService.ts |
+| P1-14 | Implementera standardiserad felhantering i övriga funktioner | 1 timme | ✅ Klar | services/teamService.ts |
+
+**Totalt: ~1.5 timmar**
+
+---
+
+## PRIORITET 2: VIKTIGA FÖRBÄTTRINGAR (3-5 ARBETSDAGAR)
+
+### 2.1 Dela upp team/index.tsx i mindre komponenter
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P2-01 | Skapa TeamHeader-komponent | 2 timmar | ✅ Klar | app/(tabs)/team/components/TeamHeader.tsx |
+| P2-02 | Skapa TeamActions-komponent | 2 timmar | ✅ Klar | app/(tabs)/team/components/TeamActions.tsx |
+| P2-03 | Skapa TeamMembers-komponent | 3 timmar | ✅ Klar | app/(tabs)/team/components/TeamMembers.tsx |
+| P2-04 | Skapa TeamSettings-container | 2 timmar | ✅ Klar | app/(tabs)/team/components/TeamSettingsContainer.tsx |
+| P2-05 | Refaktorisera team/index.tsx att använda nya komponenter | 3 timmar | ✅ Klar | app/(tabs)/team/index.tsx |
+| P2-06 | Överföra state och logik till respektive komponent | 3 timmar | ✅ Klar | Alla komponenterna |
+
+**Totalt: ~15 timmar**
+
+### 2.2 Implementera React Query konsekvent
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P2-07 | Skapa queries för teams-data | 2 timmar | ✅ Klar | hooks/useTeamQueries.ts |
+| P2-08 | Implementera teamQueries i team/index.tsx | 2 timmar | ✅ Klar | app/(tabs)/team/TeamScreen.tsx |
+| P2-09 | Hantera laddningstillstånd med React Query | 1 timme | ✅ Klar | components/team/TeamLoadingState.tsx |
+| P2-10 | Implementera felhantering med React Query | 1 timme | ✅ Klar | app/(tabs)/team/TeamScreen.tsx |
+
+**Totalt: ~6 timmar**
+
+### 2.3 Förbättra typhantering
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P2-11 | Refaktorisera 'any'-typer i teamService | 2 timmar | ✅ Klar | services/teamService.ts |
+| P2-12 | Skapa centrala typ-exporter | 1 timme | ✅ Klar | types/service.ts, types/team.ts |
+| P2-13 | Förbättra typning i TeamMemberList-komponenten | 1 timme | ✅ Klar | components/team/TeamMemberList.tsx |
+| P2-14 | Implementera diskriminerande union-typer för tillstånd | 2 timmar | ✅ Klar | hooks/useTeamState.ts |
+
+**Totalt: ~6 timmar**
+
+### 2.4 Komplettera bilduppladdning i TeamSettings
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P2-15 | Implementera komplett filuppladdning till Supabase | 2 timmar | ✅ Klar | components/team/TeamSettings.tsx |
+| P2-16 | Lägg till felhantering för bilduppladdning | 1 timme | ✅ Klar | components/team/TeamSettings.tsx |
+| P2-17 | Lägg till laddningsindikator för bilduppladdning | 30 min | ✅ Klar | components/team/TeamSettings.tsx |
+
+**Totalt: ~3.5 timmar**
+
+---
+
+## PRIORITET 3: OMFATTANDE FÖRBÄTTRINGAR (1-2 VECKOR)
+
+### 3.1 Konsolidera duplicerad kod i TeamMemberList
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P3-01 | Skapa gemensam MemberItem-komponent | 5 timmar | ✅ Klar | components/team/MemberItem.tsx |
+| P3-02 | Refaktorisera TeamMemberList att använda MemberItem | 6 timmar | ✅ Klar | components/team/TeamMemberList.tsx, components/team/TeamMemberListItem.tsx, components/team/PendingApprovalCard.tsx, components/team/PendingMembershipCard.tsx, components/team/PendingInviteCard.tsx |
+| P3-03 | Ta bort dubblerad kod i TeamMemberList | 4 timmar | ✅ Klar | components/team/TeamMemberList.tsx, components/team/TeamMemberListItem.tsx |
+| P3-04 | Förbättra typning med diskriminerande unions | 3 timmar | ✅ Klar | components/team/TeamMemberList.tsx |
+
+**Totalt: ~18 timmar**
+
+### 3.2 Implementera useReducer för komplex state
+
+| Task ID | Beskrivning | Uppskattad tid | Berörda filer |
+|---------|-------------|----------------|---------------|
+| P3-05 | Skapa TeamState-typer och actions | 2 timmar | ✅ Klar | hooks/useTeamState.ts |
+| P3-06 | Implementera teamReducer för komplex state | 4 timmar | ✅ Klar | hooks/useTeamState.ts |
+| P3-07 | Erbjuda useTeamState-hook för komponenter | 2 timmar | ✅ Klar | hooks/useTeamState.ts |
+| P3-08 | Migrera team/index.tsx till att använda useTeamState | 4 timmar | ✅ Klar | app/(tabs)/team/index.tsx |
+
+**Totalt: ~12 timmar**
+
+### 3.3 Skapa dedikerad hook för team-mutationer
+
+| Task ID | Beskrivning | Uppskattad tid | Berörda filer |
+|---------|-------------|----------------|---------------|
+| P3-09 | Skapa useTeamMutations-hook | 3 timmar | ✅ Klar | hooks/useTeamMutations.ts |
+| P3-10 | Implementera optimistiska uppdateringar | 3 timmar | ✅ Klar | hooks/useTeamMutations.ts |
+| P3-11 | Migrera komponenter till att använda useTeamMutations | 4 timmar | ✅ Klar | Olika components/team/*.tsx |
+
+**Totalt: ~10 timmar**
+
+### 3.4 Förbättra prestanda
+
+| Task ID | Beskrivning | Uppskattad tid | Berörda filer |
+|---------|-------------|----------------|---------------|
+| P3-12 | Implementera React.memo för TeamMemberListItem | 2 timmar | ✅ Klar | components/team/MemberItem.tsx |
+| P3-13 | Implementera virtualisering för stora listor | 2 timmar | ✅ Klar | components/team/TeamMemberList.tsx |
+| P3-14 | Optimera React Query-cachning | 2 timmar | ✅ Klar | hooks/useTeamQueries.ts |
+| P3-15 | Implementera optimerad FlatList | 1 timme | ✅ Klar | components/team/TeamMemberList.tsx, components/team/TeamMembers.tsx |
+
+**Totalt: ~6 timmar**
+
+---
+
+## PRIORITET 4: LÅNGSIKTIGA FÖRBÄTTRINGAR (PÅGÅENDE ARBETE)
+
+### 4.1 Utöka databasstrukturen
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P4-01 | Lägg till mentions-kolumn i team_messages | 2 timmar | ✅ Klar | DB-migrering |
+| P4-02 | Lägg till attachments-kolumn i team_messages | 2 timmar | ✅ Klar | DB-migrering |
+| P4-03 | Lägg till message_type-kolumn i team_messages | 1 timme | ✅ Klar | DB-migrering |
+| P4-04 | Uppdatera befintliga queries att hantera nya kolumner | 3 timmar | ✅ Slutförd | services/teamService.ts |
+
+**Totalt: ~8 timmar** (100% slutfört)
+
+### 4.2 Skriv end-to-end tester
+
+| Task ID | Beskrivning | Uppskattad tid | Berörda filer |
+|---------|-------------|----------------|---------------|
+| P4-05 | Skapa testmiljö för team-komponenter | 4 timmar | tests/setup.ts |
+| P4-06 | Skriv tester för TeamMemberList | 3 timmar | tests/components/TeamMemberList.test.tsx |
+| P4-07 | Skriv tester för TeamSettings | 3 timmar | tests/components/TeamSettings.test.tsx |
+| P4-08 | Skriv tester för PendingApprovalCard | 2 timmar | tests/components/PendingApprovalCard.test.tsx |
+| P4-09 | Skriv integrationstester för TeamScreen | 4 timmar | tests/screens/TeamScreen.test.tsx |
+
+**Totalt: ~16 timmar**
+
+### 4.3 Förbättra dokumentation
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P4-10 | Lägg till JSDoc för alla team-komponenter | 4 timmar | 🔄 I Arbete (40%) | components/team/*.tsx |
+| P4-11 | Lägg till JSDoc för teamService | 3 timmar | ✅ Klar | services/teamService.ts |
+| P4-12 | Skapa README för team-modulen | 2 timmar | ✅ Klar | docs/README.md |
+| P4-13 | Dokumentera dataflöden och datamodeller | 2 timmar | ✅ Klar | docs/team-data-flow.md |
+| P4-14 | Skapa fullständig modulbeskrivning | 3 timmar | ✅ Klar | docs/team-module.md |
+| P4-15 | Skapa implementationsguide för team | 3 timmar | ✅ Klar | docs/team-implementation-guide.md |
+| P4-16 | Skapa testguide för team-modulen | 2 timmar | ✅ Klar | docs/team-testing-guide.md |
+| P4-17 | Skapa UX och grafisk frontend-plan | 3 timmar | ✅ Klar | docs/team_frontend.txt |
+
+**Total tidsuppskattning för dokumentation: ~22 timmar** (82% slutfört)
+
+### 4.4 Standardisera namngivning
+
+| Task ID | Beskrivning | Uppskattad tid | Berörda filer |
+|---------|-------------|----------------|---------------|
+| P4-14 | Standardisera namngivning i komponenter till svenska | 3 timmar | components/team/*.tsx |
+| P4-15 | Standardisera namngivning i services till svenska | 2 timmar | services/teamService.ts |
+| P4-16 | Standardisera namngivning i typer till svenska | 2 timmar | types/team.ts |
+
+**Totalt: ~7 timmar**
+
+## PRIORITET 5: UX/UI FÖRBÄTTRINGAR (PARALLELL UTVECKLING)
+
+### 5.1 Design och specifikation
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P5-01 | Skapa UX-komponentbibliotek för team | 8 timmar | Påbörjad | design/components/team/* |
+| P5-02 | Implementera responsiv design för teamskärmar | 6 timmar | Planerad | components/team/* |
+| P5-03 | Förbättra tillgänglighet för team-komponenter | 4 timmar | Planerad | components/team/* |
+| P5-04 | Optimera animationer och övergångseffekter | 3 timmar | Planerad | components/team/animations.ts |
+
+### 5.2 UI-implementation
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P5-05 | Implementera TeamCard enligt UX-spec | 4 timmar | ✅ Klar | components/team/TeamCard.tsx |
+| P5-06 | Implementera MemberItem enligt UX-spec | 3 timmar | Planerad | components/team/MemberItem.tsx |
+| P5-07 | Implementera RoleBadge och StatusBadge | 2 timmar | ✅ Klar | components/team/badges/*, components/team/RoleBadge.tsx, components/team/StatusBadge.tsx |
+| P5-08 | Implementera TeamAvatar med fallbacks | 2 timmar | ✅ Klar | components/team/TeamAvatar.tsx |
+| P5-09 | Implementera AvatarUploader med beskärning | 6 timmar | ✅ Klar | components/ui/AvatarUploader.tsx |
+| P5-10 | Implementera InvitationCard design | 3 timmar | ✅ Klar | components/team/InvitationCard.tsx |
+| P5-11 | Förbättra laddningstillstånd för teamvyer | 2 timmar | ✅ Klar | components/team/TeamScreen.tsx, components/team/TeamList.tsx |
+
+### 5.3 Användarupplevelse
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P5-11 | Förbättra feedback-mekanismer och felmeddelanden | 4 timmar | ✅ Klar | components/team/TeamSettings.tsx |
+| P5-12 | Implementera offline-stöd och synkronisering | 8 timmar | Planerad | hooks/useTeamSync.ts |
+| P5-13 | Optimera laddningstider och skelettvyer | 3 timmar | ✅ Klar | components/team/TeamSettings.tsx |
+| P5-14 | Implementera A/B-tester för inbjudningsflöden | 6 timmar | Planerad | app/(tabs)/team/experiments/* |
+| P5-15 | Genomföra användartester och åtgärda feedback | 8 timmar | Planerad | docs/user-testing/* |
+
+**Total tidsuppskattning för UX/UI förbättringar: ~70 timmar** (20% slutfört)
+
+## SAMMANFATTNING
+
+### Total tidsuppskattning per prioritet
+
+| Prioritet | Beskrivning | Uppskattad tid | Slutfört |
+|-----------|-------------|----------------|----------|
+| 1 | Akuta problem | ~5 timmar | 100% |
+| 2 | Viktiga förbättringar | ~30.5 timmar | 100% |
+| 3 | Omfattande förbättringar | ~46 timmar | 100% |
+| 4 | Långsiktiga förbättringar | ~45 timmar | ~25% |
+| 5 | UX/UI förbättringar | ~70 timmar | ~20% |
+
+**Total tidsuppskattning återstående: ~90 timmar (ca 11-14 arbetsdagar)**
+
+### Uppdaterad åtgärdsplan
+
+1. Fortsätt med dokumentation och testning:
+   - Slutför JSDoc-kommentarer för kod (P4-10, P4-11)
+   - Implementera enhetstester för kritiska komponenter
+
+2. Påbörja UX/UI förbättringar parallellt:
+   - ✅ Implementerat förbättrad felhantering och laddningsindikation (P5-11, P5-13)
+   - ✅ Implementerat TeamAvatar med fallbacks och redigeringsläge (P5-08)
+   - ✅ Implementerat RoleBadge och StatusBadge med stöd för olika typer (P5-07)
+   - Prioritera implementering av återstående grundkomponenter (P5-05, P5-06, P5-09, P5-10)
+   - Starta optimeringar av användbarhet och tillgänglighet
+
+3. Långsiktig planering:
+   - Schemalägg användartester när grundläggande UI-förbättringar är implementerade
+   - Integrera UX-arbetet med övriga teamfunktionalitetsförbättringar
+
+Genom att arbeta parallellt med backend- och UX/UI-förbättringar kan vi leverera en komplett och förbättrad teamfunktionalitet som både är tekniskt robust och användarvänlig. 

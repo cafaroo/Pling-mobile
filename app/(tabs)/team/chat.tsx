@@ -16,6 +16,9 @@ type Message = {
   user_id: string;
   content: string;
   created_at: string;
+  mentions: any[];
+  attachments: string[];
+  message_type: 'text' | 'image' | 'file' | 'system';
   user: {
     name: string;
     avatar_url: string;
@@ -55,7 +58,16 @@ export default function TeamChatScreen() {
           filter: `team_id=eq.${user.team.id}`,
         },
         (payload) => {
-          const newMessage = payload.new as Message;
+          const newMessage = {
+            ...payload.new,
+            mentions: payload.new.mentions || [],
+            attachments: payload.new.attachments || [],
+            message_type: payload.new.message_type || 'text',
+            user: {
+              name: 'Loading...',
+              avatar_url: null,
+            }
+          } as Message;
           setMessages((prev) => [...prev, newMessage]);
           // Scroll to bottom on new message
           setTimeout(() => {
@@ -79,6 +91,9 @@ export default function TeamChatScreen() {
           user_id,
           content,
           created_at,
+          mentions,
+          attachments,
+          message_type,
           profiles (
             name,
             avatar_url
@@ -115,6 +130,9 @@ export default function TeamChatScreen() {
           team_id: user.team.id,
           user_id: user.id,
           content: messageToSend,
+          mentions: [],
+          attachments: [],
+          message_type: 'text',
         });
 
       if (error) {
@@ -184,14 +202,79 @@ export default function TeamChatScreen() {
               {item.user.name}
             </Text>
           )}
-          <Text
-            style={[
-              styles.messageText,
-              { color: isOwnMessage ? colors.text.dark : colors.text.main },
-            ]}
-          >
-            {item.content}
-          </Text>
+          
+          {item.message_type === 'text' && (
+            <Text
+              style={[
+                styles.messageText,
+                { color: isOwnMessage ? colors.text.dark : colors.text.main },
+              ]}
+            >
+              {item.content}
+            </Text>
+          )}
+
+          {item.message_type === 'image' && (
+            <Image
+              source={{ uri: item.content }}
+              style={styles.messageImage}
+              resizeMode="cover"
+            />
+          )}
+
+          {item.message_type === 'file' && (
+            <TouchableOpacity 
+              style={styles.fileContainer}
+              onPress={() => {/* Hantera filöppning */}}
+            >
+              <Text
+                style={[
+                  styles.fileText,
+                  { color: isOwnMessage ? colors.text.dark : colors.text.main },
+                ]}
+              >
+                📎 {item.content}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {item.mentions.length > 0 && (
+            <View style={styles.mentionsContainer}>
+              {item.mentions.map((mention, index) => (
+                <Text
+                  key={index}
+                  style={[
+                    styles.mentionText,
+                    { color: colors.accent.yellow },
+                  ]}
+                >
+                  @{mention.name}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {item.attachments.length > 0 && (
+            <View style={styles.attachmentsContainer}>
+              {item.attachments.map((attachment, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.attachmentItem}
+                  onPress={() => {/* Hantera attachmentöppning */}}
+                >
+                  <Text
+                    style={[
+                      styles.attachmentText,
+                      { color: isOwnMessage ? colors.text.dark : colors.text.main },
+                    ]}
+                  >
+                    📎 {attachment}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           <Text
             style={[
               styles.messageTime,
@@ -432,5 +515,41 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     padding: 0,
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    marginVertical: 4,
+  },
+  fileContainer: {
+    padding: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: 4,
+    marginVertical: 4,
+  },
+  fileText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
+  },
+  mentionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+  },
+  mentionText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 14,
+    marginRight: 4,
+  },
+  attachmentsContainer: {
+    marginTop: 4,
+  },
+  attachmentItem: {
+    padding: 4,
+  },
+  attachmentText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 14,
   },
 });

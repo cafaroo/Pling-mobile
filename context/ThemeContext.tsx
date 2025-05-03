@@ -1,23 +1,70 @@
-import { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext } from 'react';
 
-// Define the theme colors
-const colors = {
-  primary: {
-    main: '#5B21B6',
-    light: '#7C3AED',
-    dark: '#4C1D95',
-  },
+interface ThemeColors {
   background: {
-    main: '#1E1B4B',
-    light: '#312E81',
-    dark: '#0F0E2A',
+    dark: string;
+    main: string;
+    light: string;
+    card: string;
+  };
+  primary: {
+    dark: string;
+    main: string;
+    light: string;
+  };
+  accent: {
+    yellow: string;
+    pink: string;
+  };
+  text: {
+    main: string;
+    light: string;
+    dark: string;
+  };
+  border: {
+    subtle: string;
+    default: string;
+    strong: string;
+  };
+  error: string;
+  success: string;
+  neutral: {
+    [key: number]: string;
+  };
+}
+
+interface ThemeContextType {
+  colors: ThemeColors;
+}
+
+const defaultTheme: ThemeColors = {
+  background: {
+    dark: '#0F0E2A',   // Primary app background
+    main: '#1E1B4B',   // Secondary background
+    light: '#312E81',  // Tertiary background
+    card: 'rgba(0, 0, 0, 0.2)', // Card background
+  },
+  primary: {
+    dark: '#4C1D95',   // Dark purple
+    main: '#5B21B6',   // Main purple
+    light: '#7C3AED',  // Light purple
   },
   accent: {
-    yellow: '#FACC15',
-    pink: '#EC4899',
+    yellow: '#FACC15', // Primary accent
+    pink: '#EC4899',   // Secondary accent
   },
-  success: '#10B981',
-  error: '#EF4444',
+  text: {
+    main: '#FFFFFF',   // Primary text on dark backgrounds
+    light: 'rgba(255, 255, 255, 0.7)', // Secondary text
+    dark: '#1F2937',   // Text on light backgrounds
+  },
+  border: {
+    subtle: 'rgba(255, 255, 255, 0.1)',  // Subtle borders
+    default: 'rgba(255, 255, 255, 0.2)',  // Default borders
+    strong: 'rgba(255, 255, 255, 0.3)',   // Strong borders
+  },
+  error: '#EF4444',    // Error red
+  success: '#10B981',  // Success green
   neutral: {
     100: '#F3F4F6',
     200: '#E5E7EB',
@@ -29,38 +76,23 @@ const colors = {
     800: '#1F2937',
     900: '#111827',
   },
-  text: {
-    main: '#FFFFFF',
-    light: 'rgba(255, 255, 255, 0.7)',
-    dark: '#1F2937',
-  },
 };
 
-// Define the theme context type
-type ThemeContextType = {
-  colors: typeof colors;
-};
+const ThemeContext = createContext<ThemeContextType>({
+  colors: defaultTheme,
+});
 
-// Create the theme context
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-// Create the theme provider component
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const theme = {
-    colors,
-  };
-
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeContext.Provider value={theme}>
+    <ThemeContext.Provider value={{ colors: defaultTheme }}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
-// Create a hook to use the theme context
 export function useTheme() {
   const context = useContext(ThemeContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;

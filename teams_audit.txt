@@ -1,0 +1,434 @@
+# KODGRANSKNING - TEAMS FUNKTIONALITET
+
+## 1. SAMMANFATTNING
+
+Denna granskning omfattar en genomgång av all kod relaterad till teams-funktionen i Pling Mobile-applikationen, inklusive komponenter, hooks, API-tjänster och databasstruktur. Analysen identifierar både styrkor och svagheter i den nuvarande implementationen samt föreslår konkreta förbättringar.
+
+---
+
+## 2. DATABASSTRUKTUR
+
+### 2.1 Befintlig struktur
+
+Från `types/database.types.ts` och relaterade filer kan vi se följande databastabeller:
+
+- **teams**: Huvudtabell för teaminformation
+- **team_members**: Koppling mellan användare och team
+- **team_messages**: Chattmeddelanden inom team
+- **team_invitations**: Hanterar inbjudningar till team
+
+Potentiella problem:
+
+- Inkonsekvent representation av `settings` i teams-tabellen - lagras som `any` istället för en specifik typ
+- Saknar index för vanliga sökfrågor, t.ex. på `user_id` i `team_members`
+- `team_messages` saknar struktur för att hantera mentions, vilket används i frontend
+
+### 2.2 Rekommendationer
+
+1. **Typdefinition för settings**: Definiera ett explicit JSON-schema för settings-kolumnen
+```sql
+ALTER TABLE teams ADD CONSTRAINT settings_json_schema 
+CHECK (jsonb_typeof(settings) = 'object' AND 
+       settings ? 'allowInvites' AND 
+       settings ? 'maxMembers' AND
+       settings ? 'requireAdminApproval' AND
+       settings ? 'notificationPreferences' AND
+       settings ? 'privacy');
+```
+
+2. **Lägg till index för prestanda**:
+```sql
+CREATE INDEX idx_team_members_user_id ON team_members(user_id);
+CREATE INDEX idx_team_members_team_id ON team_members(team_id);
+CREATE INDEX idx_team_messages_team_id ON team_messages(team_id);
+```
+
+3. **Utöka team_messages**:
+```sql
+ALTER TABLE team_messages ADD COLUMN mentions JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE team_messages ADD COLUMN attachments JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE team_messages ADD COLUMN message_type TEXT DEFAULT 'text';
+```
+
+---
+
+## 3. API-TJÄNSTER (SERVICES)
+
+### 3.1 teamService.ts
+
+**Styrkor:**
+- Välstrukturerad med tydliga felhanteringsmekanismer (TeamError-klass)
+- Bra återanvändning av kod för vanliga operationer
+
+**Svagheter:**
+- Inkonsekvent hantering av typer (blandning av explicita typer och any)
+- Duplicerad logik för felhantering
+- Flera funktioner saknar komplett felhantering
+- Dokumentationsbrister
+
+**Exempel på problemkod**:
+```typescript
+// Inkonsekvent typning - Saknar korrekt returtyp och explicit felhantering
+export const getUserTeams = async (userId: string): Promise<Team[]> => {
+  try {
+    type TeamsResponse = { /* ... */ };
+    
+    // Typkonvertering fungerar inte korrekt här
+    return teamsData.map((team) => ({ /* ... */ })) as Team[];
+  } catch (error) {
+    // Inkonsekvent felhantering
+    if (error instanceof TeamError) {
+      throw error;
+    }
+    throw new TeamError(
+      'Ett oväntat fel uppstod vid hämtning av användarens team',
+      error instanceof PostgrestError ? error : error as PostgrestError
+    );
+  }
+};
+```
+
+### 3.2 Rekommendationer
+
+1. **Standardisera felhanteringsstrategin**:
+```typescript
+const handleServiceError = (operation: string, error: any): never => {
+  console.error(`Error in ${operation}:`, error);
+  if (error instanceof TeamError) throw error;
+  throw new TeamError(
+    `Ett fel uppstod vid ${operation}`,
+    error instanceof PostgrestError ? error : undefined
+  );
+};
+```
+
+2. **Lägg till enhetlig dokumentation** med JSDoc för alla servicefunktioner
+
+3. **Refaktorisera typhantering**:
+```typescript
+type TeamServiceResponse<T> = { success: true; data: T } | { success: false; error: TeamError };
+
+// Använd konsekvent genom alla service-funktioner
+export const getUserTeams = async (userId: string): Promise<TeamServiceResponse<Team[]>> => {
+  try {
+    // ...implementation
+    return { success: true, data: teams };
+  } catch (error) {
+    return { success: false, error: handleServiceError('getUserTeams', error) };
+  }
+};
+```
+
+4. **Lägg till unit tests** för service-funktioner med mockade databassvar
+
+---
+
+## 4. KOMPONENTER
+
+### 4.1 TeamSettings.tsx
+
+**Styrkor:**
+- God uppdelning av logik och UI
+- Använder schema-validering med Zod
+- Stöder flera callback-typer och varianter
+
+**Svagheter:**
+- Överkomplicerad prop-hantering med två typer av props
+- Bristfällig felhantering i formuläret
+- Inkonsekvent namngivning (mix av svenska och engelska)
+- Bilduppladdningslogiken är ofullständig
+
+**Förslag till förbättring**:
+- Refaktorisera till en tydligare prop-struktur
+- Implementera komplett form-validering med feedback
+- Använd React Hook Form för förbättrad formulärhantering
+- Komplettera bilduppladdningslogiken
+
+### 4.2 TeamMemberList.tsx
+
+**Styrkor:**
+- Stöder både hook-baserad och prop-baserad användning
+- Tydliga hjälpfunktioner för UI-element
+
+**Svagheter:**
+- Duplicerade UI-komponenter och logik mellan MemberItem och TeamMemberListItem
+- Förvirrande dubbelimplementation (hook-baserad och prop-baserad)
+- Bristfällig typning av props
+- Namnkonvention är inkonsekvent
+
+**Förslag till förbättring**:
+- Konsolidera de dubbla implementationerna till en gemensam komponent
+- Förbättra typning med diskriminerande unions
+- Implementera virtualisering för bättre prestanda vid stora listor
+
+### 4.3 PendingApprovalCard.tsx
+
+**Styrkor:**
+- Tydlig strukturering av UI
+- Återanvändbara komponenter
+- God separation av logik och presentation
+
+**Svagheter:**
+- Använder `icon` istället för `Icon` i Button-komponenten (felaktig prop)
+- Användning av inbyggda React Native-komponenter istället för UI-kit
+- Saknar laddningstillstånd på Item-nivå
+
+**Förslag till förbättring**:
+- Korrigera Button-komponentens props
+- Använd Text-komponenten från UI-kit för konsekvent stil
+- Lägg till stöd för laddningstillstånd per medlem
+
+---
+
+## 5. SCREENS & CONTAINERS
+
+### 5.1 app/(tabs)/team/index.tsx
+
+**Styrkor:**
+- Omfattande funktionalitet för teamhantering
+
+**Svagheter:**
+- Extremt stor fil (1070 rader)
+- Överdriven mängd tillstånd (state) 
+- Inkonsekvent användning av React Query
+- Inkonsekvent hantering av API-anrop
+
+**Exempel på ineffektiv kodstruktur**:
+```typescript
+// För många tillstånd som är tätt kopplade
+const [teams, setTeams] = useState<Team[]>([]);
+const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+const [isLoading, setIsLoading] = useState(true);
+const [error, setError] = useState<string | null>(null);
+// ... ytterligare 15+ tillstånd
+```
+
+### 5.2 Rekommendationer
+
+1. **Dela upp i flera komponenter**:
+   - TeamHeader (teaminfo och menyval)
+   - TeamContent (huvudinnehåll baserat på aktiv flik)
+   - TeamActions (knappar och interaktiva element)
+
+2. **Använd React Query konsekvent**:
+```typescript
+const {
+  data: teams,
+  isLoading,
+  error,
+  refetch
+} = useQuery(['teams', user?.id], () => getUserTeams(user?.id || ''));
+
+const {
+  data: selectedTeam,
+  isLoading: isTeamLoading
+} = useQuery(
+  ['team', selectedTeamId], 
+  () => getTeam(selectedTeamId || ''),
+  { enabled: !!selectedTeamId }
+);
+```
+
+3. **Använd useReducer för komplex state**:
+```typescript
+type TeamState = {
+  teams: Team[];
+  selectedTeam: Team | null;
+  pendingMembers: TeamMember[];
+  invitation: any;
+  activeTab: string;
+  // ...etc
+};
+
+type TeamAction = 
+  | { type: 'SET_TEAMS', payload: Team[] }
+  | { type: 'SELECT_TEAM', payload: string }
+  | { type: 'ADD_MEMBER', payload: TeamMember }
+  // ...etc
+
+function teamReducer(state: TeamState, action: TeamAction): TeamState {
+  switch (action.type) {
+    // ...implementation
+  }
+}
+```
+
+---
+
+## 6. HOOKS OCH CONTEXT
+
+### 6.1 useTeamMutations (identifierad från TeamMemberList.tsx)
+
+**Rekommendationer**:
+- Skapa en dedikerad hook för teamrelaterade mutationer
+- Förbättra typhantering och returtyper
+- Integrera optimistiska uppdateringar
+
+```typescript
+// Förslag på implementation
+export function useTeamMutations(teamId: string) {
+  const queryClient = useQueryClient();
+  
+  const updateMemberRole = useMutation({
+    mutationFn: ({ memberId, role }: { memberId: string; role: TeamRole }) =>
+      teamService.updateTeamMemberRole(teamId, memberId, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['team-members', teamId]);
+    },
+    onError: (error) => {
+      // Hantera fel
+    }
+  });
+
+  // Implementera ytterligare mutationer
+
+  return {
+    updateMemberRole,
+    // ...andra mutationer
+  };
+}
+```
+
+---
+
+## 7. TYPHANTERING
+
+### 7.1 Styrkor
+- Tydliga typ-definitioner i `types/team.ts`
+- God användning av TypeScript-funktioner som union-typer och diskriminerande unioner
+
+### 7.2 Svagheter
+- Flera platser med `any`-typer
+- Typer som dupliceras mellan filer
+- Inkonsekvent typning i API-svar
+
+### 7.3 Rekommendationer
+
+1. **Eliminera alla `any`-typer**:
+```typescript
+// Före
+settings: any;
+
+// Efter
+settings: TeamSettings;
+```
+
+2. **Skapa en central exportfil för alla teamrelaterade typer**:
+```typescript
+// types/index.ts
+export * from './team';
+export * from './teamInvitation';
+export * from './teamMessage';
+```
+
+3. **Använd diskriminerande unioner för tillståndshantering**:
+```typescript
+type TeamLoadingState = 
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success', data: Team[] }
+  | { status: 'error', error: Error };
+```
+
+---
+
+## 8. PRESTANDA OCH OPTIMERING
+
+### 8.1 Problem
+- Onödig omrendering i TeamMemberList
+- Otillräcklig memorering av tunga UI-komponenter
+- Ineffektiv datahämtning (fetchas ofta flera gånger)
+
+### 8.2 Rekommendationer
+
+1. **Använd React.memo för tunga komponenter**:
+```typescript
+export const TeamMemberListItem = React.memo(({ member, currentUserRole, ... }) => {
+  // implementation
+}, (prevProps, nextProps) => prevProps.member.id === nextProps.member.id);
+```
+
+2. **Implementera virtualisering för långa listor**:
+```typescript
+<FlashList
+  data={members}
+  renderItem={({ item }) => <TeamMemberListItem member={item} />}
+  estimatedItemSize={70}
+  onEndReachedThreshold={0.5}
+  onEndReached={loadMoreMembers}
+/>
+```
+
+3. **Använd React Query's caching-funktioner** för att minimera databashämtningar
+
+---
+
+## 9. SÄKERHET
+
+### 9.1 Problem
+- Ofullständig validering av användarinput
+- Otillräcklig rollbaserad åtkomstkontroll på frontend
+- Direkta databaskopplingar utan mellanlager i vissa komponenter
+
+### 9.2 Rekommendationer
+
+1. **Validera all användarinput med schema-validering**:
+```typescript
+const TeamInviteSchema = z.object({
+  email: z.string().email('Ogiltig e-postadress'),
+  role: z.enum(['owner', 'admin', 'moderator', 'member']),
+});
+```
+
+2. **Implementera konsekvent behörighetskontroll på komponentnivå**:
+```typescript
+const canPerformAction = useCallback((action: TeamAction) => {
+  if (!currentUserRole) return false;
+  
+  const permissions = {
+    owner: ['manage_team', 'manage_members', 'invite_members', 'remove_members'],
+    admin: ['manage_members', 'invite_members', 'remove_members'],
+    moderator: ['invite_members'],
+    member: []
+  };
+  
+  return permissions[currentUserRole].includes(action);
+}, [currentUserRole]);
+```
+
+3. **Förlita dig aldrig på frontend-validering för säkerhet** - implementera korrekt backend-validering
+
+---
+
+## 10. SAMMANFATTANDE REKOMMENDATIONER
+
+### 10.1 Kortsiktiga åtgärder (Prioritet: HÖG)
+1. **Korrigera typningsfel** där `icon`/`Icon` används felaktigt i komponenter
+2. **Standardisera felhanteringen** i teamService.ts
+3. **Lägg till index i databasen** för att förbättra prestanda
+4. **Korrigera den ofullständiga bilduppladdningslogiken** i TeamSettings
+
+### 10.2 Medellånga åtgärder (Prioritet: MEDIUM)
+1. **Refaktorisera TeamMemberList** för att eliminera dubbel implementation
+2. **Dela upp team/index.tsx** i mindre, mer hanterbara komponenter
+3. **Implementera useReducer** för komplex tillståndshantering
+4. **Skapa en dedikerad hook** för teamrelaterade mutationer
+
+### 10.3 Långsiktiga åtgärder (Prioritet: LÅG)
+1. **Utöka databasstrukturen** för att stödja avancerade features som mentions
+2. **Implementera end-to-end tester** för kritiska team-flows
+3. **Skapa en komplett dokumentation** av teammodulen
+4. **Standardisera namngivning och språk** (antingen allt på svenska eller engelska)
+
+---
+
+## 11. SLUTSATS
+
+Teamfunktionaliteten i Pling-appen är omfattande och har en solid grundstruktur, men lider av flera tekniska problem, särskilt vad gäller typhantering, komponentstruktur och databasoptimering. Med de föreslagna förbättringarna kan kodkvaliteten höjas betydligt, vilket leder till bättre underhållbarhet, prestanda och användbarhet.
+
+De mest brådskande problemen att åtgärda är:
+1. Korrigera typproblem där `icon`/`Icon` används felaktigt
+2. Standardisera felhanteringen i teamService
+3. Dela upp den stora team/index.tsx-filen
+
+Med dessa förbättringar kommer teamfunktionaliteten att bli mer robust och framtidssäker. 

@@ -1,0 +1,160 @@
+version: 1.0
+rules:
+  global:
+    naming:
+      components: PascalCase
+      hooks: camelCase
+      utils: camelCase
+    imports:
+      preferred:
+        - react
+        - react-native
+        - expo-router
+      grouping:
+        - type: builtin
+          pattern: "^(react|react-native).*"
+        - type: external
+          pattern: "^@/"
+        - type: relative
+          pattern: "^[./]"
+
+  files:
+    "**/*.tsx":
+      structure:
+        - imports
+        - types
+        - component
+        - styles
+      componentOrder:
+        - state
+        - effects
+        - handlers
+        - render
+
+    "**/*.test.tsx":
+      testing:
+        framework: jest
+        patterns:
+          - describe
+          - it
+          - expect
+
+    "**/hooks/use*.ts":
+      structure:
+        - imports
+        - types
+        - hook function
+        - helper functions
+      hookRules:
+        - "Return consistent objects"
+        - "Handle error states"
+        - "Document parameters and return values"
+
+  structure:
+    directories:
+      components:
+        path: components
+        rules:
+          - "One component per file"
+          - "Include component tests"
+      hooks:
+        path: hooks
+        rules:
+          - "Custom hooks only"
+      utils:
+        path: utils
+        rules:
+          - "Pure functions only"
+      services:
+        path: services
+        rules:
+          - "API integration logic only"
+      context:
+        path: context
+        rules:
+          - "Global state management only"
+      types:
+        path: types
+        rules:
+          - "TypeScript type definitions only"
+      team:
+        path: components/team
+        rules:
+          - "Använd React Query för datahämtning"
+          - "Hantera laddningstillstånd explicit"
+          - "Använd svenska för användargränssnittstext"
+          - "Standardisera felhantering"
+          - "Följ team_tasks.txt för implementationsplan"
+
+  style:
+    indentation: 2
+    quotes: single
+    semicolons: always
+    trailingComma: es5
+    maxLineLength: 80
+    bracketSpacing: true
+
+  documentation:
+    components:
+      required:
+        - description
+        - props
+        - examples
+    functions:
+      required:
+        - description
+        - parameters
+        - return
+    hooks:
+      required:
+        - description
+        - parameters
+        - return values
+        - example usage
+
+  dependencies:
+    recommended:
+      react: "^18.0.0"
+      "react-native": "^0.70.0"
+      "expo": "^48.0.0"
+      "@tanstack/react-query": "^4.0.0"
+      "@supabase/supabase-js": "^2.0.0"
+    forbidden:
+      - moment
+      - lodash
+    alternatives:
+      moment: date-fns
+      lodash: native methods
+    patterns:
+      reactQuery:
+        - "Använd useQuery för datahämtning"
+        - "Använd useMutation för datamodifiering"
+        - "Använd queryClient.invalidateQueries för att uppdatera cache"
+        - "Använd staleTime och cacheTime för att optimera prestanda"
+
+  security:
+    sensitive:
+      patterns:
+        - "API_KEY"
+        - "SECRET"
+      actions:
+        - warn
+        - block
+
+meta:
+  lastUpdated: "2024-05-01"
+  reviewers:
+    - lead-developer
+    - senior-engineer
+  changelog:
+    - date: "2024-05-01"
+      author: "teamdeveloper"
+      changes:
+        - "Lagt till regler för React Query-användning"
+        - "Specificerat team-modulens regler"
+        - "Utökad dokumentation för hooks"
+    - date: "2024-03-21"
+      author: "lead-developer"
+      changes:
+        - "Initial cursor rules setup"
+        - "Integrated with existing project structure" 

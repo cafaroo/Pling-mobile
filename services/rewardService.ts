@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from '@/lib/supabase';
 import { CompetitionReward, CompetitionAchievement, CompetitionNotification } from '@/types/competition';
 
 // Get rewards for a competition

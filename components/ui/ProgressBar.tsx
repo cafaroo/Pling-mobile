@@ -1,54 +1,67 @@
-import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
+import React from 'react';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
-type ProgressBarProps = {
+interface ProgressBarProps {
   progress: number;
-  height?: number;
+  color?: string;
   backgroundColor?: string;
-  progressColor?: string;
-};
+  style?: ViewStyle;
+}
 
-export default function ProgressBar({
+export const ProgressBar: React.FC<ProgressBarProps> = ({
   progress,
-  height = 8,
-  backgroundColor,
-  progressColor,
-}: ProgressBarProps) {
-  const { colors } = useTheme();
-  
-  // Ensure progress is between 0 and 100
-  const clampedProgress = Math.min(Math.max(progress, 0), 100);
-  
+  color = '#2563eb',
+  backgroundColor = '#e2e8f0',
+  style,
+}) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      width: `${Math.min(Math.max(progress, 0), 100)}%`,
+      transform: [
+        {
+          translateX: withSpring(0, {
+            damping: 15,
+            stiffness: 100,
+          }),
+        },
+      ],
+      opacity: withTiming(1, { duration: 300 }),
+    };
+  }, [progress]);
+
   return (
     <View
       style={[
         styles.container,
-        {
-          height,
-          backgroundColor: backgroundColor || 'rgba(255, 255, 255, 0.1)',
-        },
+        { backgroundColor },
+        style,
       ]}
     >
-      <View
+      <Animated.View
         style={[
           styles.progress,
-          {
-            width: `${clampedProgress}%`,
-            backgroundColor: progressColor || colors.accent.yellow,
-          },
+          { backgroundColor: color },
+          animatedStyle,
         ]}
       />
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    borderRadius: 4,
+    height: 4,
+    borderRadius: 2,
     overflow: 'hidden',
+    backgroundColor: '#e2e8f0',
   },
   progress: {
     height: '100%',
+    borderRadius: 2,
   },
 });

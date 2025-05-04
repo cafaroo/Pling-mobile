@@ -107,8 +107,9 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
           title="Laddar team..." 
           showBackButton={!!onBackPress}
           onBackPress={onBackPress}
+          testID="back-button"
         />
-        <View style={styles.loadingContainer}>
+        <View style={styles.loadingContainer} testID="team-loading-skeleton">
           <Skeleton width="80%" height={40} style={styles.skeletonItem} />
           <Skeleton width="60%" height={20} style={styles.skeletonItem} />
           <Skeleton width="90%" height={120} style={styles.skeletonItem} />
@@ -128,6 +129,7 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
           title="Fel" 
           showBackButton={!!onBackPress}
           onBackPress={onBackPress}
+          testID="back-button"
         />
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.error }]}>
@@ -141,6 +143,7 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
             onPress={() => refetch()} 
             variant="primary"
             style={styles.retryButton}
+            testID="retry-button"
           />
         </View>
       </View>
@@ -153,6 +156,7 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
         title={team.name} 
         showBackButton={!!onBackPress}
         onBackPress={onBackPress}
+        testID="back-button"
       />
       
       <View style={styles.tabContainer}>
@@ -165,6 +169,7 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
             }
           ]}
           onPress={() => setActiveTab('members')}
+          testID="members-tab"
         >
           <Text style={[
             styles.tabText, 
@@ -183,6 +188,7 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
             }
           ]}
           onPress={() => setActiveTab('settings')}
+          testID="settings-tab"
         >
           <Text style={[
             styles.tabText, 
@@ -200,39 +206,43 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            colors={[colors.primary.main]}
-            tintColor={colors.primary.main}
           />
         }
+        testID="team-scroll-view"
       >
-        {activeTab === 'members' && (
-          <>
+        {activeTab === 'members' ? (
+          <View testID="team-members">
             {pendingMembers.length > 0 && (
-              <PendingApprovalCard
-                pendingMembers={pendingMembers}
-                onApprove={handleApproveMember}
-                onReject={handleRejectMember}
-                isLoading={approveMutation.isPending || rejectMutation.isPending}
-              />
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
+                  Väntande medlemmar
+                </Text>
+                {pendingMembers.map((member) => (
+                  <PendingApprovalCard
+                    key={member.id}
+                    member={member}
+                    onApprove={() => handleApproveMember(member.user_id)}
+                    onReject={() => handleRejectMember(member.user_id)}
+                    testID={`pending-member-${member.user_id}`}
+                  />
+                ))}
+              </View>
             )}
             
-            <TeamMemberList
-              members={activeMembers}
-              teamId={teamId}
-              onMembersUpdated={() => {
-                queryClient.invalidateQueries({ queryKey: ['team', teamId] });
-              }}
-            />
-          </>
-        )}
-        
-        {activeTab === 'settings' && (
-          <TeamSettings 
-            team={team}
-            onTeamUpdated={() => {
-              queryClient.invalidateQueries({ queryKey: ['team', teamId] });
-            }}
-          />
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
+                Aktiva medlemmar
+              </Text>
+              <TeamMemberList 
+                members={activeMembers}
+                testID="active-members-list"
+              />
+            </View>
+          </View>
+        ) : (
+          <View testID="team-settings">
+            <TeamSettings team={team} />
+          </View>
         )}
       </ScrollView>
     </View>

@@ -7,6 +7,8 @@ export default function UserTypes() {
 
 import { Team } from './team';
 
+export type UserRole = 'owner' | 'admin' | 'member';
+
 export type User = {
   id: string;
   email?: string;
@@ -15,4 +17,5 @@ export type User = {
   avatar_url: string | null;
   created_at: string;
   teams?: Team[];
+  role?: UserRole;
 }; 

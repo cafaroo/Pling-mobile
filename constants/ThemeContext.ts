@@ -26,6 +26,11 @@ export interface Theme {
     neutral: {
       [key: number]: string;
     };
+    secondary: {
+      main: string;
+      dark: string;
+      light: string;
+    };
   };
 }
 
@@ -62,6 +67,11 @@ export const defaultTheme: Theme = {
       700: '#374151',
       800: '#1F2937',
       900: '#111827',
+    },
+    secondary: {
+      main: '#FACC15',
+      dark: '#D4A015',
+      light: '#FFE066',
     },
   },
 };

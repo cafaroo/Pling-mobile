@@ -5,6 +5,16 @@ import { Profile } from '@/types/profile';
 import { TeamServiceResponse } from '@/types/service';
 import { Database } from '@/lib/database.types';
 import { nanoid } from 'nanoid';
+import { ServiceResponse } from '@/types/service';
+
+function generateAlphaNumericCode(length = 6) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
 
 /**
  * Standardiserad felhantering för teamService
@@ -36,35 +46,58 @@ const defaultTeamSettings: TeamSettings = {
   },
 };
 
+export interface CreateTeamParams {
+  name: string;
+  description?: string;
+}
+
 /**
  * Skapar ett nytt team
  * @param data Information om teamet som ska skapas
  * @returns Team-objekt om framgångsrikt, annars ett fel
  */
-export const createTeam = async (data: {
-  name: string;
-  description?: string;
-  organization_id?: string;
-  settings?: Partial<TeamSettings>;
-}): Promise<TeamServiceResponse<Team>> => {
+const createTeam = async ({ name, description }: CreateTeamParams): Promise<ServiceResponse<Team>> => {
   try {
-    const { data: team, error } = await supabase
+    // Hämta användarens ID från den aktiva sessionen
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    if (!user) throw new Error('Ingen användare inloggad');
+
+    // Använd den säkra RPC-funktionen för att skapa team
+    const { data: teamId, error: createTeamError } = await supabase.rpc(
+      'create_team_secure',
+      {
+        name,
+        description: description || null,
+        user_id: user.id,
+        settings: defaultTeamSettings
+      }
+    );
+
+    if (createTeamError) throw createTeamError;
+
+    // Hämta det skapade teamet
+    const { data: team, error: getTeamError } = await supabase
       .from('teams')
-      .insert({
-        name: data.name,
-        description: data.description,
-        organization_id: data.organization_id,
-        settings: { ...defaultTeamSettings, ...data.settings },
-        status: 'active',
-        max_members: data.settings?.maxMembers || 50,
-      })
-      .select()
+      .select('*')
+      .eq('id', teamId)
       .single();
 
-    if (error) throw error;
-    return { success: true, data: team };
+    if (getTeamError) throw getTeamError;
+
+    return {
+      success: true,
+      data: team
+    };
   } catch (error) {
-    return handleError(error, 'createTeam');
+    console.error('Error in createTeam:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Kunde inte skapa team',
+        details: error
+      }
+    };
   }
 };
 
@@ -303,7 +336,18 @@ const createTeamInviteCode = async (
     }
 
     // Generera en unik kod
-    const inviteCode = nanoid(10);
+    let inviteCode;
+    let exists = true;
+    do {
+      inviteCode = generateAlphaNumericCode(6);
+      const { data } = await supabase
+        .from('team_invite_codes')
+        .select('id')
+        .eq('code', inviteCode)
+        .maybeSingle();
+      exists = !!data;
+    } while (exists);
+
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // Koden är giltig i 7 dagar
 
@@ -340,48 +384,21 @@ const createTeamInviteCode = async (
  * Låter en användare gå med i ett team med hjälp av en inbjudningskod
  * 
  * @param code - Inbjudningskoden för teamet
- * @param userId - ID för användaren som ska gå med i teamet
  * @returns Det skapade TeamMember-objektet om framgångsrikt, annars ett fel
  */
-export const joinTeamWithCode = async (
-  code: string,
-  userId: string
-): Promise<TeamMember> => {
+export const joinTeamWithCode = async (code: string): Promise<{ success: boolean; message: string; team_id?: string; team_name?: string }> => {
   try {
-    // Verify the code
-    const { data: inviteCode, error: inviteError } = await supabase
-      .from('team_invite_codes')
-      .select('team_id, expires_at')
-      .eq('code', code)
-      .single();
-    
-    if (inviteError || !inviteCode) throw new Error('Invalid invite code');
-    
-    // Check if the code has expired
-    if (new Date(inviteCode.expires_at) < new Date()) {
-      throw new Error('Invite code has expired');
+    const { data, error } = await supabase.rpc('join_team_with_code', { invite_code: code.toUpperCase() });
+    if (error) throw error;
+    if (!data || !data.success) {
+      throw new Error(data?.message || 'Kunde inte gå med i team');
     }
-    
-    // Check if user is already a member
-    const { data: existingMember, error: memberError } = await supabase
-      .from('team_members')
-      .select('id')
-      .eq('team_id', inviteCode.team_id)
-      .eq('user_id', userId)
-      .single();
-    
-    if (existingMember) throw new Error('User is already a member of this team');
-    
-    // Add the user to the team
-    return await addTeamMember(
-      inviteCode.team_id,
-      userId,
-      'member',
-      'active' // Auto-approve when using invite code
-    );
-  } catch (error) {
-    throw handleError(error, 'joinTeamWithCode');
+    return data;
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Kunde inte gå med i team' };
   }
+  // Fallback om något oväntat händer
+  return { success: false, message: 'Kunde inte gå med i team (okänt fel)' };
 };
 
 /**
@@ -524,86 +541,68 @@ export const removeTeamProfileImage = async (teamId: string): Promise<Team> => {
  */
 export const getUserTeams = async (userId: string): Promise<TeamServiceResponse<Team[]>> => {
   try {
-    type TeamMemberWithTeam = Database['public']['Tables']['team_members']['Row'] & {
-      team: Database['public']['Tables']['teams']['Row']
-    };
+    console.log('Anropar getUserTeams för userId:', userId);
+    
+    // Först hämtar vi användarens aktiva team_members
+    const { data: teamMembers, error: membersError } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', userId)
+      .eq('status', 'active');
 
-    const { data: teamMembers, error } = await supabase
+    if (membersError) {
+      console.error('Error fetching team members:', membersError);
+      throw membersError;
+    }
+
+    if (!teamMembers || teamMembers.length === 0) {
+      console.log('No teams found for user');
+      return { success: true, data: [] };
+    }
+
+    const teamIds = teamMembers.map(tm => tm.team_id);
+    console.log('Found team IDs:', teamIds);
+
+    // Sedan hämtar vi team-information för dessa team
+    const { data: teams, error: teamsError } = await supabase
+      .from('teams')
+      .select('*')
+      .in('id', teamIds);
+
+    if (teamsError) {
+      console.error('Error fetching teams:', teamsError);
+      throw teamsError;
+    }
+
+    // Slutligen hämtar vi alla medlemmar för dessa team
+    const { data: allMembers, error: allMembersError } = await supabase
       .from('team_members')
       .select(`
-        team:teams (
+        *,
+        user:profiles (
           id,
+          email,
           name,
-          description,
-          organization_id,
-          created_by,
-          created_at,
-          updated_at,
-          status,
-          max_members,
-          profile_image,
-          settings
-        ),
-        id,
-        team_id,
-        user_id,
-        role,
-        status,
-        created_at,
-        updated_at
+          avatar_url
+        )
       `)
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .returns<TeamMemberWithTeam[]>();
+      .in('team_id', teamIds);
 
-    if (error) throw error;
+    if (allMembersError) {
+      console.error('Error fetching all members:', allMembersError);
+      throw allMembersError;
+    }
 
-    if (!teamMembers) return { success: true, data: [] };
+    // Kombinera data
+    const fullTeams = teams.map(team => ({
+      ...team,
+      team_members: allMembers?.filter(member => member.team_id === team.id) || []
+    }));
 
-    // Hämta alla team_members för varje team
-    const teams = await Promise.all(
-      teamMembers.map(async (member) => {
-        const { data: teamMembers, error: membersError } = await supabase
-          .from('team_members')
-          .select(`
-            id,
-            team_id,
-            user_id,
-            role,
-            status,
-            created_at,
-            updated_at,
-            user:profiles (
-              email,
-              name,
-              avatar_url
-            )
-          `)
-          .eq('team_id', member.team.id);
-
-        if (membersError) throw membersError;
-
-        const team: Team = {
-          id: member.team.id,
-          name: member.team.name,
-          description: member.team.description,
-          organization_id: member.team.organization_id,
-          created_by: member.team.created_by,
-          created_at: member.team.created_at,
-          updated_at: member.team.updated_at,
-          status: member.team.status,
-          max_members: member.team.max_members,
-          profile_image: member.team.profile_image,
-          settings: member.team.settings,
-          team_members: teamMembers || []
-        };
-
-        return team;
-      })
-    );
-
-    return { success: true, data: teams };
+    console.log('Successfully processed teams:', fullTeams.length);
+    return { success: true, data: fullTeams };
   } catch (error) {
+    console.error('Error in getUserTeams:', error);
     return handleError(error, 'getUserTeams');
   }
 };

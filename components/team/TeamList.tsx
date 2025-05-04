@@ -67,6 +67,7 @@ export const TeamList: React.FC<TeamListProps> = ({
         variant={cardVariant}
         showMemberCount={true}
         showPrivacy={true}
+        testID={`team-card-${item.id}`}
       />
     );
   };
@@ -74,7 +75,7 @@ export const TeamList: React.FC<TeamListProps> = ({
   // Om det inte finns några team och listan inte håller på att laddas, visa en tom lista
   if (teams.length === 0 && !isLoading) {
     return (
-      <View style={styles.emptyContainer}>
+      <View style={styles.emptyContainer} testID="empty-state">
         <UserGroup size={48} color={colors.text.light} />
         <Text style={[styles.emptyText, { color: colors.text.main }]}>
           Inga team hittades
@@ -92,7 +93,11 @@ export const TeamList: React.FC<TeamListProps> = ({
     
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary.main} />
+        <ActivityIndicator 
+          size="large" 
+          color={colors.primary.main}
+          testID="loading-indicator"
+        />
       </View>
     );
   };
@@ -121,6 +126,7 @@ export const TeamList: React.FC<TeamListProps> = ({
       ListHeaderComponent={renderListHeader}
       ListFooterComponent={renderLoading}
       showsVerticalScrollIndicator={false}
+      testID="team-list"
     />
   );
 };

@@ -4,11 +4,11 @@ import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
 import { Team, TeamRole } from '@/types/team';
 import { Users, Settings, UserPlus, Bell, Shield, MessageCircle } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 interface TeamDashboardProps {
   team: Team;
   userRole: TeamRole;
-  onManageMembers?: () => void;
   onManageSettings?: () => void;
   onManageInvites?: () => void;
   onManageNotifications?: () => void;
@@ -18,14 +18,21 @@ interface TeamDashboardProps {
 export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   team,
   userRole,
-  onManageMembers,
   onManageSettings,
   onManageInvites,
   onManageNotifications,
   onManageChat,
 }) => {
   const { colors } = useTheme();
+  const router = useRouter();
   const isOwnerOrAdmin = userRole === 'owner' || userRole === 'admin';
+
+  // Beräkna antalet aktiva medlemmar
+  const activeMembers = team.team_members?.filter(member => member.status === 'active').length || 0;
+
+  const handleManageMembers = () => {
+    router.push(`/team/members?teamId=${team.id}`);
+  };
 
   const renderCard = (
     icon: React.ReactElement,
@@ -67,8 +74,8 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
       {renderCard(
         <Users />,
         'Medlemmar',
-        `${team.members?.length || 0} aktiva medlemmar`,
-        onManageMembers
+        `${activeMembers} ${activeMembers === 1 ? 'aktiv medlem' : 'aktiva medlemmar'}`,
+        handleManageMembers
       )}
 
       {/* Chatkort */}

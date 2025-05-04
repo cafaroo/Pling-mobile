@@ -242,18 +242,21 @@ export const TeamCard: React.FC<TeamCardProps> = ({
     }
   };
   
-  return (
-    <TouchableOpacity 
+  // Renderar innehållet i en TouchableOpacity
+  const renderWithTouchable = (content: React.ReactNode) => (
+    <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.7}
+      testID={`team-card-${team.id}`}
       style={[
         styles.touchable,
         isSelected && { backgroundColor: colors.background.selected }
       ]}
     >
-      {renderContent()}
+      {content}
     </TouchableOpacity>
   );
+  
+  return renderWithTouchable(renderContent());
 };
 
 const styles = StyleSheet.create({

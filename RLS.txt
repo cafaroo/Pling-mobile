@@ -1,0 +1,189 @@
+# RLS Audit: Rekursion i team_members
+
+## 1. Problemet
+
+API-anropet `/rest/v1/team_members?select=team_id&user_id=eq.15c1fa8b-509e-4a9c-beaa-7e27e3ebddd3&status=eq.active` 
+resulterar i felmeddelandet:
+
+```
+code: "42P17"
+message: 'infinite recursion detected in policy for relation "team_members"'
+```
+
+Detta indikerar ett RLS-policyvillkor som orsakar rekursion vid åtkomst av team_members-tabellen.
+
+## 2. Aktuella RLS-policyer på team_members
+
+```sql
+SELECT policyname, cmd, qual, with_check
+FROM pg_policies 
+WHERE tablename = 'team_members';
+```
+
+Aktuella policyer:
+1. "Team admins can manage members direct" (ALL)
+2. "Team members can see other members in same team direct" (SELECT)
+3. "Users can add themselves to teams direct" (INSERT)
+4. "Users can read their own memberships direct" (SELECT)
+
+## 3. Potentiella rekursionskällor
+
+### 3.1 Möjliga rekursionspunkter
+
+1. Policy "Team members can see other members in same team direct" använder:
+   ```sql
+   EXISTS (
+     SELECT 1
+     FROM get_user_teams_direct() ut
+     WHERE ut.team_id = team_members.team_id
+   )
+   ```
+
+2. Policy "Team admins can manage members direct" använder:
+   ```sql
+   EXISTS (
+     SELECT 1
+     FROM team_members tm
+     WHERE tm.team_id = team_members.team_id
+     AND tm.user_id = auth.uid()
+     AND tm.role IN ('admin', 'owner')
+     AND tm.status = 'active'
+   )
+   ```
+   Detta kan orsaka rekursion eftersom den hänvisar till team_members-tabellen igen.
+
+### 3.2 Beroendefunktioner
+
+```sql
+SELECT pg_get_functiondef(oid) 
+FROM pg_proc 
+WHERE proname IN ('get_user_teams_direct', 'has_team_role', 'get_user_team_ids', 'api_get_team_members');
+```
+
+## 4. Problembeskrivning
+
+Huvudfelet är troligen i policyn "Team admins can manage members direct" som innehåller en direkt referens till team_members-tabellen, vilket skapar en rekursiv loop när policyerna utvärderas:
+
+1. När en användare försöker komma åt team_members
+2. RLS-policyn "Team admins can manage members direct" aktiveras
+3. Den försöker fråga team_members inifrån policyvillkoret
+4. Detta utlöser RLS på team_members igen
+5. Som i sin tur försöker köra samma policy igen
+6. Vilket resulterar i oändlig rekursion
+
+## 5. Föreslagen lösning
+
+### 5.1 Direktåtkomst med SECURITY DEFINER-funktioner
+
+Skapa en radikal lösning genom att:
+
+1. Skapa en helt ny, säker API-endpoint (SECURITY DEFINER-funktion) för att hämta teammedlemmar
+2. Uppdatera klienten för att använda denna API istället för direkta tabellåtkomst
+3. Alternativt: Implementera en RLS-bypass mekanism
+
+### 5.2 För att åtgärda de befintliga policyerna
+
+```sql
+-- Skapa en ny vy som ger säker, direkt åtkomst till relationer utan RLS
+CREATE OR REPLACE VIEW team_members_direct AS
+SELECT * FROM team_members;
+
+ALTER VIEW team_members_direct OWNER TO postgres;
+GRANT SELECT ON team_members_direct TO postgres;
+
+-- Uppdatera den problematiska policyn
+CREATE OR REPLACE POLICY "Team admins can manage members direct"
+ON team_members
+FOR ALL 
+TO authenticated
+USING (
+  EXISTS (
+    -- Använd en SECURITY DEFINER-funktion istället för direkt åtkomst
+    SELECT 1 FROM check_team_admin(team_members.team_id)
+  )
+);
+
+-- Skapa hjälpfunktion med SECURITY DEFINER
+CREATE OR REPLACE FUNCTION check_team_admin(team_id_param uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  -- Direktåtkomst till tabellen utan att gå via RLS
+  SELECT EXISTS (
+    SELECT 1
+    FROM team_members_direct tm 
+    WHERE tm.team_id = team_id_param
+    AND tm.user_id = auth.uid()
+    AND tm.role IN ('admin', 'owner')
+    AND tm.status = 'active'
+  );
+$$;
+```
+
+## 6. Alternativ lösning via API-funktion
+
+En alternativ lösning är att skapa en dedikerad API-funktion för användarfallet:
+
+```sql
+-- Skapa en ny SECURITY DEFINER-funktion för det vanligaste användarfallet
+CREATE OR REPLACE FUNCTION get_user_team_memberships(user_id_param uuid, status_param text DEFAULT 'active')
+RETURNS TABLE (
+  team_id uuid,
+  user_id uuid,
+  role team_member_role,
+  status team_member_status
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT
+    tm.team_id,
+    tm.user_id,
+    tm.role,
+    tm.status
+  FROM team_members tm
+  WHERE tm.user_id = user_id_param
+  AND (status_param IS NULL OR tm.status = status_param::team_member_status);
+$$;
+
+-- Exporter funktionen via REST API
+GRANT EXECUTE ON FUNCTION get_user_team_memberships(uuid, text) TO authenticated;
+```
+
+Uppdatera klientkoden för att använda:
+```javascript
+// Istället för detta:
+supabase
+  .from('team_members')
+  .select('team_id')
+  .eq('user_id', userId)
+  .eq('status', 'active')
+
+// Använd detta:
+supabase
+  .rpc('get_user_team_memberships', { 
+    user_id_param: userId, 
+    status_param: 'active' 
+  })
+```
+
+## 7. Övrig RLS-policy audit
+
+Andra tabeller som kan vara påverkade av RLS-rekursionsproblem:
+- teams
+- team_messages
+- team_invite_codes
+
+Kontrollera för liknande rekursionsmönster i dessa tabeller.
+
+## 8. Slutsats
+
+Det grundläggande problemet kvarstår trots tidigare fixförsök. RLS-policyn "Team admins can manage members direct" använder fortfarande en direkt referens till team_members-tabellen, vilket skapar en rekursiv loop.
+
+Rekommenderad åtgärd:
+1. Implementera den nya API-funktionen get_user_team_memberships()
+2. Uppdatera klientkoden för att använda denna nya funktion
+3. Om klientkoden inte kan ändras, åtgärda RLS-policyerna för att förhindra rekursion genom att använda vyer eller SECURITY DEFINER-funktioner som helt kringgår RLS-lagret 

@@ -1,25 +1,27 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Header } from '@/components/ui/Header';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
+import { useTeamMutations } from '@/hooks/useTeamMutations';
+import Container from '@/components/ui/Container';
+import Header from '@/components/ui/Header';
+import TextInput from '@/components/ui/TextInput';
+import { Button } from '@/components/ui/Button';
 import { ToastService } from '@/components/ui/Toast';
-import { supabase } from '@/lib/supabase';
 
 export default function CreateTeamScreen() {
-  const router = useRouter();
   const { colors } = useTheme();
+  const router = useRouter();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { createTeam } = useTeamMutations();
 
-  const handleCreateTeam = async () => {
+  const handleSubmit = async () => {
     if (!name.trim()) {
       ToastService.show({
-        title: 'Teamnamn krävs',
+        title: 'Fel',
+        description: 'Du måste ange ett namn för teamet',
         type: 'error'
       });
       return;
@@ -27,38 +29,23 @@ export default function CreateTeamScreen() {
 
     setIsLoading(true);
     try {
-      const { data: team, error: createTeamError } = await supabase
-        .from('teams')
-        .insert({
-          name: name.trim(),
-          description: description.trim() || null
-        })
-        .select()
-        .single();
-
-      if (createTeamError) throw createTeamError;
-
-      if (!team?.id) throw new Error('Kunde inte skapa team');
-
-      const { error: createMemberError } = await supabase
-        .from('team_members')
-        .insert({
-          team_id: team.id,
-          role: 'owner'
-        });
-
-      if (createMemberError) throw createMemberError;
+      await createTeam.mutateAsync({
+        name: name.trim(),
+        description: description.trim() || undefined
+      });
 
       ToastService.show({
         title: 'Team skapat!',
+        description: 'Ditt nya team har skapats',
         type: 'success'
       });
-      
-      router.replace('/team');
+
+      router.back();
     } catch (error) {
-      console.error('Error creating team:', error);
+      console.error('Fel vid skapande av team:', error);
       ToastService.show({
         title: 'Kunde inte skapa team',
+        description: 'Ett fel uppstod. Försök igen senare.',
         type: 'error'
       });
     } finally {
@@ -67,51 +54,55 @@ export default function CreateTeamScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Header
+    <Container>
+      <Header 
         title="Skapa nytt team"
-        leftIcon={ArrowLeft}
-        onLeftPress={() => router.back()}
+        showBackButton
+        onBackPress={() => router.back()}
       />
+
       <View style={styles.content}>
-        <Input
+        <TextInput
           label="Teamnamn"
           value={name}
           onChangeText={setName}
           placeholder="Ange teamets namn"
+          autoFocus
           style={styles.input}
         />
-        <Input
+
+        <TextInput
           label="Beskrivning (valfritt)"
           value={description}
           onChangeText={setDescription}
           placeholder="Beskriv teamets syfte"
           multiline
-          numberOfLines={4}
+          numberOfLines={3}
           style={styles.input}
         />
+
         <Button
-          onPress={handleCreateTeam}
+          title="Skapa team"
+          onPress={handleSubmit}
           loading={isLoading}
-          disabled={isLoading}
-        >
-          Skapa team
-        </Button>
+          disabled={isLoading || !name.trim()}
+          variant="primary"
+          size="large"
+          style={styles.button}
+        />
       </View>
-    </View>
+    </Container>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000'
-  },
   content: {
-    flex: 1,
-    padding: 20
+    padding: 20,
   },
   input: {
-    marginBottom: 16
-  }
+    marginBottom: 16,
+  },
+  button: {
+    marginTop: 24,
+  },
 }); 

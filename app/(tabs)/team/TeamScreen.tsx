@@ -37,7 +37,7 @@ export default function TeamScreen() {
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
   const [inviteCode, setInviteCode] = useState<string>('');
   const [userRole, setUserRole] = useState<TeamRole>();
-
+  
   // Använd React Query för att hämta team-data
   const {
     data: teamsData = [],
@@ -48,6 +48,13 @@ export default function TeamScreen() {
 
   // Säkerställ att teams är en array
   const teamsArray = Array.isArray(teamsData) ? teamsData : [];
+
+  // Kontrollera om användaren är owner i något team
+  const isTeamOwner = teamsArray.some(team => 
+    team.team_members?.some(member => 
+      member.user_id === user?.id && member.role === 'owner'
+    )
+  );
 
   // Sätt initialt team när data laddas
   useEffect(() => {
@@ -254,7 +261,7 @@ export default function TeamScreen() {
             teams={teamsArray}
             selectedTeam={selectedTeamData || null}
             onTeamSelect={handleTeamSelect}
-            userRole={userRole}
+            userRole={isTeamOwner ? 'owner' : userRole}
             style={styles.header}
           />
 

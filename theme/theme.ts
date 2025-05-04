@@ -23,6 +23,11 @@ export const theme = {
     },
     success: '#10B981',
     error: '#EF4444',
+    secondary: {
+      main: '#FACC15',
+      dark: '#D4A015',
+      light: '#FFE066',
+    },
   },
   spacing: {
     xs: 4,

@@ -31,6 +31,11 @@ interface ThemeColors {
   neutral: {
     [key: number]: string;
   };
+  secondary: {
+    main: string;
+    dark: string;
+    light: string;
+  };
 }
 
 interface ThemeContextType {
@@ -75,6 +80,11 @@ const defaultTheme: ThemeColors = {
     700: '#374151',
     800: '#1F2937',
     900: '#111827',
+  },
+  secondary: {
+    main: '#FACC15', // Accent yellow
+    dark: '#D4A015',
+    light: '#FFE066',
   },
 };
 

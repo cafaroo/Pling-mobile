@@ -1,13 +1,14 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import React, { useMemo, useCallback } from 'react';
+import { View, StyleSheet, FlatList, Animated } from 'react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TeamMember, TeamRole } from '@/types/team';
-import { teamService } from '@/services/teamService';
+import * as teamService from '@/services/teamService';
 import { useTheme } from '@/context/ThemeContext';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { MemberItem } from './MemberItem';
 import { useTeamMutations } from '@/hooks/useTeamMutations';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Basinterface för gemensamma props
 interface TeamMemberListBaseProps {
@@ -19,28 +20,22 @@ interface TeamMemberListBaseProps {
   onMemberSelect?: (member: TeamMember) => void;
 }
 
-// Interface för användning med React Query
-interface TeamMemberListQueryProps extends TeamMemberListBaseProps {
-  teamId: string;
-  members?: never; // Förhindra användning av både teamId och members
-  onRemoveMember?: never;
-  onPromoteMember?: never;
-}
-
-// Interface för manuell hantering av medlemmar
-interface TeamMemberListManualProps extends TeamMemberListBaseProps {
-  teamId?: never; // Förhindrar användning av både teamId och members
+// Interface för direkt medlemslista
+interface DirectMemberListProps extends TeamMemberListBaseProps {
   members: TeamMember[];
-  onRemoveMember?: (userId: string) => void;
-  onPromoteMember?: (userId: string, newRole: TeamRole) => void;
 }
 
-// Diskriminerande union-typ
-type TeamMemberListProps = TeamMemberListQueryProps | TeamMemberListManualProps;
+// Interface för query-baserad medlemslista
+interface QueryMemberListProps extends TeamMemberListBaseProps {
+  teamId: string;
+}
 
-// Typvakter för att verifiera vilken sorts props vi har
-const isQueryMode = (props: TeamMemberListProps): props is TeamMemberListQueryProps => {
-  return !!props.teamId;
+// Union type för alla möjliga props
+type TeamMemberListProps = DirectMemberListProps | QueryMemberListProps;
+
+// Type guard för att skilja mellan prop-typer
+const isQueryMode = (props: TeamMemberListProps): props is QueryMemberListProps => {
+  return 'teamId' in props;
 };
 
 export const TeamMemberList = (props: TeamMemberListProps) => {
@@ -53,12 +48,22 @@ export const TeamMemberList = (props: TeamMemberListProps) => {
   } = props;
   
   const { colors } = useTheme();
+  const queryClient = useQueryClient();
   const { updateMemberRole, removeMember, updateMemberStatus } = useTeamMutations();
 
   // Använd React Query när vi har teamId
-  const { data: queryMembers, isLoading: queryLoading } = useQuery({
+  const { data: queryMembers, isLoading: queryLoading, error: queryError } = useQuery({
     queryKey: ['team-members', isQueryMode(props) ? props.teamId : null],
-    queryFn: () => isQueryMode(props) ? teamService.getTeamMembers(props.teamId) : null,
+    queryFn: async () => {
+      if (!isQueryMode(props)) return null;
+      try {
+        const members = await teamService.getTeamMembers(props.teamId);
+        return members;
+      } catch (error) {
+        console.error('Fel vid hämtning av medlemmar:', error);
+        throw error;
+      }
+    },
     enabled: isQueryMode(props),
   });
 
@@ -66,101 +71,219 @@ export const TeamMemberList = (props: TeamMemberListProps) => {
   const members = isQueryMode(props) ? queryMembers : props.members;
   const isLoading = props.isLoading || (isQueryMode(props) && queryLoading);
 
-  // Hanterare för händelser
-  const handleRoleChange = async (memberId: string, newRole: TeamRole) => {
-    if (!isQueryMode(props) && props.onPromoteMember) {
-      // Använd callback från props om den finns
-      props.onPromoteMember(memberId, newRole);
-    } else {
-      // Annars använd hook
-      await updateMemberRole.mutate({ memberId, newRole });
+  // Optimistisk uppdatering för rollförändring
+  const handleRoleChange = useCallback(async (memberId: string, newRole: TeamRole) => {
+    if (isQueryMode(props)) {
+      const previousMembers = queryClient.getQueryData(['team-members', props.teamId]);
+      
+      // Optimistiskt uppdatera UI
+      queryClient.setQueryData(['team-members', props.teamId], (old: any) => {
+        if (!old) return old;
+        return old.map((member: TeamMember) =>
+          member.id === memberId ? { ...member, role: newRole } : member
+        );
+      });
+
+      try {
+        await updateMemberRole.mutateAsync({ memberId, newRole });
+      } catch (error) {
+        // Vid fel, återställ till tidigare data
+        queryClient.setQueryData(['team-members', props.teamId], previousMembers);
+        throw error;
+      }
     }
-  };
+  }, [props, queryClient, updateMemberRole]);
 
-  const handleRemove = async (memberId: string) => {
-    if (!isQueryMode(props) && props.onRemoveMember) {
-      // Använd callback från props om den finns
-      props.onRemoveMember(memberId);
-    } else {
-      // Annars använd hook
-      await removeMember.mutate(memberId);
+  // Optimistisk uppdatering för borttagning
+  const handleRemove = useCallback(async (memberId: string) => {
+    if (isQueryMode(props)) {
+      const previousMembers = queryClient.getQueryData(['team-members', props.teamId]);
+      
+      // Optimistiskt uppdatera UI
+      queryClient.setQueryData(['team-members', props.teamId], (old: any) => {
+        if (!old) return old;
+        return old.filter((member: TeamMember) => member.id !== memberId);
+      });
+
+      try {
+        await removeMember.mutateAsync({ memberId });
+      } catch (error) {
+        // Vid fel, återställ till tidigare data
+        queryClient.setQueryData(['team-members', props.teamId], previousMembers);
+        throw error;
+      }
     }
-  };
+  }, [props, queryClient, removeMember]);
 
-  const handleStatusChange = async (memberId: string, newStatus: TeamMember['status']) => {
-    await updateMemberStatus.mutate({ memberId, newStatus });
-  };
+  // Optimistisk uppdatering för statusförändring
+  const handleStatusChange = useCallback(async (memberId: string, newStatus: TeamMember['status']) => {
+    if (isQueryMode(props)) {
+      const previousMembers = queryClient.getQueryData(['team-members', props.teamId]);
+      
+      // Optimistiskt uppdatera UI
+      queryClient.setQueryData(['team-members', props.teamId], (old: any) => {
+        if (!old) return old;
+        return old.map((member: TeamMember) =>
+          member.id === memberId ? { ...member, status: newStatus } : member
+        );
+      });
 
-  // Memoizera renderItem för att undvika onödiga renders
-  const renderItem = useMemo(() => ({ item }: { item: TeamMember }) => (
-    <MemberItem
-      member={item}
-      currentUserRole={currentUserRole}
-      onChangeRole={handleRoleChange}
-      onRemove={handleRemove}
-      onStatusChange={handleStatusChange}
-      onSelect={onMemberSelect}
-      variant={variant}
-      showRoleBadge={showRoleBadges}
-      showStatusBadge={showStatusBadges}
+      try {
+        await updateMemberStatus.mutateAsync({ memberId, newStatus });
+      } catch (error) {
+        // Vid fel, återställ till tidigare data
+        queryClient.setQueryData(['team-members', props.teamId], previousMembers);
+        throw error;
+      }
+    }
+  }, [props, queryClient, updateMemberStatus]);
+
+  const renderItem = useCallback(({ item, index }: { item: TeamMember; index: number }) => {
+    const animationDelay = index * 50; // Snabbare staggered animation
+
+    return (
+      <Animated.View
+        style={{
+          opacity: 1,
+          transform: [{
+            translateY: 0
+          }],
+        }}
+      >
+        <MemberItem
+          member={item}
+          currentUserRole={currentUserRole}
+          onChangeRole={handleRoleChange}
+          onRemove={handleRemove}
+          onStatusChange={handleStatusChange}
+          onSelect={onMemberSelect}
+          variant={variant}
+          showRoleBadge={showRoleBadges}
+          showStatusBadge={showStatusBadges}
+          showActions={true}
+          isCurrentUser={false}
+        />
+      </Animated.View>
+    );
+  }, [
+    currentUserRole,
+    variant,
+    showRoleBadges,
+    showStatusBadges,
+    onMemberSelect,
+    handleRoleChange,
+    handleRemove,
+    handleStatusChange
+  ]);
+
+  const keyExtractor = useCallback((item: TeamMember) => item.id || item.user_id, []);
+
+  const ItemSeparator = useCallback(() => (
+    <View style={[styles.separator, { backgroundColor: colors.border.subtle }]} />
+  ), [colors.border.subtle]);
+
+  const ListEmptyComponent = useCallback(() => (
+    <EmptyState
+      icon="users"
+      title="Inga medlemmar"
+      description="Det finns inga medlemmar i teamet än."
+      iconColor={colors.primary.main}
     />
-  ), [currentUserRole, variant, showRoleBadges, showStatusBadges, onMemberSelect, handleRoleChange, handleRemove, handleStatusChange]);
+  ), [colors.primary.main]);
 
-  // Memoizera separator för att förhindra onödiga omrenderingar
-  const ItemSeparator = useMemo(() => () => (
-    <View style={[styles.separator, { backgroundColor: colors.border.light }]} />
-  ), [colors.border.light]);
+  const ListHeaderComponent = useCallback(() => (
+    <View style={[styles.header, { borderBottomColor: colors.border.subtle }]} />
+  ), [colors.border.subtle]);
 
-  // Beräkna estimerad item höjd baserat på variant
-  const getItemHeight = () => {
-    switch (variant) {
-      case 'compact':
-        return 64; // Kompakt layouthöjd
-      case 'detailed':
-        return 100; // Detaljerad layouthöjd
-      default:
-        return 76; // Standardhöjd
-    }
-  };
+  const ListFooterComponent = useCallback(() => (
+    <View style={[styles.footer, { borderTopColor: colors.border.subtle }]} />
+  ), [colors.border.subtle]);
 
   if (isLoading) {
-    return <LoadingState />;
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[colors.background.dark, colors.background.main]}
+          style={StyleSheet.absoluteFill}
+        />
+        <LoadingState message="Hämtar teammedlemmar..." />
+      </View>
+    );
   }
 
-  if (!members || !members.length) {
+  if (queryError) {
     return (
-      <EmptyState
-        icon="users"
-        title="Inga medlemmar"
-        description="Det finns inga medlemmar i teamet än."
-      />
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[colors.background.dark, colors.background.main]}
+          style={StyleSheet.absoluteFill}
+        />
+        <EmptyState
+          icon="alert-circle"
+          title="Något gick fel"
+          description="Kunde inte hämta teammedlemmar. Försök igen senare."
+          iconColor={colors.error}
+          action={{
+            label: 'Försök igen',
+            onPress: () => queryClient.invalidateQueries(['team-members', isQueryMode(props) ? props.teamId : null]),
+          }}
+        />
+      </View>
     );
   }
 
   return (
-    <FlatList
-      data={members}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.id || item.user_id}
-      ItemSeparatorComponent={ItemSeparator}
-      contentContainerStyle={styles.list}
-      extraData={[currentUserRole, variant, showRoleBadges, showStatusBadges]}
-      // Optimeringar för prestanda
-      removeClippedSubviews={true} // Ta bort element utanför viewport
-      windowSize={5} // Antal skärmar att behålla renderade
-      initialNumToRender={10} // Antal objekt att rendera initialt
-      maxToRenderPerBatch={10} // Max antal att rendera per batch
-      updateCellsBatchingPeriod={50} // Tid i ms mellan ui-uppdateringar
-    />
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[colors.background.dark, colors.background.main]}
+        style={StyleSheet.absoluteFill}
+      />
+      <FlatList
+        data={members}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        ItemSeparatorComponent={ItemSeparator}
+        ListEmptyComponent={ListEmptyComponent}
+        ListHeaderComponent={ListHeaderComponent}
+        ListFooterComponent={ListFooterComponent}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        windowSize={5}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        decelerationRate="normal"
+        scrollEventThrottle={16}
+        onRefresh={() => queryClient.invalidateQueries(['team-members', isQueryMode(props) ? props.teamId : null])}
+        refreshing={isLoading}
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+        }}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   list: {
     paddingVertical: 8,
   },
   separator: {
-    height: 1,
-    marginVertical: 2,
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 4,
+    opacity: 0.1,
+  },
+  header: {
+    height: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  footer: {
+    height: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 }); 

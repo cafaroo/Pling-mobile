@@ -22,7 +22,11 @@ export default function TabLayout() {
           backgroundColor: 'transparent',
         },
         tabBarBackground: () => (
-          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView 
+            intensity={80} 
+            tint="dark" 
+            style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]} 
+          />
         ),
         tabBarActiveTintColor: colors.accent.yellow,
         tabBarInactiveTintColor: colors.neutral[300],

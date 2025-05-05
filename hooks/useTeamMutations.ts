@@ -146,10 +146,16 @@ export const useTeamMutations = (): TeamMutations => {
 
   // Uppdatera medlemsroll
   const updateMemberRole = useMutation({
-    mutationFn: (params: { memberId: string; role: TeamRole }) =>
-      teamService.updateTeamMemberRole(params.memberId, params.role),
+    mutationFn: (params: { memberId: string; newRole: TeamRole }) => {
+      console.log('useTeamMutations.updateMemberRole anropades med:', { memberId: params.memberId, newRole: params.newRole });
+      // Rollen måste skickas som newRoleOrUserId enligt teamService API
+      return teamService.updateTeamMemberRole(params.memberId, params.newRole);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['team-members']);
+    },
+    onError: (error) => {
+      console.error('Fel i updateMemberRole mutation:', error);
     }
   });
 

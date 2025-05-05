@@ -170,6 +170,10 @@ export interface TeamMutations {
   declineInvitation: (invitationId: string) => Promise<void>;
   approveMember: (memberId: string) => Promise<void>;
   rejectMember: (memberId: string) => Promise<void>;
+  updateMemberRole: (params: { memberId: string; newRole: TeamRole }) => Promise<void>;
+  updateMemberStatus: (params: { memberId: string; status: TeamMemberStatus }) => Promise<void>;
+  removeMember: (params: { memberId: string }) => Promise<void>;
+  addMember: (params: { teamId: string; email: string; role: TeamRole }) => Promise<TeamMember>;
 }
 
 // Dummy component to satisfy Expo Router's requirements

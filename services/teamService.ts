@@ -3,9 +3,9 @@ import { supabase } from '@/lib/supabase';
 import { Team, TeamMember, TeamRole, TeamSettings, TeamInvitation, CreateTeamInvitationInput } from '@/types/team';
 import { Profile } from '@/types/profile';
 import { TeamServiceResponse } from '@/types/service';
-import { Database } from '@/lib/database.types';
 import { nanoid } from 'nanoid';
 import { ServiceResponse } from '@/types/service';
+import { handleError } from '@/utils/errorUtils';
 
 function generateAlphaNumericCode(length = 6) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -15,19 +15,6 @@ function generateAlphaNumericCode(length = 6) {
   }
   return code;
 }
-
-/**
- * Standardiserad felhantering för teamService
- */
-const handleError = (error: unknown, message: string): TeamServiceResponse<never> => {
-  return {
-    success: false,
-    error: {
-      message,
-      details: error
-    }
-  };
-};
 
 const defaultTeamSettings: TeamSettings = {
   allowInvites: true,
@@ -173,18 +160,57 @@ export const deleteTeam = async (teamId: string): Promise<void> => {
 
 export const getTeamMembers = async (teamId: string): Promise<TeamMember[]> => {
   try {
+    console.log('Hämtar medlemmar för team:', teamId);
+    
+    // Använd vår nya RPC-funktion
     const { data: members, error } = await supabase
-      .from('team_members')
-      .select(`
-        *,
-        profile: profiles (*)
-      `)
-      .eq('team_id', teamId);
+      .rpc('get_team_members_with_profiles', { 
+        team_id_param: teamId 
+      });
 
-    if (error) throw new Error('Failed to fetch team members');
-    return members || [];
+    if (error) {
+      console.error('Supabase error:', error);
+      throw new Error('Kunde inte hämta teammedlemmar');
+    }
+
+    console.log('Rådata från Supabase:', members);
+
+    if (!members || members.length === 0) {
+      console.log('Inga medlemmar hittades');
+      return [];
+    }
+
+    // Transformera data till rätt format
+    const transformedMembers = members.map((member: {
+      id: string;
+      team_id: string;
+      user_id: string;
+      role: string;
+      status?: string;
+      joined_at: string;
+      name?: string;
+      email?: string;
+      avatar_url?: string;
+    }) => ({
+      id: member.id,
+      team_id: member.team_id,
+      user_id: member.user_id,
+      role: member.role,
+      status: member.status || 'active',
+      created_at: member.joined_at,
+      profile: {
+        id: member.user_id,
+        name: member.name || 'Okänt namn',
+        email: member.email || '',
+        avatar_url: member.avatar_url
+      }
+    }));
+
+    console.log('Transformerade medlemmar:', transformedMembers);
+    return transformedMembers;
   } catch (error) {
-    throw handleError(error, 'getTeamMembers');
+    console.error('Error in getTeamMembers:', error);
+    throw error;
   }
 };
 
@@ -216,27 +242,131 @@ export const addTeamMember = async (
   }
 };
 
+/**
+ * Uppdaterar rollen för en teammedlem
+ * 
+ * @param teamIdOrMemberId - Antingen teamets ID eller medlems-ID beroende på andra parametern
+ * @param newRoleOrUserId - Antingen den nya rollen eller användar-ID beroende på parametrarna
+ * @param newRole - Den nya rollen (när teamId och userId används)
+ * @returns Det uppdaterade TeamMember-objektet om framgångsrikt, annars ett fel
+ */
 export const updateTeamMemberRole = async (
-  teamId: string,
-  userId: string,
-  role: TeamRole
+  teamIdOrMemberId: string,
+  newRoleOrUserId: TeamRole | string,
+  newRole?: TeamRole
 ): Promise<TeamMember> => {
   try {
-    const { data: member, error } = await supabase
+    // Bestäm vilken flöde vi använder baserat på om vi har en tredje parameter
+    const isThreeParamVersion = newRole !== undefined;
+    const actualTeamId = isThreeParamVersion ? teamIdOrMemberId : undefined;
+    const actualUserId = isThreeParamVersion ? newRoleOrUserId as string : undefined;
+    const actualMemberId = isThreeParamVersion ? undefined : teamIdOrMemberId;
+    
+    // Validera och bestäm den faktiska rollen som ska användas
+    let actualNewRole: TeamRole;
+    
+    if (isThreeParamVersion) {
+      // Om vi använder tre parametrar, använd explicit newRole
+      if (!newRole || typeof newRole !== 'string') {
+        console.error('Ogiltig newRole för tredje parametern:', newRole);
+        throw new Error('En giltig roll måste anges som tredje parameter');
+      }
+      actualNewRole = newRole;
+    } else {
+      // Om vi använder två parametrar, tolka newRoleOrUserId som en roll
+      if (typeof newRoleOrUserId === 'string' && ['owner', 'admin', 'member'].includes(newRoleOrUserId)) {
+        actualNewRole = newRoleOrUserId as TeamRole;
+      } else {
+        console.error('Ogiltig roll i tvåparametersversion:', newRoleOrUserId);
+        throw new Error(`Ogiltig roll: ${newRoleOrUserId}. Måste vara owner, admin eller member.`);
+      }
+    }
+
+    console.log('Uppdaterar roll för medlem:', 
+      isThreeParamVersion ? `teamId: ${actualTeamId}, userId: ${actualUserId}` : `memberId: ${actualMemberId}`, 
+      'till:', actualNewRole);
+    
+    console.log('Parametrar:', { 
+      teamIdOrMemberId, 
+      newRoleOrUserId, 
+      newRole, 
+      isThreeParamVersion,
+      actualNewRole,
+      paramTyper: {
+        teamIdOrMemberId: typeof teamIdOrMemberId,
+        newRoleOrUserId: typeof newRoleOrUserId,
+        newRole: typeof newRole
+      }
+    });
+
+    // Validera rollen igen för säkerhets skull
+    if (!actualNewRole) {
+      throw new Error('En giltig roll måste anges');
+    }
+    
+    if (!['owner', 'admin', 'member'].includes(actualNewRole)) {
+      throw new Error(`Ogiltig roll: ${actualNewRole}. Måste vara owner, admin eller member.`);
+    }
+
+    let memberId: string;
+    
+    // Om vi använder tre parametrar, hitta medlems-ID
+    if (isThreeParamVersion && actualTeamId && actualUserId) {
+      const { data, error: memberIdError } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('team_id', actualTeamId)
+        .eq('user_id', actualUserId)
+        .single();
+      
+      if (memberIdError) throw memberIdError;
+      if (!data) throw new Error('Medlem hittades inte');
+      
+      memberId = data.id;
+    } else {
+      // Annars använd det tillhandahållna medlem-ID
+      if (!actualMemberId) throw new Error('Medlem-ID saknas');
+      memberId = actualMemberId;
+    }
+    
+    // Använd den säkra RPC-funktionen för att uppdatera rollen
+    const { data: updatedMember, error: updateError } = await supabase
+      .rpc('update_team_member_role', {
+        p_member_id: memberId,
+        p_new_role: actualNewRole
+      })
+      .single();
+    
+    if (updateError) {
+      console.error('Databasfel vid uppdatering av roll:', updateError);
+      throw updateError;
+    }
+    
+    if (!updatedMember) {
+      throw new Error('Kunde inte uppdatera medlemmens roll');
+    }
+    
+    // Hämta medlemmen med profildata
+    const { data: memberWithProfile, error: profileError } = await supabase
       .from('team_members')
-      .update({ role })
-      .eq('team_id', teamId)
-      .eq('user_id', userId)
       .select(`
         *,
-        profile: profiles (*)
+        user:profiles(*)
       `)
+      .eq('id', memberId)
       .single();
-
-    if (error) throw new Error('Failed to update member role');
-    return member;
+      
+    if (profileError) {
+      console.warn('Kunde inte hämta profil efter rolluppdatering:', profileError);
+      // Returnera bara den uppdaterade medlemmen utan profildata
+      return updatedMember;
+    }
+    
+    console.log('Roll uppdaterad för medlem:', memberWithProfile || updatedMember);
+    return memberWithProfile || updatedMember;
   } catch (error) {
-    throw handleError(error, 'updateTeamMemberRole');
+    console.error('Error i updateTeamMemberRole:', error);
+    throw error;
   }
 };
 
@@ -275,22 +405,34 @@ export const updateTeamMemberStatus = async (
 /**
  * Tar bort en medlem från ett team
  * 
- * @param teamId - ID för teamet som medlemmen ska tas bort från
- * @param userId - ID för användaren som ska tas bort
+ * @param teamIdOrMemberId - Antingen teamets ID eller medlems-ID beroende på andra parametern
+ * @param userId - Användar-ID (valfritt om teamIdOrMemberId är medlems-ID)
  * @returns Void om framgångsrikt, annars ett fel
  */
 export const removeTeamMember = async (
-  teamId: string,
-  userId: string
+  teamIdOrMemberId: string,
+  userId?: string
 ): Promise<void> => {
   try {
-    const { error } = await supabase
-      .from('team_members')
-      .delete()
-      .eq('team_id', teamId)
-      .eq('user_id', userId);
+    // Om vi har både teamId och userId, sök efter medlemmen och ta bort den
+    if (userId) {
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('team_id', teamIdOrMemberId)
+        .eq('user_id', userId);
 
-    if (error) throw new Error('Failed to remove team member');
+      if (error) throw new Error('Failed to remove team member');
+    } 
+    // Om vi bara har memberId, använd det för att hitta och ta bort medlemmen
+    else {
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', teamIdOrMemberId);
+
+      if (error) throw new Error('Failed to remove team member');
+    }
   } catch (error) {
     throw handleError(error, 'removeTeamMember');
   }
@@ -893,6 +1035,26 @@ export const createTeamInvitation = async (
   }
 };
 
+/**
+ * Hämtar användarens roll i ett specifikt team
+ * @param teamId - ID för teamet
+ * @returns Ett löfte som innehåller användarens roll
+ */
+export const getUserRole = async (teamId: string): Promise<TeamRole> => {
+  try {
+    const { data: role, error } = await supabase.rpc(
+      'get_user_team_role',
+      { target_team_id: teamId }
+    );
+
+    if (error) throw error;
+    return role as TeamRole;
+  } catch (error) {
+    console.error('Error in getUserRole:', error);
+    return 'member'; // Default till member om något går fel
+  }
+};
+
 const teamService = {
   createTeam,
   getTeam,
@@ -915,7 +1077,8 @@ const teamService = {
   cancelTeamMembership,
   getPendingTeamMembers,
   getTeamInvitation,
-  createTeamInvitation
+  createTeamInvitation,
+  getUserRole
 };
 
 export default teamService;

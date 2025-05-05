@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { BlurView } from 'expo-blur';
@@ -32,6 +32,111 @@ export default function TeamMembersScreen() {
     queryKey: ['team-role', teamId],
     queryFn: () => teamService.getUserRole(teamId as string),
     enabled: !!teamId,
+  });
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.main,
+    },
+    content: {
+      flex: 1,
+      padding: 16,
+      gap: 16,
+    },
+    card: {
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 2,
+        },
+        web: {
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+        },
+      }),
+    },
+    memberCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.background.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 2,
+        },
+        web: {
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+        },
+      }),
+    },
+    memberInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    memberName: {
+      fontFamily: 'Inter-SemiBold',
+      fontSize: 16,
+      color: colors.text.main,
+    },
+    memberRole: {
+      fontFamily: 'Inter-Regular',
+      fontSize: 14,
+      color: colors.text.light,
+    },
+    actionButtons: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    blurView: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      borderRadius: 12,
+    },
+    statsCard: {
+      marginBottom: 16,
+      overflow: 'hidden',
+      borderRadius: 16,
+    },
+    statsBlur: {
+      padding: 16,
+    },
+    statsContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    statsText: {
+      marginLeft: 16,
+    },
+    statsTitle: {
+      fontSize: 18,
+      fontFamily: 'Inter-Bold',
+      marginBottom: 4,
+    },
+    statsSubtitle: {
+      fontSize: 14,
+      fontFamily: 'Inter-Regular',
+    },
   });
 
   if (isTeamLoading) {
@@ -102,97 +207,4 @@ export default function TeamMembersScreen() {
       </View>
     </View>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.main,
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-    gap: 16,
-  },
-  card: {
-    backgroundColor: colors.background.card,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  memberCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  memberInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  memberName: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 16,
-    color: colors.text.main,
-  },
-  memberRole: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: colors.text.light,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  blurView: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 12,
-  },
-  statsCard: {
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderRadius: 16,
-  },
-  statsBlur: {
-    padding: 16,
-  },
-  statsContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statsText: {
-    marginLeft: 16,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter-Bold',
-    marginBottom: 4,
-  },
-  statsSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-  },
-}); 
+} 

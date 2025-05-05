@@ -38,9 +38,70 @@ interface ThemeColors {
   };
 }
 
+interface ThemeShadows {
+  small: {
+    shadowColor: string;
+    shadowOffset: {
+      width: number;
+      height: number;
+    };
+    shadowOpacity: number;
+    shadowRadius: number;
+  };
+  medium: {
+    shadowColor: string;
+    shadowOffset: {
+      width: number;
+      height: number;
+    };
+    shadowOpacity: number;
+    shadowRadius: number;
+  };
+  large: {
+    shadowColor: string;
+    shadowOffset: {
+      width: number;
+      height: number;
+    };
+    shadowOpacity: number;
+    shadowRadius: number;
+  };
+}
+
 interface ThemeContextType {
   colors: ThemeColors;
+  shadows: ThemeShadows;
 }
+
+const defaultShadows: ThemeShadows = {
+  small: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+  medium: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  large: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+};
 
 const defaultTheme: ThemeColors = {
   background: {
@@ -90,11 +151,12 @@ const defaultTheme: ThemeColors = {
 
 const ThemeContext = createContext<ThemeContextType>({
   colors: defaultTheme,
+  shadows: defaultShadows,
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeContext.Provider value={{ colors: defaultTheme }}>
+    <ThemeContext.Provider value={{ colors: defaultTheme, shadows: defaultShadows }}>
       {children}
     </ThemeContext.Provider>
   );

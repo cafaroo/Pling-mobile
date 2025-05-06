@@ -6,10 +6,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'pling',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
+  icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
   splash: {
-    image: './assets/splash.png',
+    image: './assets/images/splash-icon.png',
     resizeMode: 'contain',
     backgroundColor: '#0F0E2A'
   },
@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
+      foregroundImage: './assets/images/icon.png',
       backgroundColor: '#0F0E2A'
     },
     package: 'com.pling.app'

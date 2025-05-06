@@ -32,6 +32,7 @@ export function TeamHeader({ teams, selectedTeam, onTeamSelect, style, userRole 
   const dropdownHeight = useRef(new Animated.Value(0)).current;
   const rotation = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(-20)).current;
   const maxHeight = 400; // Ökat för att ge plats för de nya alternativen
 
   const rotateIcon = rotation.interpolate({
@@ -51,12 +52,18 @@ export function TeamHeader({ teams, selectedTeam, onTeamSelect, style, userRole 
         toValue: isOpen ? 1 : 0,
         duration: 300,
         easing: Easing.bezier(0.4, 0, 0.2, 1),
-        useNativeDriver: true
+        useNativeDriver: false
       }),
       Animated.timing(opacity, {
         toValue: isOpen ? 1 : 0,
         duration: 200,
-        useNativeDriver: true
+        useNativeDriver: false
+      }),
+      Animated.timing(translateY, {
+        toValue: isOpen ? 0 : -20,
+        duration: 200,
+        easing: Easing.bezier(0.4, 0, 0.2, 1),
+        useNativeDriver: false
       })
     ]).start();
   }, [isOpen]);
@@ -159,12 +166,7 @@ export function TeamHeader({ teams, selectedTeam, onTeamSelect, style, userRole 
           {
             maxHeight: dropdownHeight,
             opacity: opacity,
-            transform: [{
-              translateY: opacity.interpolate({
-                inputRange: [0, 1],
-                outputRange: [-20, 0]
-              })
-            }]
+            transform: [{ translateY: translateY }]
           }
         ]}>
           <ScrollView 

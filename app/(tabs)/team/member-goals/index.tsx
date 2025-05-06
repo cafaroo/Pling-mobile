@@ -190,10 +190,13 @@ export default function MemberGoalsScreen() {
             />
           </View>
         )}
+        
+        {/* Bottom spacer */}
+        <View style={{ height: 80 }} />
       </ScrollView>
       
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: colors.accent.yellow }]}
         onPress={() => router.push('/team/member-goals/create')}
         activeOpacity={0.8}
       >
@@ -313,6 +316,18 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   fab: {
-    ...commonStyles.fab,
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
   },
 });

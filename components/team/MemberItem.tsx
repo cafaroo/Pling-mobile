@@ -292,7 +292,7 @@ const MemberItemBase: React.FC<MemberItemProps> = ({
   const [actionInProgress, setActionInProgress] = useState(false);
   const menuButtonRef = useRef<any>(null);
   const isWeb = Platform.OS === 'web';
-  
+
   // Förbättrad extraktion av medlemsnamn för konsekvent användning över plattformar
   const memberName = useMemo(() => {
     if (!member) return 'Okänd medlem';
@@ -348,7 +348,7 @@ const MemberItemBase: React.FC<MemberItemProps> = ({
     
     return false;
   }, [currentUserRole, member.role, isCurrentUser, showActions, onChangeRole, onRemove]);
-
+  
   const handleRoleChange = async (newRole: TeamRole) => {
     console.log('handleRoleChange anropades', { newRole, memberId: member.id, canModify, actionInProgress });
     
@@ -477,12 +477,12 @@ const MemberItemBase: React.FC<MemberItemProps> = ({
   // Skapa menyalternativ baserat på tillgängliga åtgärder
   const menuItems = useMemo(() => {
     if (!canModify) return [];
-    
+
     const items: MenuItem[] = [];
     
     // Lägg till rollalternativ om vi kan ändra roller
     if (onChangeRole) {
-      const availableRoles = getAvailableRoles();
+    const availableRoles = getAvailableRoles();
       if (availableRoles.length > 0) {
         const roleSubmenu: SubmenuItem[] = availableRoles.map(role => ({
           label: getRoleLabel(role),
@@ -491,7 +491,7 @@ const MemberItemBase: React.FC<MemberItemProps> = ({
           icon: getRoleIcon(role),
         }));
         
-        items.push({
+      items.push({
           label: 'Ändra roll',
           icon: UserCog,
           submenu: roleSubmenu,
@@ -614,39 +614,39 @@ const MemberItemBase: React.FC<MemberItemProps> = ({
         activeOpacity={0.7}
         disabled={!onSelect || actionInProgress}
         style={[containerStyle, { opacity: actionInProgress ? 0.7 : 1 }]}
-      >
-        {actionInProgress && (
+        >
+          {actionInProgress && (
           <View style={{
             ...StyleSheet.absoluteFillObject,
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: 'rgba(0,0,0,0.05)',
-            zIndex: 5,
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: 'rgba(0,0,0,0.05)',
+                zIndex: 5,
           }}>
-            <ActivityIndicator size="small" color={colors.text.light} />
+              <ActivityIndicator size="small" color={colors.text.light} />
           </View>
-        )}
+          )}
 
-        <View style={styles.content}>
-          <View style={styles.avatarContainer}>
-            <Avatar
-              size={variant === 'compact' ? 36 : variant === 'detailed' ? 48 : 40}
-              source={member.profile?.avatar_url}
+          <View style={styles.content}>
+            <View style={styles.avatarContainer}>
+              <Avatar
+                size={variant === 'compact' ? 36 : variant === 'detailed' ? 48 : 40}
+                source={member.profile?.avatar_url}
               fallback={Platform.OS === 'android' ? 
                 // På Android, använd första bokstaven i namnet eller användar-ID
                 (member.profile?.name?.[0]?.toUpperCase() || member.user_id?.[0] || '?') : 
                 // På andra plattformar, använd normal fallback
                 (memberName[0] || '?')}
-            />
-            {member.status === 'active' && (
-              <View style={[styles.statusDot, { 
-                backgroundColor: colors.success,
-                borderColor: colors.background.card 
-              }]} />
-            )}
-          </View>
+              />
+              {member.status === 'active' && (
+                <View style={[styles.statusDot, { 
+                  backgroundColor: colors.success,
+                  borderColor: colors.background.card 
+                }]} />
+              )}
+            </View>
 
-          <View style={styles.info}>
+            <View style={styles.info}>
             {/* Specialhantering för Android */}
             {Platform.OS === 'android' ? (
               // Direktare renderingsmetod för Android
@@ -664,77 +664,77 @@ const MemberItemBase: React.FC<MemberItemProps> = ({
                 {memberName}
               </Text>
             )}
-            
-            {showRoleLabel && (
-              <View style={styles.roleContainer}>
-                <RoleIcon 
-                  size={variant === 'compact' ? 12 : 14} 
-                  color={colors.text.light} 
-                  style={styles.roleIcon} 
-                />
-                <Text style={[styles.role, { 
-                  color: colors.text.light,
-                  fontSize: variant === 'compact' ? 12 : 14,
-                }]}>
-                  {getRoleLabel(member.role)}
-                </Text>
-              </View>
-            )}
-          </View>
+              
+              {showRoleLabel && (
+                <View style={styles.roleContainer}>
+                  <RoleIcon 
+                    size={variant === 'compact' ? 12 : 14} 
+                    color={colors.text.light} 
+                    style={styles.roleIcon} 
+                  />
+                  <Text style={[styles.role, { 
+                    color: colors.text.light,
+                    fontSize: variant === 'compact' ? 12 : 14,
+                  }]}>
+                    {getRoleLabel(member.role)}
+                  </Text>
+                </View>
+              )}
+            </View>
 
-          <View style={styles.badgeContainer}>
-            {showStatusBadge && (
-              <Badge
-                label={getStatusLabel(member.status)}
-                color={getStatusColor(member.status, colors)}
-                style={styles.statusBadge}
-                size={variant === 'compact' ? 'small' : 'medium'}
-              />
-            )}
-            
-            {showRoleBadge && (
-              <Badge
-                icon={getRoleIcon(member.role)}
-                label={getRoleLabel(member.role)}
-                color={colors.primary.main}
-                style={styles.roleBadge}
-                size={variant === 'compact' ? 'small' : 'medium'}
-              />
-            )}
-          </View>
-
-          {canModify && menuItems.length > 0 && (
-            <TouchableOpacity
-              ref={menuButtonRef}
-              onPress={toggleMenu}
-              disabled={actionInProgress}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                justifyContent: 'center',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: colors.border.subtle,
-                backgroundColor: menuVisible 
-                  ? colors.primary.main 
-                  : colors.background.subtle,
-              }}
-            >
-              {actionInProgress ? (
-                <ActivityIndicator size="small" color={colors.text.light} />
-              ) : (
-                <MoreVertical 
-                  size={20} 
-                  color={menuVisible ? colors.text.main : colors.text.light} 
+            <View style={styles.badgeContainer}>
+              {showStatusBadge && (
+                <Badge
+                  label={getStatusLabel(member.status)}
+                  color={getStatusColor(member.status, colors)}
+                  style={styles.statusBadge}
+                  size={variant === 'compact' ? 'small' : 'medium'}
                 />
               )}
+              
+              {showRoleBadge && (
+                <Badge
+                  icon={getRoleIcon(member.role)}
+                  label={getRoleLabel(member.role)}
+                  color={colors.primary.main}
+                  style={styles.roleBadge}
+                  size={variant === 'compact' ? 'small' : 'medium'}
+                />
+              )}
+            </View>
+
+            {canModify && menuItems.length > 0 && (
+            <TouchableOpacity
+                ref={menuButtonRef}
+              onPress={toggleMenu}
+              disabled={actionInProgress}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                borderWidth: 1,
+                borderColor: colors.border.subtle,
+                    backgroundColor: menuVisible 
+                      ? colors.primary.main 
+                      : colors.background.subtle,
+                  }}
+                >
+                  {actionInProgress ? (
+                    <ActivityIndicator size="small" color={colors.text.light} />
+                  ) : (
+                    <MoreVertical 
+                      size={20} 
+                      color={menuVisible ? colors.text.main : colors.text.light} 
+                    />
+                  )}
             </TouchableOpacity>
-          )}
-        </View>
-        
+              )}
+            </View>
+
         {renderMenu()}
-      </TouchableOpacity>
+                  </TouchableOpacity>
     </Animated.View>
   );
 };

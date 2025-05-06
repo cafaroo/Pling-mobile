@@ -1083,6 +1083,39 @@ export const getUserRole = async (teamId: string): Promise<TeamRole> => {
   }
 };
 
+export async function getUserActiveTeam(): Promise<Team | null> {
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user || !user.user) {
+      throw new Error('Användaren är inte inloggad');
+    }
+    
+    // Hämta användarens aktiva team (antingen från en inställning eller senast använda)
+    const { data, error } = await supabase
+      .from('team_members')
+      .select('team_id, role, status, teams:team_id(*)')
+      .eq('user_id', user.user.id)
+      .eq('status', 'active')
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      return null;
+    }
+    
+    // Returnera team-objektet från relationen
+    return data[0].teams as Team;
+  } catch (error) {
+    console.error('Error fetching active team:', error);
+    throw error;
+  }
+}
+
 const teamService = {
   createTeam,
   getTeam,
@@ -1106,7 +1139,8 @@ const teamService = {
   getPendingTeamMembers,
   getTeamInvitation,
   createTeamInvitation,
-  getUserRole
+  getUserRole,
+  getUserActiveTeam
 };
 
 export default teamService;

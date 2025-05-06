@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
 import { Team, TeamRole } from '@/types/team';
-import { Users, Settings, UserPlus, Bell, Shield, MessageCircle } from 'lucide-react-native';
+import { Users, Settings, UserPlus, Bell, Shield, MessageCircle, Target } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 interface TeamDashboardProps {
@@ -32,6 +32,10 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
 
   const handleManageMembers = () => {
     router.push(`/team/members?teamId=${team.id}`);
+  };
+
+  const handleTeamGoals = () => {
+    router.push(`/team/goals?teamId=${team.id}`);
   };
 
   const renderCard = (
@@ -84,6 +88,15 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
         'Team Chat',
         'Chatta med ditt team',
         onManageChat,
+        true
+      )}
+
+      {/* Team mål-kort */}
+      {renderCard(
+        <Target />,
+        'Teammål',
+        'Sätt och följ upp mål',
+        handleTeamGoals,
         true
       )}
 

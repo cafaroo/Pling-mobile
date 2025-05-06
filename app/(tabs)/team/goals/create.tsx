@@ -3,25 +3,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Target, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useRouter } from 'expo-router';
-import { useUser } from '@/context/UserContext';
+import { useAuth } from '@/context/AuthContext';
+import { useActiveTeam } from '@/hooks/useTeam';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
-import GoalForm from '@/components/goals/GoalForm';
+import { GoalForm } from '@/components/goals/GoalForm';
+import { Goal } from '@/types/goal';
 
 export default function CreateTeamGoalScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { user } = useUser();
+  const { user } = useAuth();
+  const { activeTeam } = useActiveTeam();
 
-  // Check if user is team leader or owner
-  const isTeamLeader = user?.team?.members?.some(
-    m => m.userId === user.id && (m.role === 'leader' || m.role === 'owner')
-  );
-
-  if (!isTeamLeader) {
-    router.replace('/team/goals');
-    return null;
-  }
+  const handleSuccess = (goal: Goal) => {
+    router.replace(`/team/goals/${goal.id}`);
+  };
 
   return (
     <Container>
@@ -30,7 +27,7 @@ export default function CreateTeamGoalScreen() {
         style={styles.background}
       />
       <Header 
-        title="Create Team Goal" 
+        title="Skapa teammål" 
         icon={Target}
         leftIcon={ArrowLeft}
         onLeftIconPress={() => router.back()}
@@ -41,9 +38,10 @@ export default function CreateTeamGoalScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <GoalForm
-          isTeamGoal
-          teamId={user?.team?.id}
-          onSuccess={(goalId) => router.replace(`/team/goals/${goalId}`)}
+          teamId={activeTeam?.id}
+          defaultScope="team"
+          onSuccess={handleSuccess}
+          onCancel={() => router.back()}
         />
       </ScrollView>
     </Container>
@@ -62,7 +60,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 100,
   },
 });

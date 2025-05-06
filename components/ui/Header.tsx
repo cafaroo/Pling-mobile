@@ -7,6 +7,8 @@ type HeaderProps = {
   title: string;
   icon?: LucideIcon;
   onBackPress?: () => void;
+  leftIcon?: LucideIcon;
+  onLeftIconPress?: () => void;
   rightIcon?: LucideIcon;
   onRightIconPress?: () => void;
   showNotifications?: boolean;
@@ -16,6 +18,8 @@ export default function Header({
   title, 
   icon: Icon, 
   onBackPress,
+  leftIcon: LeftIcon,
+  onLeftIconPress,
   rightIcon: RightIcon, 
   onRightIconPress,
   showNotifications = true
@@ -31,6 +35,14 @@ export default function Header({
             onPress={onBackPress}
           >
             <ChevronLeft size={20} color={colors.text.light} />
+          </TouchableOpacity>
+        )}
+        {!onBackPress && LeftIcon && onLeftIconPress && (
+          <TouchableOpacity
+            style={[styles.backButton, { borderColor: colors.neutral[500] }]}
+            onPress={onLeftIconPress}
+          >
+            <LeftIcon size={20} color={colors.text.light} />
           </TouchableOpacity>
         )}
         {Icon && (

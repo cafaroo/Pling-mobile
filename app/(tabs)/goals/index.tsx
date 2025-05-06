@@ -1,53 +1,63 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Target, Plus, Filter, TrendingUp } from 'lucide-react-native';
+import { Target, Plus, Filter } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/constants';
-import { useUser } from '@/context/UserContext';
-import { getUserGoals } from '@/services/goalService';
-import { Goal, GoalStatus } from '@/types';
+import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import Tabs from '@/components/ui/Tabs';
-import { GoalCard } from '@/components/goals/GoalCard';
-import { useStyles } from '@/hooks/useStyles';
-import { commonStyles } from '@/styles/common';
+import { GoalList } from '@/components/goals/GoalList';
+import { GoalStats } from '@/components/goals/GoalStats';
+import { GoalFilters } from '@/components/goals/GoalFilters';
+import { Goal, GoalFilter, GoalStatus } from '@/types/goal';
+import Animated, { FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 export default function GoalsScreen() {
   const { colors } = useTheme();
-  const { user } = useUser();
+  const { user } = useAuth();
   const router = useRouter();
-  const styles = useStyles();
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  // Tillstånd för filtrering och sortering
   const [activeTab, setActiveTab] = useState<GoalStatus | 'all'>('active');
+  const [filter, setFilter] = useState<GoalFilter>({});
+  const [isFilterVisible, setIsFilterVisible] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  // Uppdatera filter när tabb byts
+  useEffect(() => {
+    if (activeTab === 'all') {
+      setFilter(current => ({ ...current, status: undefined }));
+    } else {
+      setFilter(current => ({ ...current, status: [activeTab] }));
+    }
+  }, [activeTab]);
+  
+  // Hantera när ett mål klickas på
+  const handleGoalPress = (goal: Goal) => {
+    router.push(`/goals/${goal.id}`);
+  };
+  
+  // Hantera när filter ändras
+  const handleFilterChange = (newFilter: GoalFilter) => {
+    setFilter(newFilter);
+    setIsFilterVisible(false);
+  };
+  
+  // Animera filterpanelen
+  const filterHeight = useSharedValue(0);
   
   useEffect(() => {
-    if (user) {
-      loadGoals();
-    }
-  }, [user, activeTab]);
-
-  const loadGoals = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const status = activeTab !== 'all' ? activeTab : undefined;
-      const data = await getUserGoals(user?.id || '', status);
-      setGoals(data);
-    } catch (error) {
-      console.error('Error loading goals:', error);
-      setError('Could not load goals');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+    filterHeight.value = withTiming(isFilterVisible ? 400 : 0, { duration: 300 });
+  }, [isFilterVisible]);
+  
+  const filterStyle = useAnimatedStyle(() => ({
+    height: filterHeight.value,
+    opacity: filterHeight.value > 0 ? 1 : 0,
+    overflow: 'hidden'
+  }));
+  
   return (
     <Container>
       <LinearGradient
@@ -55,115 +65,59 @@ export default function GoalsScreen() {
         style={styles.background}
       />
       <Header 
-        title="My Goals" 
+        title="Mina mål" 
         icon={Target}
+        rightIcon={Filter}
+        onRightIconPress={() => setIsFilterVisible(!isFilterVisible)}
       />
       
       <Tabs
         tabs={[
-          { id: 'active', label: 'Active' },
-          { id: 'completed', label: 'Completed' },
-          { id: 'all', label: 'All' },
+          { id: 'active', label: 'Aktiva' },
+          { id: 'completed', label: 'Avklarade' },
+          { id: 'all', label: 'Alla' },
         ]}
         activeTab={activeTab}
         onChangeTab={(tab) => setActiveTab(tab as GoalStatus | 'all')}
       />
       
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={[styles.loadingText, { color: colors.text.light }]}>
-              Loading goals...
-            </Text>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={[styles.errorText, { color: colors.error }]}>
-              {error}
-            </Text>
-            <Button
-              title="Try Again"
-              onPress={loadGoals}
-              variant="outline"
-              size="small"
-              style={styles.retryButton}
-            />
-          </View>
-        ) : goals.length > 0 ? (
-          <>
-            {/* Summary Card */}
-            <Card style={styles.summaryCard}>
-              <Text style={[styles.summaryTitle, { color: colors.text.main }]}>
-                Your Progress
-              </Text>
-              
-              <View style={styles.statsGrid}>
-                <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-                  <TrendingUp size={20} color={colors.accent.yellow} />
-                  <Text style={[styles.statValue, { color: colors.text.main }]}>
-                    {goals.filter(g => g.status === 'active').length}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: colors.text.light }]}>
-                    Active Goals
-                  </Text>
-                </View>
-                
-                <View style={[styles.statItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-                  <Target size={20} color={colors.accent.yellow} />
-                  <Text style={[styles.statValue, { color: colors.text.main }]}>
-                    {goals.filter(g => g.status === 'completed').length}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: colors.text.light }]}>
-                    Completed
-                  </Text>
-                </View>
-              </View>
-            </Card>
-            
-            {/* Goals List */}
-            <View style={styles.goalsContainer}>
-              <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
-                {activeTab === 'active' ? 'Active Goals' : 
-                 activeTab === 'completed' ? 'Completed Goals' : 'All Goals'}
-              </Text>
-              
-              {goals.map(goal => (
-                <GoalCard
-                  key={goal.id}
-                  goal={goal}
-                  onPress={() => router.push(`/goals/${goal.id}`)}
-                />
-              ))}
-            </View>
-          </>
-        ) : (
-          <View style={styles.emptyContainer}>
-            <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary.light }]}>
-              <Target size={48} color={colors.accent.yellow} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: colors.text.main }]}>
-              No Goals Yet
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.text.light }]}>
-              Set personal goals to track your progress and stay motivated.
-            </Text>
-            <Button
-              title="Create Your First Goal"
-              icon={Plus}
-              onPress={() => router.push('/goals/create')}
-              variant="primary"
-              size="large"
-              style={styles.createButton}
-            />
-          </View>
-        )}
-      </ScrollView>
+      <Animated.View style={filterStyle}>
+        <GoalFilters
+          initialFilter={filter}
+          onFilterChange={handleFilterChange}
+          onClose={() => setIsFilterVisible(false)}
+          allowScopeFilter={false}
+        />
+      </Animated.View>
+      
+      <GoalList
+        filter={{
+          ...filter,
+          userId: user?.id,
+          scope: 'individual'
+        }}
+        onGoalPress={handleGoalPress}
+        refreshTrigger={refreshTrigger}
+        listHeaderComponent={
+          <GoalStats
+            userId={user?.id}
+            scope="individual"
+            onStatPress={(statType) => {
+              // Hantera statistikklick om det behövs
+              if (statType === 'active') {
+                setActiveTab('active');
+              } else if (statType === 'completed') {
+                setActiveTab('completed');
+              }
+            }}
+          />
+        }
+        showFilters={false}
+        bottomSpacerHeight={80}
+      />
       
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: colors.accent.yellow }]}
         onPress={() => router.push('/goals/create')}
         activeOpacity={0.8}
       >
@@ -181,106 +135,19 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 40,
-  },
-  loadingText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 40,
-  },
-  errorText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    minWidth: 120,
-  },
-  summaryCard: {
-    padding: 20,
-    marginBottom: 24,
-  },
-  summaryTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 18,
-    marginBottom: 16,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  statItem: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 24,
-    marginVertical: 8,
-  },
-  statLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-  },
-  goalsContainer: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 20,
-    marginBottom: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
-  },
-  emptyIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  emptyTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 24,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 32,
-    maxWidth: 300,
-  },
-  createButton: {
-    minWidth: 200,
-  },
   fab: {
-    ...commonStyles.fab,
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
   },
 });

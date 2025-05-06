@@ -1,361 +1,212 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Target, ArrowLeft, CreditCard as Edit, Trash, CircleCheck as CheckCircle, Circle as XCircle, Archive } from 'lucide-react-native';
+import { Target, ArrowLeft, Edit2, Trash2, Plus } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { getGoalDetails, updateGoalStatus, deleteGoal, getGoalEntries, addGoalEntry } from '@/services/goalService';
-import { Goal, GoalStatus } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
-import Button from '@/components/ui/Button';
-import GoalDetailCard from '@/components/goals/GoalDetailCard';
-import MilestonesList from '@/components/goals/MilestonesList';
-import GoalEntriesList from '@/components/goals/GoalEntriesList';
+import { Button } from '@/components/ui/Button';
+import { GoalDetailCard } from '@/components/goals/GoalDetailCard';
+import { useGoal, useUpdateGoalProgress, useDeleteGoal } from '@/hooks/useGoals';
+import { Goal, GoalStatus } from '@/types/goal';
+import { GoalForm } from '@/components/goals/GoalForm';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
+/**
+ * GoalDetailScreen - Skärm för att visa detaljer för ett individuellt mål
+ */
 export default function GoalDetailScreen() {
   const { colors } = useTheme();
-  const { id } = useLocalSearchParams();
   const router = useRouter();
-  const [goal, setGoal] = useState<Goal | null>(null);
-  const [entries, setEntries] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!id) {
-      router.replace('/goals');
-      return;
-    }
-    
-    loadGoalData();
-  }, [id]);
-
-  const loadGoalData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const [goalData, entriesData] = await Promise.all([
-        getGoalDetails(id as string),
-        getGoalEntries(id as string)
-      ]);
-      
-      if (!goalData) {
-        setError('Goal not found');
-        return;
-      }
-      
-      setGoal(goalData);
-      setEntries(entriesData);
-    } catch (error) {
-      console.error('Error loading goal data:', error);
-      setError('Failed to load goal data');
-    } finally {
-      setIsLoading(false);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
+  const [progressValue, setProgressValue] = useState('');
+  
+  // Hämta målinformation
+  const { 
+    data: goal, 
+    isLoading, 
+    isError, 
+    refetch 
+  } = useGoal(id);
+  
+  // Mutations
+  const updateProgress = useUpdateGoalProgress();
+  const deleteGoal = useDeleteGoal();
+  
+  // Navigera till relaterat mål
+  const handleRelatedGoalPress = (relatedGoal: Goal) => {
+    // Om relaterat mål är team-mål, navigera till team-mål-skärmen
+    if (relatedGoal.scope === 'team') {
+      router.push(`/team/goals/${relatedGoal.id}`);
+    } else {
+      // Annars navigera till individuellt mål
+      router.push(`/goals/${relatedGoal.id}`);
     }
   };
-
-  const handleStatusUpdate = async (newStatus: GoalStatus) => {
-    if (!goal) return;
-    
-    try {
-      setIsUpdating(true);
-      const success = await updateGoalStatus(goal.id, newStatus);
-      
-      if (success) {
-        setGoal({ ...goal, status: newStatus });
-      } else {
-        setError('Failed to update goal status');
-      }
-    } catch (error) {
-      console.error('Error updating goal status:', error);
-      setError('Failed to update goal status');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleDeleteGoal = async () => {
-    if (!goal) return;
-    
+  
+  // Hantera borttagning av mål
+  const handleDeleteGoal = () => {
     Alert.alert(
-      'Delete Goal',
-      'Are you sure you want to delete this goal? This action cannot be undone.',
+      'Ta bort mål',
+      'Är du säker på att du vill ta bort det här målet? Detta kan inte ångras.',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Delete',
+        { text: 'Avbryt', style: 'cancel' },
+        { 
+          text: 'Ta bort', 
           style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsUpdating(true);
-              const success = await deleteGoal(goal.id);
-              
-              if (success) {
-                router.replace('/goals');
-              } else {
-                setError('Failed to delete goal');
+          onPress: () => {
+            deleteGoal.mutate(id, {
+              onSuccess: () => {
+                router.back();
               }
-            } catch (error) {
-              console.error('Error deleting goal:', error);
-              setError('Failed to delete goal');
-            } finally {
-              setIsUpdating(false);
-            }
+            });
           }
         }
       ]
     );
   };
-
-  const handleAddEntry = async () => {
-    if (!goal) return;
-    
-    Alert.prompt(
-      'Add Manual Entry',
-      `Enter the ${goal.type === 'sales_amount' ? 'amount' : 'count'} to add:`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Add',
-          onPress: async (value) => {
-            if (!value || isNaN(Number(value)) || Number(value) <= 0) {
-              Alert.alert('Invalid Value', 'Please enter a valid positive number');
-              return;
-            }
-            
-            try {
-              setIsUpdating(true);
-              const success = await addGoalEntry(goal.id, Number(value));
-              
-              if (success) {
-                await loadGoalData();
-              } else {
-                setError('Failed to add entry');
-              }
-            } catch (error) {
-              console.error('Error adding entry:', error);
-              setError('Failed to add entry');
-            } finally {
-              setIsUpdating(false);
-            }
-          }
-        }
-      ],
-      'plain-text'
-    );
+  
+  // Hantera öppna redigering
+  const handleEditGoal = () => {
+    setIsEditing(true);
   };
-
+  
+  // Hantera avsluta redigering
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+  
+  // Hantera spara redigerat mål
+  const handleSaveEdit = () => {
+    setIsEditing(false);
+    refetch();
+  };
+  
   if (isLoading) {
     return (
       <Container>
-        <LinearGradient
-          colors={[colors.background.dark, colors.primary.dark]}
-          style={styles.background}
-        />
-        <Header 
-          title="Goal Details" 
-          icon={Target}
-          leftIcon={ArrowLeft}
-          onLeftIconPress={() => router.back()}
-        />
+        <Header title="Måldetaljer" leftIcon={<ArrowLeft color={colors.text.main} />} onBackPress={() => router.back()} />
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.accent.yellow} />
           <Text style={[styles.loadingText, { color: colors.text.light }]}>
-            Loading goal details...
+            Laddar målinformation...
           </Text>
         </View>
       </Container>
     );
   }
-
-  if (error || !goal) {
+  
+  if (isError || !goal) {
     return (
       <Container>
-        <LinearGradient
-          colors={[colors.background.dark, colors.primary.dark]}
-          style={styles.background}
-        />
-        <Header 
-          title="Goal Details" 
-          icon={Target}
-          leftIcon={ArrowLeft}
-          onLeftIconPress={() => router.back()}
-        />
+        <Header title="Måldetaljer" leftIcon={<ArrowLeft color={colors.text.main} />} onBackPress={() => router.back()} />
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.error }]}>
-            {error || 'Goal not found'}
+            Kunde inte hämta målinformation
           </Text>
           <Button
-            title="Go Back"
-            variant="outline"
-            size="medium"
-            onPress={() => router.back()}
-            style={styles.backButton}
+            title="Försök igen"
+            onPress={() => refetch()}
+            style={{ marginTop: 16 }}
           />
         </View>
       </Container>
     );
   }
-
+  
+  // Kontrollera om användaren har rättigheter att redigera målet
+  const canEdit = goal.created_by === user?.id;
+  
   return (
     <Container>
-      <LinearGradient
-        colors={[colors.background.dark, colors.primary.dark]}
-        style={styles.background}
-      />
       <Header 
-        title="Goal Details" 
-        icon={Target}
-        leftIcon={ArrowLeft}
-        onLeftIconPress={() => router.back()}
+        title={isEditing ? "Redigera mål" : "Måldetaljer"} 
+        leftIcon={<ArrowLeft color={colors.text.main} />} 
+        onBackPress={() => isEditing ? setIsEditing(false) : router.back()} 
       />
       
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
-        <GoalDetailCard goal={goal} />
-        
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          {goal.status === 'active' && (
-            <>
+        {isEditing ? (
+          <Animated.View entering={FadeIn} exiting={FadeOut}>
+            <GoalForm
+              initialValues={goal}
+              onCancel={handleCancelEdit}
+              onSuccess={handleSaveEdit}
+              mode="edit"
+            />
+          </Animated.View>
+        ) : (
+          <Animated.View entering={FadeIn}>
+            <GoalDetailCard 
+              goal={goal} 
+              onEdit={canEdit ? handleEditGoal : undefined}
+              onDelete={canEdit ? handleDeleteGoal : undefined}
+              onRelatedGoalPress={handleRelatedGoalPress}
+              isEditable={canEdit}
+            />
+            
+            {goal.status === 'active' && canEdit && (
               <Button
-                title="Complete"
-                icon={CheckCircle}
-                onPress={() => handleStatusUpdate('completed')}
-                variant="outline"
-                size="medium"
-                style={[styles.actionButton, { borderColor: colors.success }]}
-                loading={isUpdating}
-              />
-              
-              <Button
-                title="Add Entry"
+                title="Uppdatera framsteg"
                 icon={Plus}
-                onPress={handleAddEntry}
-                variant="primary"
-                size="medium"
-                style={styles.actionButton}
-                loading={isUpdating}
+                onPress={() => {
+                  // Här kan vi implementera en modal för att uppdatera framsteg
+                  // eller navigera till en dedikerad skärm
+                  Alert.alert(
+                    "Funktionen kommer snart",
+                    "Framstegsuppdatering via UI kommer att implementeras i nästa iteration."
+                  );
+                }}
+                style={styles.updateButton}
               />
-            </>
-          )}
-          
-          {goal.status === 'active' && (
-            <Button
-              title="Archive"
-              icon={Archive}
-              onPress={() => handleStatusUpdate('archived')}
-              variant="outline"
-              size="medium"
-              style={styles.actionButton}
-              loading={isUpdating}
-            />
-          )}
-          
-          {goal.status === 'archived' && (
-            <Button
-              title="Reactivate"
-              icon={CheckCircle}
-              onPress={() => handleStatusUpdate('active')}
-              variant="outline"
-              size="medium"
-              style={[styles.actionButton, { borderColor: colors.success }]}
-              loading={isUpdating}
-            />
-          )}
-          
-          <Button
-            title="Delete"
-            icon={Trash}
-            onPress={handleDeleteGoal}
-            variant="outline"
-            size="medium"
-            style={[styles.actionButton, { borderColor: colors.error }]}
-            loading={isUpdating}
-          />
-        </View>
-        
-        {/* Milestones */}
-        {goal.milestones && goal.milestones.length > 0 && (
-          <MilestonesList 
-            milestones={goal.milestones}
-            currentValue={goal.currentValue}
-            targetValue={goal.targetValue}
-            style={styles.section}
-          />
+            )}
+          </Animated.View>
         )}
         
-        {/* Entries */}
-        <GoalEntriesList 
-          entries={entries}
-          isAmount={goal.type === 'sales_amount'}
-          style={styles.section}
-        />
+        {/* Bottom spacer för att undvika överlappning med bottom navigation */}
+        <View style={{ height: 80 }} />
       </ScrollView>
     </Container>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 16,
   },
   loadingText: {
-    fontFamily: 'Inter-Regular',
+    marginTop: 16,
     fontSize: 16,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   errorText: {
-    fontFamily: 'Inter-Regular',
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 24,
   },
-  backButton: {
-    minWidth: 120,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginVertical: 20,
-  },
-  actionButton: {
-    flex: 1,
-    minWidth: '45%',
-  },
-  section: {
-    marginTop: 24,
+  updateButton: {
+    marginTop: 16,
   },
 });

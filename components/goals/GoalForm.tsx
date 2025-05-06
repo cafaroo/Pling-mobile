@@ -1,565 +1,615 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Target, Calendar, Award, Plus, Minus } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  KeyboardAvoidingView, 
+  Platform 
+} from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
-import { useUser } from '@/context/UserContext';
-import { createGoal, getTeamMemberGoals } from '@/services/goalService';
-import { GoalType, GoalPeriod, GoalAssigneeType, TeamMember } from '@/types';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import { Target, Save, Plus, Trash2, AlertCircle } from 'lucide-react-native';
+import { TextInput } from '@/components/ui/TextInput';
+import { Button } from '@/components/ui/Button';
 import DateTimePicker from '@/components/ui/DateTimePicker';
+import { Switch } from '@/components/ui/Switch';
+import { Dropdown } from '@/components/ui/Dropdown';
+import { useCreateGoal, useUpdateGoal } from '@/hooks/useGoals';
+import { Goal, CreateGoalInput, GoalType, GoalDifficulty, GoalScope, GoalTag } from '@/types/goal';
+import { useAuth } from '@/context/AuthContext';
+import { useActiveTeam } from '@/hooks/useTeam';
+import { useTags } from '@/hooks/useTags';
+import { TagSelector } from './TagSelector';
 
-type GoalFormProps = {
-  isTeamGoal?: boolean;
+// Props som komponenten tar emot
+interface GoalFormProps {
+  initialData?: Goal;
+  onSuccess?: (goal: Goal) => void;
+  onCancel?: () => void;
   teamId?: string;
-  isTeamMemberGoal?: boolean;
-  teamMembers?: TeamMember[];
-  onSuccess?: (goalId: string) => void;
-};
+  defaultScope?: GoalScope;
+  mode?: 'create' | 'edit';
+  isTeamGoal?: boolean;
+}
 
-export default function GoalForm({ 
-  isTeamGoal = false, 
+/**
+ * GoalForm - En komponent för att skapa eller redigera mål
+ */
+export const GoalForm: React.FC<GoalFormProps> = ({
+  initialData,
+  onSuccess,
+  onCancel,
   teamId, 
-  isTeamMemberGoal = false,
-  teamMembers = [],
-  onSuccess 
-}: GoalFormProps) {
+  defaultScope = 'individual',
+  mode = 'create',
+  isTeamGoal = false
+}) => {
   const { colors } = useTheme();
-  const { user } = useUser();
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { activeTeam } = useActiveTeam();
   
-  // Calculate default dates
-  const today = new Date();
-  const oneMonthLater = new Date();
-  oneMonthLater.setMonth(today.getMonth() + 1);
+  const createGoalMutation = useCreateGoal();
+  const updateGoalMutation = useUpdateGoal();
   
-  const [form, setForm] = useState({
+  const isEditing = mode === 'edit' || !!initialData;
+  
+  // Tillstånd för formuläret
+  const [formData, setFormData] = useState<Partial<CreateGoalInput>>({
     title: '',
     description: '',
-    type: 'sales_amount' as GoalType,
-    targetValue: '',
-    startDate: today,
-    endDate: oneMonthLater,
-    period: 'month' as GoalPeriod,
-    assigneeId: '',
-    assigneeType: 'individual' as GoalAssigneeType,
-    milestones: [
-      { title: '25% Milestone', targetValue: '', reward: '' },
-      { title: '50% Milestone', targetValue: '', reward: '' },
-      { title: '75% Milestone', targetValue: '', reward: '' }
-    ]
+    type: 'project',
+    difficulty: 'medium',
+    target: 100,
+    unit: '%',
+    start_date: new Date().toISOString(),
+    status: 'active',
+    scope: isTeamGoal ? 'team' : defaultScope,
+    team_id: isTeamGoal ? (teamId || activeTeam?.id) : undefined,
+    created_by: user?.id || '',
+    milestones: [],
+    tags: []
   });
-
-  const handleSubmit = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Validate form
-      if (!form.title.trim()) {
-        throw new Error('Title is required');
-      }
-
-      if (!form.targetValue || isNaN(Number(form.targetValue)) || Number(form.targetValue) <= 0) {
-        throw new Error('Target value must be a positive number');
-      }
-
-      if (form.endDate <= form.startDate) {
-        throw new Error('End date must be after start date');
-      }
-      
-      // Filter out empty milestones
-      const validMilestones = form.milestones.filter(m => 
-        m.title.trim() && !isNaN(Number(m.targetValue)) && Number(m.targetValue) > 0
-      ).map(m => ({
-        title: m.title,
-        targetValue: Number(m.targetValue),
-        reward: m.reward
-      }));
-      
-      // Create goal
-      const goal = await createGoal({
-        title: form.title,
-        description: form.description,
-        type: form.type,
-        targetValue: Number(form.targetValue),
-        startDate: form.startDate,
-        endDate: form.endDate,
-        period: form.period,
-        userId: isTeamGoal ? undefined : user?.id,
-        teamId: isTeamGoal ? teamId : undefined,
-        assigneeId: isTeamMemberGoal ? form.assigneeId : undefined,
-        assigneeType: isTeamMemberGoal ? form.assigneeType : undefined,
-        milestones: validMilestones
+  
+  // Validering
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Lägg till en state för att hålla koll på om deadline är aktiverad
+  const [hasDeadline, setHasDeadline] = useState<boolean>(!!initialData?.deadline);
+  
+  // Hämta alla taggar för väljare
+  const [selectedTags, setSelectedTags] = useState<GoalTag[]>([]);
+  
+  // Initialisera formulär om det finns initialData
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        ...initialData,
+        // Konvertera till string om det är ett nummer
+        target: initialData.target,
+        current: initialData.current
       });
-
-      if (!goal) {
-        throw new Error('Failed to create goal');
-      }
-
-      // Call success callback or navigate
-      if (onSuccess) {
-        onSuccess(goal.id);
-      } else {
-        router.replace(isTeamGoal ? `/team/goals/${goal.id}` : `/goals/${goal.id}`);
-      }
+      setHasDeadline(!!initialData.deadline);
       
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to create goal');
-    } finally {
-      setIsLoading(false);
+      // Sätt selected tags från initialData
+      if (initialData.tags) {
+        setSelectedTags(initialData.tags);
+      }
+    }
+  }, [initialData]);
+  
+  // Uppdatera formulärtillstånd
+  const handleChange = (name: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Rensa fel när ett fält uppdateras
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
     }
   };
-
-  const updateMilestone = (index: number, field: string, value: string) => {
-    const updatedMilestones = [...form.milestones];
-    updatedMilestones[index] = { 
-      ...updatedMilestones[index], 
-      [field]: value 
+  
+  // Hantera uppdatering av taggar
+  const handleTagsChange = (tags: GoalTag[]) => {
+    setSelectedTags(tags);
+    setFormData(prev => ({
+      ...prev,
+      tags
+    }));
+  };
+  
+  // Validera formulär
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.title?.trim()) {
+      newErrors.title = 'Titel krävs';
+    }
+    
+    if (!formData.target) {
+      newErrors.target = 'Målvärde krävs';
+    }
+    
+    if (formData.scope === 'team' && !formData.team_id) {
+      newErrors.team_id = 'Team krävs för teammål';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
+  // Skicka formulär
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
+    try {
+      if (isEditing && initialData) {
+        const updates = {
+          ...formData,
+          // Filtrera bort egenskaper som inte ska uppdateras
+          id: undefined,
+          created_at: undefined,
+          updated_at: undefined,
+          created_by: undefined,
+          scope: undefined, // Kan inte ändra scope efter skapande
+          tags: selectedTags
+        };
+        
+        const result = await updateGoalMutation.mutateAsync({
+          goalId: initialData.id,
+          updates
+        });
+        
+        onSuccess?.(result);
+      } else {
+        const newGoal = {
+          ...formData,
+          created_by: user?.id || '',
+          tags: selectedTags
+        } as CreateGoalInput;
+        
+        const result = await createGoalMutation.mutateAsync(newGoal);
+        onSuccess?.(result);
+      }
+    } catch (error) {
+      console.error('Goal form error:', error);
+    }
+  };
+  
+  // Hantera milestones
+  const [newMilestone, setNewMilestone] = useState('');
+  
+  const addMilestone = () => {
+    if (!newMilestone.trim()) return;
+    
+    const milestone = {
+      id: `temp-${Date.now()}`, // temporärt ID
+      goal_id: initialData?.id || '',
+      title: newMilestone,
+      is_completed: false,
+      created_at: new Date().toISOString(),
+      order: formData.milestones?.length || 0
     };
     
-    // If updating targetValue, ensure it's a number and within range
-    if (field === 'targetValue' && value) {
-      const milestoneValue = Number(value);
-      const goalValue = Number(form.targetValue);
-      
-      if (!isNaN(milestoneValue) && !isNaN(goalValue) && milestoneValue > goalValue) {
-        updatedMilestones[index].targetValue = form.targetValue;
-      }
-    }
+    setFormData(prev => ({
+      ...prev,
+      milestones: [...(prev.milestones || []), milestone]
+    }));
     
-    setForm({ ...form, milestones: updatedMilestones });
-  };
-
-  const addMilestone = () => {
-    setForm({
-      ...form,
-      milestones: [
-        ...form.milestones,
-        { title: `Milestone ${form.milestones.length + 1}`, targetValue: '', reward: '' }
-      ]
-    });
+    setNewMilestone('');
   };
 
   const removeMilestone = (index: number) => {
-    const updatedMilestones = [...form.milestones];
-    updatedMilestones.splice(index, 1);
-    setForm({ ...form, milestones: updatedMilestones });
+    setFormData(prev => ({
+      ...prev,
+      milestones: prev.milestones?.filter((_, i) => i !== index)
+    }));
   };
-
-  // Auto-calculate milestone values when target changes
-  const updateTargetValue = (value: string) => {
-    const numValue = Number(value);
-    
-    if (!isNaN(numValue) && numValue > 0) {
-      // Update milestone values to be 25%, 50%, and 75% of target
-      const updatedMilestones = form.milestones.map((milestone, index) => {
-        if (index === 0) {
-          return { ...milestone, targetValue: String(Math.round(numValue * 0.25)) };
-        } else if (index === 1) {
-          return { ...milestone, targetValue: String(Math.round(numValue * 0.5)) };
-        } else if (index === 2) {
-          return { ...milestone, targetValue: String(Math.round(numValue * 0.75)) };
-        }
-        return milestone;
-      });
-      
-      setForm({ ...form, targetValue: value, milestones: updatedMilestones });
-    } else {
-      setForm({ ...form, targetValue: value });
-    }
-  };
+  
+  // Listor för dropdown-val
+  const goalTypes: { label: string; value: GoalType }[] = [
+    { label: 'Prestation', value: 'performance' },
+    { label: 'Lärande', value: 'learning' },
+    { label: 'Vana', value: 'habit' },
+    { label: 'Projekt', value: 'project' },
+    { label: 'Annat', value: 'other' }
+  ];
+  
+  const goalDifficulties: { label: string; value: GoalDifficulty }[] = [
+    { label: 'Lätt', value: 'easy' },
+    { label: 'Medium', value: 'medium' },
+    { label: 'Svår', value: 'hard' }
+  ];
+  
+  // Spinner när formuläret skickas
+  const isLoading = createGoalMutation.isPending || updateGoalMutation.isPending;
 
   return (
-    <Card style={styles.formCard}>
-      {error && (
-        <Text style={[styles.errorText, { color: colors.error }]}>
-          {error}
-        </Text>
-      )}
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: colors.text.main }]}>Title</Text>
-        <TextInput
-          style={[
-            styles.input,
-            { 
-              borderColor: colors.neutral[500],
-              color: colors.text.main,
-              backgroundColor: 'rgba(0, 0, 0, 0.2)'
-            }
-          ]}
-          value={form.title}
-          onChangeText={(text) => setForm({ ...form, title: text })}
-          placeholder="Enter goal title"
-          placeholderTextColor={colors.neutral[400]}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: colors.text.main }]}>Description (Optional)</Text>
-        <TextInput
-          style={[
-            styles.textArea,
-            { 
-              borderColor: colors.neutral[500],
-              color: colors.text.main,
-              backgroundColor: 'rgba(0, 0, 0, 0.2)'
-            }
-          ]}
-          value={form.description}
-          onChangeText={(text) => setForm({ ...form, description: text })}
-          placeholder="Enter goal description"
-          placeholderTextColor={colors.neutral[400]}
-          multiline
-          numberOfLines={4}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: colors.text.main }]}>Goal Type</Text>
-        <View style={styles.buttonGroup}>
-          <Button
-            title="Sales Amount"
-            variant={form.type === 'sales_amount' ? 'primary' : 'outline'}
-            size="small"
-            onPress={() => setForm({ ...form, type: 'sales_amount' })}
-            style={styles.typeButton}
-          />
-          <Button
-            title="Sales Count"
-            variant={form.type === 'sales_count' ? 'primary' : 'outline'}
-            size="small"
-            onPress={() => setForm({ ...form, type: 'sales_count' })}
-            style={styles.typeButton}
-          />
-        </View>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: colors.text.main }]}>Target Value</Text>
-        <TextInput
-          style={[
-            styles.input,
-            { 
-              borderColor: colors.neutral[500],
-              color: colors.text.main,
-              backgroundColor: 'rgba(0, 0, 0, 0.2)'
-            }
-          ]}
-          value={form.targetValue}
-          onChangeText={updateTargetValue}
-          placeholder={form.type === 'sales_amount' ? "Enter target amount" : "Enter target count"}
-          placeholderTextColor={colors.neutral[400]}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: colors.text.main }]}>Period</Text>
-        <View style={styles.buttonGroup}>
-          <Button
-            title="Week"
-            variant={form.period === 'week' ? 'primary' : 'outline'}
-            size="small"
-            onPress={() => setForm({ ...form, period: 'week' })}
-            style={styles.periodButton}
-          />
-          <Button
-            title="Month"
-            variant={form.period === 'month' ? 'primary' : 'outline'}
-            size="small"
-            onPress={() => setForm({ ...form, period: 'month' })}
-            style={styles.periodButton}
-          />
-          <Button
-            title="Quarter"
-            variant={form.period === 'quarter' ? 'primary' : 'outline'}
-            size="small"
-            onPress={() => setForm({ ...form, period: 'quarter' })}
-            style={styles.periodButton}
-          />
-          <Button
-            title="Year"
-            variant={form.period === 'year' ? 'primary' : 'outline'}
-            size="small"
-            onPress={() => setForm({ ...form, period: 'year' })}
-            style={styles.periodButton}
-          />
-        </View>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={[styles.label, { color: colors.text.main }]}>Duration</Text>
-        <View style={styles.dateContainer}>
-          <View style={styles.dateField}>
-            <Text style={[styles.dateLabel, { color: colors.text.light }]}>Start Date</Text>
-            <DateTimePicker
-              value={form.startDate}
-              onChange={(date) => setForm({ ...form, startDate: date })}
-              minimumDate={new Date()}
-            />
-          </View>
-          <View style={styles.dateField}>
-            <Text style={[styles.dateLabel, { color: colors.text.light }]}>End Date</Text>
-            <DateTimePicker
-              value={form.endDate}
-              onChange={(date) => setForm({ ...form, endDate: date })}
-              minimumDate={form.startDate}
-            />
-          </View>
-        </View>
-      </View>
-
-      {/* Team Member Selection (only for team member goals) */}
-      {isTeamMemberGoal && teamMembers.length > 0 && (
-        <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: colors.text.main }]}>Assign To Team Member</Text>
-          <View style={styles.buttonGroup}>
-            {teamMembers.map(member => (
-              <Button
-                key={member.userId}
-                title={member.user?.name || 'Unknown User'}
-                variant={form.assigneeId === member.userId ? 'primary' : 'outline'}
-                size="small"
-                onPress={() => setForm({ ...form, assigneeId: member.userId })}
-                style={styles.memberButton}
-              />
-            ))}
-          </View>
-        </View>
-      )}
-
-      <View style={styles.formGroup}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
-            Milestones
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView style={styles.scrollView}>
+        <BlurView 
+          intensity={20} 
+          tint="dark" 
+          style={[styles.formContainer, { backgroundColor: 'rgba(60, 60, 90, 0.3)' }]}
+        >
+          <Text style={[styles.formTitle, { color: colors.text.main }]}>
+            {isEditing ? 'Redigera mål' : 'Skapa nytt mål'}
           </Text>
-          <Button
-            title="Add"
-            icon={Plus}
-            onPress={addMilestone}
-            variant="outline"
-            size="small"
+          
+          {/* Grundläggande information */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
+              Grundläggande information
+            </Text>
+
+            <TextInput
+              label="Titel"
+              value={formData.title}
+              onChangeText={(value) => handleChange('title', value)}
+              placeholder="Ange måltitel"
+              error={errors.title}
+            />
+            
+            <TextInput
+              label="Beskrivning"
+              value={formData.description}
+              onChangeText={(value) => handleChange('description', value)}
+              placeholder="Beskriv målet"
+              multiline
+              numberOfLines={3}
+            />
+            
+            <Dropdown
+              label="Typ"
+              items={goalTypes}
+              value={formData.type}
+              onValueChange={(value) => handleChange('type', value)}
+            />
+            
+            <Dropdown
+              label="Svårighetsgrad"
+              items={goalDifficulties}
+              value={formData.difficulty}
+              onValueChange={(value) => handleChange('difficulty', value)}
+            />
+            
+            <TagSelector
+              selectedTags={selectedTags}
+              onTagsChange={handleTagsChange}
+              label="Taggar"
+            />
+          </View>
+
+          {/* Målvärden */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
+              Målvärden
+            </Text>
+            
+            <View style={styles.row}>
+              <View style={styles.flex2}>
+        <TextInput
+                  label="Målvärde"
+                  value={formData.target?.toString()}
+                  onChangeText={(value) => handleChange('target', parseInt(value) || 0)}
+          keyboardType="numeric"
+                  error={errors.target}
+        />
+      </View>
+
+              <View style={styles.flex1}>
+                <TextInput
+                  label="Enhet"
+                  value={formData.unit}
+                  onChangeText={(value) => handleChange('unit', value)}
+                  placeholder="%"
           />
         </View>
-        
-        <Text style={[styles.sectionDescription, { color: colors.text.light }]}>
-          Add milestones to track progress and celebrate achievements along the way.
-        </Text>
-        
-        {form.milestones.map((milestone, index) => (
-          <View key={index} style={styles.milestoneContainer}>
-            <View style={styles.milestoneHeader}>
-              <Text style={[styles.milestoneTitle, { color: colors.text.main }]}>
-                Milestone {index + 1}
+      </View>
+
+            {isEditing && (
+              <TextInput
+                label="Nuvarande värde"
+                value={formData.current?.toString()}
+                onChangeText={(value) => handleChange('current', parseInt(value) || 0)}
+                keyboardType="numeric"
+              />
+            )}
+            
+            <View>
+              <Text style={[styles.inputLabel, { color: colors.text.light }]}>
+                Startdatum
               </Text>
-              <Button
-                title=""
-                icon={Minus}
-                onPress={() => removeMilestone(index)}
-                variant="outline"
-                size="small"
-                style={styles.removeButton}
+              <DateTimePicker
+                value={formData.start_date ? new Date(formData.start_date) : new Date()}
+                onChange={(date) => handleChange('start_date', date.toISOString())}
               />
             </View>
             
-            <View style={styles.milestoneForm}>
-              <View style={styles.milestoneField}>
-                <Text style={[styles.milestoneLabel, { color: colors.text.light }]}>Title</Text>
-                <TextInput
-                  style={[
-                    styles.milestoneInput,
-                    { 
-                      borderColor: colors.neutral[500],
-                      color: colors.text.main,
-                      backgroundColor: 'rgba(0, 0, 0, 0.2)'
+            <View style={styles.deadlineContainer}>
+              <View style={styles.deadlineHeader}>
+                <Text style={[styles.inputLabel, { color: colors.text.light }]}>
+                  Deadline
+                </Text>
+                <Switch
+                  value={hasDeadline}
+                  onValueChange={(value) => {
+                    setHasDeadline(value);
+                    if (!value) {
+                      handleChange('deadline', undefined);
+                    } else if (!formData.deadline) {
+                      // Sätt ett defaultvärde för deadline (en vecka framåt)
+                      const oneWeekFromNow = new Date();
+                      oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
+                      handleChange('deadline', oneWeekFromNow.toISOString());
                     }
-                  ]}
-                  value={milestone.title}
-                  onChangeText={(text) => updateMilestone(index, 'title', text)}
-                  placeholder="Milestone title"
-                  placeholderTextColor={colors.neutral[400]}
+                  }}
                 />
               </View>
               
-              <View style={styles.milestoneField}>
-                <Text style={[styles.milestoneLabel, { color: colors.text.light }]}>Target Value</Text>
-                <TextInput
-                  style={[
-                    styles.milestoneInput,
-                    { 
-                      borderColor: colors.neutral[500],
-                      color: colors.text.main,
-                      backgroundColor: 'rgba(0, 0, 0, 0.2)'
-                    }
-                  ]}
-                  value={milestone.targetValue}
-                  onChangeText={(text) => updateMilestone(index, 'targetValue', text)}
-                  placeholder="Target value"
-                  placeholderTextColor={colors.neutral[400]}
-                  keyboardType="numeric"
+              {hasDeadline && (
+                <DateTimePicker
+                  value={formData.deadline ? new Date(formData.deadline) : new Date()}
+                  onChange={(date) => handleChange('deadline', date.toISOString())}
                 />
-              </View>
-              
-              <View style={styles.milestoneField}>
-                <Text style={[styles.milestoneLabel, { color: colors.text.light }]}>Reward (Optional)</Text>
-                <TextInput
-                  style={[
-                    styles.milestoneInput,
-                    { 
-                      borderColor: colors.neutral[500],
-                      color: colors.text.main,
-                      backgroundColor: 'rgba(0, 0, 0, 0.2)'
-                    }
-                  ]}
-                  value={milestone.reward}
-                  onChangeText={(text) => updateMilestone(index, 'reward', text)}
-                  placeholder="Reward description"
-                  placeholderTextColor={colors.neutral[400]}
-                />
-              </View>
+              )}
             </View>
+          </View>
+          
+          {/* Scope och Team - bara vid skapande */}
+          {!isEditing && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
+                Måltyp
+              </Text>
+              
+              <View style={styles.scopeSelector}>
+                <TouchableOpacity
+                  style={[
+                    styles.scopeButton,
+                    formData.scope === 'individual' && styles.scopeButtonActive,
+                    formData.scope === 'individual' && { 
+                      backgroundColor: colors.accent.pink + '40'
+                    }
+                  ]}
+                  onPress={() => handleChange('scope', 'individual')}
+                >
+                  <Text 
+                    style={[
+                      styles.scopeButtonText,
+                      { color: formData.scope === 'individual' ? colors.accent.pink : colors.text.light }
+                    ]}
+                  >
+                    Individuellt
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.scopeButton,
+                    formData.scope === 'team' && styles.scopeButtonActive,
+                    formData.scope === 'team' && { 
+                      backgroundColor: colors.accent.yellow + '40'
+                    }
+                  ]}
+                  onPress={() => handleChange('scope', 'team')}
+                >
+                  <Text 
+                    style={[
+                      styles.scopeButtonText,
+                      { color: formData.scope === 'team' ? colors.accent.yellow : colors.text.light }
+                    ]}
+                  >
+                    Team
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              
+              {formData.scope === 'team' && errors.team_id && (
+                <View style={styles.errorContainer}>
+                  <AlertCircle size={14} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>
+                    {errors.team_id}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+          
+          {/* Milstolpar */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
+              Milstolpar
+            </Text>
+            
+            <View style={styles.milestonesContainer}>
+              {formData.milestones?.map((milestone, index) => (
+                <View key={`milestone-${index}`} style={styles.milestoneRow}>
+                  <Text 
+                    style={[styles.milestoneText, { color: colors.text.main }]}
+                    numberOfLines={1}
+                  >
+                    {milestone.title}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => removeMilestone(index)}
+                    style={styles.removeButton}
+                  >
+                    <Trash2 size={16} color={colors.error} />
+                  </TouchableOpacity>
           </View>
         ))}
       </View>
 
+            <View style={styles.addMilestoneContainer}>
+              <TextInput
+                placeholder="Lägg till milstolpe..."
+                value={newMilestone}
+                onChangeText={setNewMilestone}
+                onSubmitEditing={addMilestone}
+                style={styles.milestoneInput}
+              />
+              <TouchableOpacity
+                style={[styles.addButton, { backgroundColor: colors.accent.yellow }]}
+                onPress={addMilestone}
+                disabled={!newMilestone.trim()}
+              >
+                <Plus size={20} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          {/* Knappar */}
+          <View style={styles.buttonContainer}>
+            <Button
+              title="Avbryt"
+              onPress={onCancel}
+              variant="outline"
+              style={styles.cancelButton}
+            />
       <Button
-        title="Create Goal"
-        icon={Target}
+              title={isEditing ? 'Uppdatera' : 'Skapa'}
         onPress={handleSubmit}
-        variant="primary"
-        size="large"
         loading={isLoading}
+              icon={Save}
         style={styles.submitButton}
       />
-    </Card>
+          </View>
+        </BlurView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  formCard: {
-    padding: 20,
+  container: {
+    flex: 1,
   },
-  errorText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
+  scrollView: {
+    flex: 1,
   },
-  formGroup: {
+  formContainer: {
+    borderRadius: 16,
+    padding: 16,
+    margin: 16,
+  },
+  formTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
     marginBottom: 20,
+    textAlign: 'center',
   },
-  label: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-  },
-  textArea: {
-    minHeight: 100,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontFamily: 'Inter-Regular',
-    textAlignVertical: 'top',
-  },
-  buttonGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  typeButton: {
-    flex: 1,
-    minWidth: '48%',
-  },
-  memberButton: {
-    marginBottom: 8,
-    minWidth: '48%',
-  },
-  periodButton: {
-    flex: 1,
-    minWidth: '23%',
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  dateField: {
-    flex: 1,
-  },
-  dateLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+  section: {
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontFamily: 'Inter-Bold',
     fontSize: 18,
-  },
-  sectionDescription: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  milestoneContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    borderRadius: 8,
-    padding: 12,
+    fontWeight: 'bold',
     marginBottom: 12,
   },
-  milestoneHeader: {
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  flex1: {
+    flex: 1,
+  },
+  flex2: {
+    flex: 2,
+  },
+  scopeSelector: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  scopeButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+  },
+  scopeButtonActive: {
+    borderColor: 'transparent',
+  },
+  scopeButtonText: {
+    fontWeight: 'bold',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  errorText: {
+    fontSize: 12,
+  },
+  milestonesContainer: {
+    marginBottom: 12,
+  },
+  milestoneRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    marginBottom: 8,
   },
-  milestoneTitle: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 16,
+  milestoneText: {
+    flex: 1,
   },
   removeButton: {
-    width: 32,
-    height: 32,
-    padding: 0,
+    padding: 4,
   },
-  milestoneForm: {
-    gap: 12,
-  },
-  milestoneField: {
-    gap: 4,
-  },
-  milestoneLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
+  addMilestoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   milestoneInput: {
+    flex: 1,
+  },
+  addButton: {
+    width: 40,
     height: 40,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 12,
+  },
+  cancelButton: {
+    flex: 1,
   },
   submitButton: {
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  deadlineContainer: {
     marginTop: 12,
+  },
+  deadlineHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
 });

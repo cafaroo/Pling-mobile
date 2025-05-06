@@ -1,254 +1,335 @@
-import { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Target, Calendar, TrendingUp, Award, ChevronRight, User } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
-import { Goal } from '@/types';
-import Card from '@/components/ui/Card';
-import ProgressBar from '@/components/ui/ProgressBar';
-import { format, differenceInDays } from 'date-fns';
+import { Target, Award, Clock, BarChart3, Flame, Book } from 'lucide-react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { Goal, GoalType, GoalScope } from '@/types/goal';
+import { LinearGradient } from 'expo-linear-gradient';
+import { TagList } from './TagList';
 
+// Interface för props som komponenten tar emot
 interface GoalCardProps {
   goal: Goal;
-  onPress?: (goalId: string) => void;
+  onPress?: (goal: Goal) => void;
+  variant?: 'default' | 'compact' | 'detailed';
   style?: object;
 }
 
-export const GoalCard = memo(function GoalCard({ goal, onPress, style }: GoalCardProps) {
+/**
+ * GoalCard - En komponent för att visa ett mål i en kortvy
+ */
+export const GoalCard: React.FC<GoalCardProps> = ({
+  goal,
+  onPress,
+  variant = 'default',
+  style
+}) => {
   const { colors } = useTheme();
-  
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return colors.primary.light;
-      case 'completed':
-        return colors.success;
-      case 'failed':
-        return colors.error;
+
+  // Beräkna progress som ett procenttal
+  const progressPercent = goal.target > 0
+    ? Math.min(100, (goal.current / goal.target) * 100)
+    : 0;
+
+  // Returnera rätt ikon baserat på måltyp
+  const renderTypeIcon = () => {
+    const iconSize = variant === 'compact' ? 18 : 22;
+    const iconColor = goal.scope === 'team' ? colors.accent.yellow : colors.primary.light;
+
+    switch (goal.type) {
+      case 'performance':
+        return <BarChart3 size={iconSize} color={iconColor} />;
+      case 'learning':
+        return <Book size={iconSize} color={iconColor} />;
+      case 'habit':
+        return <Flame size={iconSize} color={iconColor} />;
+      case 'project':
+        return <Target size={iconSize} color={iconColor} />;
       default:
-        return colors.neutral[400];
+        return <Award size={iconSize} color={iconColor} />;
     }
   };
-  
-  const formatTimeRemaining = () => {
-    const endDate = new Date(goal.endDate);
-    const now = new Date();
+
+  // Beräkna dagar kvar, om deadline är satt
+  const getDaysRemaining = () => {
+    if (!goal.deadline) return null;
     
-    if (endDate < now) {
-      return 'Ended';
+    const today = new Date();
+    const deadline = new Date(goal.deadline);
+    const diffTime = deadline.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+
+  // Formatera dagar kvar som en text
+  const getDaysRemainingText = () => {
+    const days = getDaysRemaining();
+    if (days === null) return null;
+    
+    if (days < 0) return 'Försenad';
+    if (days === 0) return 'Idag';
+    if (days === 1) return 'Imorgon';
+    return `${days} dagar kvar`;
+  };
+
+  // Hämta bakgrundsfärg baserat på status och scope
+  const getBackgroundColor = () => {
+    if (goal.status === 'completed') {
+      return 'rgba(16, 185, 129, 0.3)'; // Grön för avklarade mål
     }
     
-    const daysRemaining = differenceInDays(endDate, now);
-    return daysRemaining === 1 ? '1 day left' : `${daysRemaining} days left`;
-  };
-  
-  const formatValue = (value: number) => {
-    return goal.type === 'sales_amount'
-      ? `${new Intl.NumberFormat('sv-SE').format(value)} kr`
-      : new Intl.NumberFormat('sv-SE').format(value);
-  };
-
-  const handlePress = () => {
-    onPress?.(goal.id);
+    if (goal.status === 'canceled') {
+      return 'rgba(239, 68, 68, 0.2)'; // Röd för avbrutna mål
+    }
+    
+    // Vanligt mål
+    return goal.scope === 'team' 
+      ? 'rgba(91, 33, 182, 0.2)' // Lila för team
+      : 'rgba(79, 70, 229, 0.2)'; // Blå för individuella
   };
 
-  return (
-    <Card 
-      style={[styles.container, style]}
-      onPress={handlePress}
-    >
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Text style={[styles.title, { color: colors.text.main }]}>
-            {goal.title}
-          </Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(goal.status) }]}>
-            <Text style={styles.statusText}>
-              {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
-            </Text>
-          </View>
-        </View>
-        
-        {goal.description && (
-          <Text style={[styles.description, { color: colors.text.light }]}>
-            {goal.description}
-          </Text>
-        )}
-      </View>
+  // Renderar badge baserat på scope
+  const renderScopeBadge = () => {
+    if (variant === 'compact') return null;
+    
+    const badgeColor = goal.scope === 'team' 
+      ? colors.primary.main
+      : colors.accent.pink;
       
-      <View style={styles.progressSection}>
-        <View style={styles.progressHeader}>
-          <Text style={[styles.progressLabel, { color: colors.text.light }]}>
-            Progress
-          </Text>
-          <Text style={[styles.progressValue, { color: colors.accent.yellow }]}>
-            {Math.round(goal.progress)}%
-          </Text>
-        </View>
-        
-        <ProgressBar 
-          progress={goal.progress} 
-          height={8}
-          backgroundColor={colors.neutral[700]}
-          progressColor={goal.status === 'completed' ? colors.success : colors.accent.yellow}
+    const badgeText = goal.scope === 'team' 
+      ? 'Team'
+      : goal.team_id ? 'Team-relaterad' : 'Individuell';
+      
+    return (
+      <View style={[styles.badge, { backgroundColor: badgeColor }]}>
+        <Text style={styles.badgeText}>{badgeText}</Text>
+      </View>
+    );
+  };
+
+  // Renderar progress bar
+  const renderProgressBar = () => {
+    return (
+      <View style={styles.progressBarContainer}>
+        <View style={styles.progressBackground} />
+        <View 
+          style={[
+            styles.progressFill, 
+            { 
+              width: `${progressPercent}%`,
+              backgroundColor: progressPercent >= 100 
+                ? colors.success 
+                : colors.accent.yellow
+            }
+          ]} 
         />
-        
-        <View style={styles.valueContainer}>
-          <Text style={[styles.currentValue, { color: colors.text.main }]}>
-            {formatValue(goal.currentValue)}
-          </Text>
-          <Text style={[styles.targetValue, { color: colors.text.light }]}>
-            of {formatValue(goal.targetValue)}
-          </Text>
-        </View>
       </View>
-      
-      <View style={styles.metaContainer}>
-        <View style={styles.metaItem}>
-          <Calendar size={16} color={colors.text.light} />
-          <Text style={[styles.metaText, { color: colors.text.light }]}>
-            {formatTimeRemaining()}
-          </Text>
-        </View>
-        
-        <View style={styles.metaItem}>
-          <Target size={16} color={colors.text.light} />
-          <Text style={[styles.metaText, { color: colors.text.light }]}>
-            {goal.period.charAt(0).toUpperCase() + goal.period.slice(1)}ly goal
-          </Text>
-        </View>
-        
-        {goal.milestones && (
-          <View style={styles.metaItem}>
-            <Award size={16} color={colors.text.light} />
-            <Text style={[styles.metaText, { color: colors.text.light }]}>
-              {goal.completedMilestones || 0}/{goal.milestonesCount || 0} milestones
+    );
+  };
+
+  // Renderar deadline
+  const renderDeadline = () => {
+    const daysText = getDaysRemainingText();
+    if (!daysText) return null;
+    
+    const days = getDaysRemaining();
+    const textColor = days && days < 0 
+      ? colors.error 
+      : days && days <= 3 
+        ? colors.accent.yellow 
+        : colors.text.light;
+    
+    return (
+      <View style={styles.deadlineContainer}>
+        <Clock size={12} color={textColor} />
+        <Text style={[styles.deadlineText, { color: textColor }]}>
+          {daysText}
+        </Text>
+      </View>
+    );
+  };
+
+  // Renderar taggar om de finns
+  const renderTags = () => {
+    if (!goal.tags || goal.tags.length === 0) return null;
+    
+    // I kompakt läge visa färre taggar
+    const maxDisplay = variant === 'compact' ? 1 : variant === 'detailed' ? 5 : 3;
+    
+    return (
+      <TagList 
+        tags={goal.tags} 
+        size={variant === 'compact' ? 'small' : 'medium'}
+        maxDisplay={maxDisplay}
+        scrollable={variant === 'detailed'}
+        style={styles.tagList}
+      />
+    );
+  };
+
+  // Bygg slutlig komponent
+  return (
+    <Animated.View entering={FadeIn}>
+      <Pressable
+        style={[styles.container, style]}
+        onPress={() => onPress && onPress(goal)}
+      >
+        <BlurView 
+          intensity={30} 
+          tint="dark" 
+          style={[styles.blurContainer, { backgroundColor: getBackgroundColor() }]}
+        >
+          <View style={styles.cardContent}>
+            <View style={styles.headerContainer}>
+              {renderTypeIcon()}
+              {renderScopeBadge()}
+              {renderDeadline()}
+            </View>
+            
+            <Text 
+              style={[styles.title, { color: colors.text.main }]}
+              numberOfLines={2}
+            >
+              {goal.title}
             </Text>
+            
+            {variant !== 'compact' && (
+              <Text 
+                style={[styles.description, { color: colors.text.light }]}
+                numberOfLines={2}
+              >
+                {goal.description}
+              </Text>
+            )}
+            
+            {/* Taggar visas här, om de finns */}
+            {renderTags()}
+            
+            <View style={styles.footerContainer}>
+              <View style={styles.progressTextContainer}>
+                <Text style={[styles.progressText, { color: colors.text.main }]}>
+                  {`${Math.round(progressPercent)}%`}
+                </Text>
+                
+                {goal.unit && (
+                  <Text style={[styles.unitText, { color: colors.text.light }]}>
+                    {`${goal.current}/${goal.target} ${goal.unit}`}
+                  </Text>
+                )}
+              </View>
+              
+              {variant === 'detailed' && goal.milestones && goal.milestones.length > 0 && (
+                <View style={styles.milestonesContainer}>
+                  <Text style={[styles.milestonesText, { color: colors.text.light }]}>
+                    {`${goal.milestones.filter(m => m.is_completed).length}/${goal.milestones.length} milstolpar`}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            {renderProgressBar()}
           </View>
-        )}
-        
-        {goal.assigneeName && (
-        <View style={styles.metaItem}>
-          <User size={16} color={colors.text.light} />
-          <Text style={[styles.metaText, { color: colors.text.light }]}>
-            {goal.assigneeName}
-          </Text>
-        </View>
-        )}
-      </View>
-      
-      {onPress && (
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={[styles.detailsButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
-            onPress={handlePress}
-          >
-            <Text style={[styles.detailsText, { color: colors.accent.yellow }]}>
-              View Details
-            </Text>
-            <ChevronRight size={16} color={colors.accent.yellow} />
-          </TouchableOpacity>
-        </View>
-      )}
-    </Card>
+        </BlurView>
+      </Pressable>
+    </Animated.View>
   );
-}, (prevProps, nextProps) => prevProps.goal.id === nextProps.goal.id);
+};
 
 const styles = StyleSheet.create({
   container: {
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  blurContainer: {
+    overflow: 'hidden',
+    borderRadius: 16,
+  },
+  cardContent: {
     padding: 16,
-    marginBottom: 16,
   },
-  header: {
-    marginBottom: 16,
-  },
-  titleContainer: {
+  headerContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  title: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 18,
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
+  badge: {
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     marginLeft: 8,
   },
-  statusText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 12,
+  badgeText: {
     color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 6,
   },
   description: {
-    fontFamily: 'Inter-Regular',
     fontSize: 14,
-    lineHeight: 20,
+    marginBottom: 12,
   },
-  progressSection: {
-    marginBottom: 16,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  progressLabel: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 14,
-  },
-  progressValue: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 14,
-  },
-  valueContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+  tagList: {
     marginTop: 8,
+    marginBottom: 12,
   },
-  currentValue: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 18,
+  deadlineContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
   },
-  targetValue: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
+  deadlineText: {
+    fontSize: 12,
     marginLeft: 4,
   },
-  metaContainer: {
+  footerContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 8,
   },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  progressTextContainer: {
+    flexDirection: 'column',
   },
-  metaText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
+  progressText: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    paddingTop: 12,
+  unitText: {
+    fontSize: 12,
   },
-  detailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 4,
+  milestonesContainer: {
+    alignItems: 'flex-end',
   },
-  detailsText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 14,
+  milestonesText: {
+    fontSize: 12,
   },
+  progressBarContainer: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  progressBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 3,
+  },
+  progressFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    borderRadius: 3,
+  }
 });

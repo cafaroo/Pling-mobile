@@ -1,177 +1,424 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { Target, Calendar, Award, Clock, User, Users } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
-import { Goal, GoalMilestone } from '@/types';
-import Card from '@/components/ui/Card';
-import ProgressBar from '@/components/ui/ProgressBar';
-import { format, differenceInDays } from 'date-fns';
+import { 
+  Target, 
+  Calendar, 
+  Award, 
+  Clock, 
+  User, 
+  Users, 
+  Edit2, 
+  Trash2,
+  BarChart3,
+  Book,
+  Flame,
+  Link
+} from 'lucide-react-native';
+import { Goal, GoalStatus, GoalType, Milestone } from '@/types/goal';
+import { format, formatDistance, isPast } from 'date-fns';
+import { sv } from 'date-fns/locale';
+import { Button } from '@/components/ui/Button';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { RelatedGoalsList } from './RelatedGoalsList';
+import { TagList } from './TagList';
+import { useRemoveTagFromGoal } from '@/hooks/useTags';
 
-type GoalDetailCardProps = {
+interface GoalDetailCardProps {
   goal: Goal;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onRelatedGoalPress?: (goal: Goal) => void;
+  isEditable?: boolean;
   style?: object;
-};
+}
 
-export default function GoalDetailCard({ goal, style }: GoalDetailCardProps) {
+/**
+ * GoalDetailCard - En komponent för att visa detaljerad information om ett mål
+ */
+export const GoalDetailCard: React.FC<GoalDetailCardProps> = ({
+  goal,
+  onEdit,
+  onDelete,
+  onRelatedGoalPress,
+  isEditable = true,
+  style
+}) => {
   const { colors } = useTheme();
+  const removeTagMutation = useRemoveTagFromGoal();
   
-  const getStatusColor = (status: string) => {
+  // Beräkna progress som ett procenttal
+  const progressPercent = goal.target > 0
+    ? Math.min(100, (goal.current / goal.target) * 100)
+    : 0;
+  
+  // Hämta färg baserat på status
+  const getStatusColor = (status: GoalStatus) => {
     switch (status) {
       case 'active':
         return colors.primary.light;
       case 'completed':
         return colors.success;
-      case 'failed':
+      case 'paused':
+        return colors.accent.yellow;
+      case 'canceled':
         return colors.error;
       default:
-        return colors.neutral[400];
+        return colors.text.light;
     }
   };
   
-  const formatTimeRemaining = () => {
-    const endDate = new Date(goal.endDate);
+  // Formatera tid kvar till deadline
+  const getTimeRemaining = () => {
+    if (!goal.deadline) return null;
+    
+    const deadlineDate = new Date(goal.deadline);
     const now = new Date();
     
-    if (endDate < now) {
-      return 'Ended';
+    if (isPast(deadlineDate)) {
+      return 'Försenad';
     }
     
-    const daysRemaining = differenceInDays(endDate, now);
-    return daysRemaining === 1 ? '1 day left' : `${daysRemaining} days left`;
+    return formatDistance(deadlineDate, now, { 
+      locale: sv,
+      addSuffix: true 
+    });
   };
   
-  const formatValue = (value: number) => {
-    return goal.type === 'sales_amount'
-      ? `${new Intl.NumberFormat('sv-SE').format(value)} kr`
-      : new Intl.NumberFormat('sv-SE').format(value);
+  // Få typ-ikon
+  const getTypeIcon = (type: GoalType) => {
+    switch (type) {
+      case 'performance':
+        return <BarChart3 size={20} color={colors.accent.yellow} />;
+      case 'learning':
+        return <Book size={20} color={colors.accent.yellow} />;
+      case 'habit':
+        return <Flame size={20} color={colors.accent.yellow} />;
+      case 'project':
+        return <Target size={20} color={colors.accent.yellow} />;
+      default:
+        return <Award size={20} color={colors.accent.yellow} />;
+    }
   };
-
+  
+  // Få svårighetsgrad som text
+  const getDifficultyText = () => {
+    switch (goal.difficulty) {
+      case 'easy':
+        return 'Lätt';
+      case 'medium':
+        return 'Medium';
+      case 'hard':
+        return 'Svår';
+      default:
+        return 'Medium';
+    }
+  };
+  
+  // Få status som text
+  const getStatusText = () => {
+    switch (goal.status) {
+      case 'active':
+        return 'Aktiv';
+      case 'completed':
+        return 'Avklarad';
+      case 'paused':
+        return 'Pausad';
+      case 'canceled':
+        return 'Avbruten';
+      default:
+        return 'Aktiv';
+    }
+  };
+  
+  // Få scope som text
+  const getScopeText = () => {
+    return goal.scope === 'team' ? 'Team' : 'Individuell';
+  };
+  
+  // Hantera borttagning av tagg
+  const handleRemoveTag = async (tagId: string) => {
+    if (!goal.id) return;
+    
+    try {
+      await removeTagMutation.mutateAsync({ 
+        goalId: goal.id, 
+        tagId 
+      });
+    } catch (error) {
+      console.error('Fel vid borttagning av tagg:', error);
+    }
+  };
+  
   return (
-    <Card style={[styles.container, style]}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: colors.text.main }]}>
-            {goal.title}
+    <Animated.View entering={FadeIn} style={style}>
+      <BlurView 
+        intensity={30} 
+        tint="dark" 
+        style={[styles.container, { backgroundColor: 'rgba(60, 60, 90, 0.3)' }]}
+      >
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, { color: colors.text.main }]}>
+              {goal.title}
+            </Text>
+            
+            <View style={[
+              styles.statusBadge, 
+              { backgroundColor: getStatusColor(goal.status) }
+            ]}>
+              <Text style={styles.statusText}>
+                {getStatusText()}
+              </Text>
+            </View>
+            
+            {isEditable && (
+              <TouchableOpacity 
+                style={styles.editButton}
+                onPress={onEdit}
+              >
+                <Edit2 size={16} color={colors.text.light} />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <Text style={[styles.description, { color: colors.text.light }]}>
+            {goal.description || 'Ingen beskrivning'}
           </Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(goal.status) }]}>
-            <Text style={styles.statusText}>
-              {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
+          
+          {/* Visa taggar om de finns */}
+          {goal.tags && goal.tags.length > 0 && (
+            <View style={styles.tagsSection}>
+              <TagList 
+                tags={goal.tags} 
+                onRemoveTag={isEditable ? handleRemoveTag : undefined}
+                scrollable
+              />
+            </View>
+          )}
+        </View>
+        
+        <View style={styles.progressSection}>
+          <View style={styles.progressHeader}>
+            <Text style={[styles.progressLabel, { color: colors.text.main }]}>
+              Framsteg
+            </Text>
+            <Text style={[styles.progressValue, { color: colors.accent.yellow }]}>
+              {Math.round(progressPercent)}%
+            </Text>
+          </View>
+          
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBackground} />
+            <View 
+              style={[
+                styles.progressFill, 
+                { 
+                  width: `${progressPercent}%`,
+                  backgroundColor: progressPercent >= 100 
+                    ? colors.success 
+                    : colors.accent.yellow
+                }
+              ]} 
+            />
+          </View>
+          
+          <View style={styles.valueContainer}>
+            <Text style={[styles.currentValue, { color: colors.text.main }]}>
+              {goal.current}
+            </Text>
+            <Text style={[styles.targetValue, { color: colors.text.light }]}>
+              av {goal.target} {goal.unit || ''}
             </Text>
           </View>
         </View>
         
-        {goal.description && (
-          <Text style={[styles.description, { color: colors.text.light }]}>
-            {goal.description}
-          </Text>
+        <View style={styles.detailsGrid}>
+          <View style={[styles.detailItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+            {getTypeIcon(goal.type)}
+            <Text style={[styles.detailLabel, { color: colors.text.light }]}>
+              Typ
+            </Text>
+            <Text style={[styles.detailValue, { color: colors.text.main }]}>
+              {goal.type.charAt(0).toUpperCase() + goal.type.slice(1)}
+            </Text>
+          </View>
+          
+          <View style={[styles.detailItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+            <Award size={20} color={colors.accent.yellow} />
+            <Text style={[styles.detailLabel, { color: colors.text.light }]}>
+              Svårighetsgrad
+            </Text>
+            <Text style={[styles.detailValue, { color: colors.text.main }]}>
+              {getDifficultyText()}
+            </Text>
+          </View>
+          
+          <View style={[styles.detailItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+            <Users size={20} color={colors.accent.yellow} />
+            <Text style={[styles.detailLabel, { color: colors.text.light }]}>
+              Scope
+            </Text>
+            <Text style={[styles.detailValue, { color: colors.text.main }]}>
+              {getScopeText()}
+            </Text>
+          </View>
+          
+          {goal.deadline && (
+            <View style={[styles.detailItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
+              <Clock size={20} color={colors.accent.yellow} />
+              <Text style={[styles.detailLabel, { color: colors.text.light }]}>
+                Tid kvar
+              </Text>
+              <Text style={[styles.detailValue, { color: colors.text.main }]}>
+                {getTimeRemaining()}
+              </Text>
+            </View>
+          )}
+        </View>
+        
+        <View style={styles.dateSection}>
+          <View style={styles.dateItem}>
+            <Text style={[styles.dateLabel, { color: colors.text.light }]}>
+              Startdatum
+            </Text>
+            <Text style={[styles.dateValue, { color: colors.text.main }]}>
+              {format(new Date(goal.start_date), 'd MMM yyyy', { locale: sv })}
+            </Text>
+          </View>
+          
+          {goal.deadline && (
+            <View style={styles.dateItem}>
+              <Text style={[styles.dateLabel, { color: colors.text.light }]}>
+                Deadline
+              </Text>
+              <Text style={[styles.dateValue, { color: colors.text.main }]}>
+                {format(new Date(goal.deadline), 'd MMM yyyy', { locale: sv })}
+              </Text>
+            </View>
+          )}
+          
+          <View style={styles.dateItem}>
+            <Text style={[styles.dateLabel, { color: colors.text.light }]}>
+              Skapad
+            </Text>
+            <Text style={[styles.dateValue, { color: colors.text.main }]}>
+              {format(new Date(goal.created_at), 'd MMM yyyy', { locale: sv })}
+            </Text>
+          </View>
+        </View>
+        
+        {goal.milestones && goal.milestones.length > 0 && (
+          <View style={styles.milestonesSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text.main }]}>
+              Milstolpar
+            </Text>
+            
+            {goal.milestones.map((milestone, index) => (
+              <View 
+                key={milestone.id} 
+                style={[styles.milestoneItem, index === goal.milestones.length - 1 && { borderBottomWidth: 0 }]}
+              >
+                <View style={styles.milestoneHeader}>
+                  <View style={styles.milestoneIconContainer}>
+                    <View 
+                      style={[
+                        styles.milestoneIcon, 
+                        { 
+                          backgroundColor: milestone.is_completed 
+                            ? colors.success 
+                            : 'rgba(255, 255, 255, 0.2)' 
+                        }
+                      ]} 
+                    />
+                    {index < goal.milestones.length - 1 && (
+                      <View style={[styles.milestoneLine, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]} />
+                    )}
+                  </View>
+                  
+                  <Text 
+                    style={[
+                      styles.milestoneTitle, 
+                      { 
+                        color: milestone.is_completed ? colors.text.light : colors.text.main,
+                        textDecorationLine: milestone.is_completed ? 'line-through' : 'none'
+                      }
+                    ]}
+                  >
+                    {milestone.title}
+                  </Text>
+                </View>
+                
+                {milestone.description && (
+                  <Text style={[styles.milestoneDescription, { color: colors.text.light }]}>
+                    {milestone.description}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
         )}
-      </View>
-      
-      <View style={styles.progressSection}>
-        <View style={styles.progressHeader}>
-          <Text style={[styles.progressLabel, { color: colors.text.main }]}>
-            Progress
-          </Text>
-          <Text style={[styles.progressValue, { color: colors.accent.yellow }]}>
-            {Math.round(goal.progress)}%
-          </Text>
-        </View>
         
-        <ProgressBar 
-          progress={goal.progress} 
-          height={10}
-          backgroundColor={colors.neutral[700]}
-          progressColor={goal.status === 'completed' ? colors.success : colors.accent.yellow}
-        />
-        
-        <View style={styles.valueContainer}>
-          <Text style={[styles.currentValue, { color: colors.text.main }]}>
-            {formatValue(goal.currentValue)}
-          </Text>
-          <Text style={[styles.targetValue, { color: colors.text.light }]}>
-            of {formatValue(goal.targetValue)}
-          </Text>
-        </View>
-      </View>
-      
-      <View style={styles.detailsGrid}>
-        <View style={[styles.detailItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-          <Calendar size={20} color={colors.accent.yellow} />
-          <Text style={[styles.detailLabel, { color: colors.text.light }]}>
-            Period
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.text.main }]}>
-            {goal.period.charAt(0).toUpperCase() + goal.period.slice(1)}
-          </Text>
-        </View>
-        
-        <View style={[styles.detailItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-          <Clock size={20} color={colors.accent.yellow} />
-          <Text style={[styles.detailLabel, { color: colors.text.light }]}>
-            Time Left
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.text.main }]}>
-            {formatTimeRemaining()}
-          </Text>
-        </View>
-        
-        <View style={[styles.detailItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-          <Target size={20} color={colors.accent.yellow} />
-          <Text style={[styles.detailLabel, { color: colors.text.light }]}>
-            Type
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.text.main }]}>
-            {goal.type === 'sales_amount' ? 'Sales Amount' : 'Sales Count'}
-          </Text>
-        </View>
-        
-        <View style={[styles.detailItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-          <User size={20} color={colors.accent.yellow} />
-          <Text style={[styles.detailLabel, { color: colors.text.light }]}>
-            Created By
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.text.main }]}>
-            {goal.createdByName || 'You'}
-          </Text>
-        </View>
-        
-        {goal.assigneeId && goal.assigneeName && (
-        <View style={[styles.detailItem, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}>
-          <Users size={20} color={colors.accent.yellow} />
-          <Text style={[styles.detailLabel, { color: colors.text.light }]}>
-            Assigned To
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.text.main }]}>
-            {goal.assigneeName}
-          </Text>
-        </View>
+        {goal.id && (
+          <View style={styles.relatedGoalsSection}>
+            <RelatedGoalsList 
+              goalId={goal.id} 
+              onGoalPress={onRelatedGoalPress}
+              canEdit={isEditable}
+            />
+          </View>
         )}
-      </View>
-      
-      <View style={styles.dateSection}>
-        <View style={styles.dateItem}>
-          <Text style={[styles.dateLabel, { color: colors.text.light }]}>
-            Start Date
-          </Text>
-          <Text style={[styles.dateValue, { color: colors.text.main }]}>
-            {format(new Date(goal.startDate), 'MMM d, yyyy')}
-          </Text>
-        </View>
         
-        <View style={styles.dateItem}>
-          <Text style={[styles.dateLabel, { color: colors.text.light }]}>
-            End Date
-          </Text>
-          <Text style={[styles.dateValue, { color: colors.text.main }]}>
-            {format(new Date(goal.endDate), 'MMM d, yyyy')}
-          </Text>
-        </View>
-      </View>
-    </Card>
+        {isEditable && (
+          <View style={styles.buttonContainer}>
+            {onEdit && (
+              <Button
+                title="Redigera"
+                icon={Edit2}
+                onPress={onEdit}
+                variant="outline"
+                style={styles.editButton}
+              />
+            )}
+            
+            {onDelete && (
+              <Button
+                title="Ta bort"
+                icon={Trash2}
+                onPress={onDelete}
+                variant="outline"
+                style={[styles.deleteButton, { borderColor: colors.error }]}
+                textStyle={{ color: colors.error }}
+                iconColor={colors.error}
+              />
+            )}
+          </View>
+        )}
+      </BlurView>
+    </Animated.View>
   );
-}
+};
+
+// Checkbox-komponenten för milstolpar
+const Check = ({ size, color }: { size: number; color: string }) => (
+  <View style={{ width: size, height: size }}>
+    <View style={{
+      width: size - 4,
+      height: size / 2 - 2,
+      borderLeftWidth: 2,
+      borderBottomWidth: 2,
+      borderColor: color,
+      transform: [{ rotate: '-45deg' }],
+      marginTop: 1,
+    }} />
+  </View>
+);
 
 const styles = StyleSheet.create({
   container: {
+    borderRadius: 16,
+    overflow: 'hidden',
     padding: 20,
   },
   header: {
@@ -184,23 +431,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontFamily: 'Inter-Bold',
     fontSize: 22,
+    fontWeight: 'bold',
     flex: 1,
+    marginRight: 8,
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    marginLeft: 8,
   },
   statusText: {
-    fontFamily: 'Inter-Bold',
     fontSize: 12,
+    fontWeight: 'bold',
     color: 'white',
   },
+  editButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
   description: {
-    fontFamily: 'Inter-Regular',
     fontSize: 16,
     lineHeight: 24,
   },
@@ -214,12 +464,34 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   progressLabel: {
-    fontFamily: 'Inter-Bold',
     fontSize: 16,
+    fontWeight: 'bold',
   },
   progressValue: {
-    fontFamily: 'Inter-Bold',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  progressBarContainer: {
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  progressBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 5,
+  },
+  progressFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    borderRadius: 5,
   },
   valueContainer: {
     flexDirection: 'row',
@@ -227,11 +499,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   currentValue: {
-    fontFamily: 'Inter-Bold',
     fontSize: 24,
+    fontWeight: 'bold',
   },
   targetValue: {
-    fontFamily: 'Inter-Regular',
     fontSize: 16,
     marginLeft: 8,
   },
@@ -249,32 +520,87 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   detailLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 12,
     marginTop: 8,
+    marginBottom: 4,
   },
   detailValue: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 16,
-    marginTop: 4,
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   dateSection: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
+    flexWrap: 'wrap',
+    marginBottom: 24,
   },
   dateItem: {
-    alignItems: 'center',
+    minWidth: '33%',
+    flex: 1,
+    marginBottom: 8,
   },
   dateLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 12,
     marginBottom: 4,
   },
   dateValue: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  milestonesSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  milestoneItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  milestoneHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  milestoneIconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  milestoneIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  milestoneLine: {
+    width: 1,
+    height: '100%',
+  },
+  milestoneTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  milestoneDescription: {
+    fontSize: 12,
+  },
+  relatedGoalsSection: {
+    marginBottom: 20,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  editButton: {
+    minWidth: 120,
+  },
+  deleteButton: {
+    minWidth: 120,
+  },
+  tagsSection: {
+    marginTop: 12,
   },
 });

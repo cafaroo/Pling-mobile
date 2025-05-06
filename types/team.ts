@@ -63,6 +63,12 @@ export interface TeamMember {
   status: TeamMemberStatus;
   created_at: string;
   updated_at: string;
+  profile?: {
+    id: string;
+    name?: string;
+    email?: string;
+    avatar_url?: string;
+  };
 }
 
 export type TeamMessage = {

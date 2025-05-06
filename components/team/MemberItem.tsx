@@ -24,6 +24,8 @@ import { BlurView } from 'expo-blur';
  * @property {(member: TeamMember) => void} [onSelect] - Callback vid val av medlem
  * @property {(memberId: string, status: TeamMember['status']) => Promise<void> | void} [onStatusChange] - Callback vid statusförändring
  * @property {boolean} [isCurrentUser] - Om denna medlem är den inloggade användaren
+ * @property {boolean} [useCustomMenu] - Om den anpassade menyn ska användas istället för inbyggd meny
+ * @property {() => void} [onShowMenu] - Callback vid begäran att visa menyn (används med useCustomMenu)
  */
 export interface MemberItemProps {
   member: TeamMember;
@@ -38,6 +40,8 @@ export interface MemberItemProps {
   onSelect?: (member: TeamMember) => void;
   onStatusChange?: (memberId: string, status: TeamMember['status']) => Promise<void> | void;
   isCurrentUser?: boolean;
+  useCustomMenu?: boolean;
+  onShowMenu?: () => void;
 }
 
 interface SubmenuItem {
@@ -229,6 +233,34 @@ const areMemberPropsEqual = (prevProps: MemberItemProps, nextProps: MemberItemPr
 };
 
 /**
+ * Lägg till följande hjälpfunktion någonstans före MemberItemBase
+ * 
+ * @param {string | undefined} name - Medlemsnamnet att rendera
+ * @param {string} userId - Användarens ID
+ * @param {any} colors - Tema-färgobjekt från useTheme
+ * @returns {React.ReactElement} - Rendernat medlemsnamn
+ */
+const renderAndroidMemberName = (name: string | undefined, userId: string, colors: any) => {
+  // Säkerställ att vi alltid har ett värde att visa
+  const displayName = name || userId.substring(0, 8) || 'Medlem';
+  
+  return (
+    <Text 
+      style={{
+        color: colors.text.main,
+        fontSize: 18,
+        fontWeight: 'bold',
+        fontFamily: 'sans-serif',
+        paddingVertical: 4,
+        paddingHorizontal: 2,
+      }}
+    >
+      {displayName}
+    </Text>
+  );
+};
+
+/**
  * Bas-komponent för att visa en teammedlem
  * 
  * Denna komponent visar information om en teammedlem, inklusive namn, avatar, roll och status.
@@ -251,67 +283,52 @@ const MemberItemBase: React.FC<MemberItemProps> = ({
   onSelect,
   onStatusChange,
   isCurrentUser = false,
+  useCustomMenu = false,
+  onShowMenu,
 }) => {
   const { colors, shadows } = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
   const [pressAnim] = useState(new Animated.Value(1));
   const [actionInProgress, setActionInProgress] = useState(false);
-  const menuButtonRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [activeSubmenu, setActiveSubmenu] = useState<number | null>(null);
-  const submenuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<any>(null);
   const isWeb = Platform.OS === 'web';
-
-  useEffect(() => {
-    if (menuVisible && menuButtonRef.current && Platform.OS === 'web') {
-      const rect = menuButtonRef.current.getBoundingClientRect();
-      
-      // Beräkna position
-      let top = rect.bottom + window.scrollY;
-      let left = rect.right - 180 + window.scrollX;
-      
-      // Kontrollera om menyn kommer att hamna utanför skärmen
-      const menuHeight = 200; // Uppskattad höjd
-      if (top + menuHeight > window.innerHeight + window.scrollY) {
-        // Om det inte finns plats nedanför, placera den ovanför knappen istället
-        top = rect.top - menuHeight + window.scrollY;
-      }
-      
-      // Se till att menyn inte hamnar för långt till höger
-      if (left + 180 > window.innerWidth + window.scrollX) {
-        left = window.innerWidth - 190 + window.scrollX;
-      }
-      
-      setMenuPosition({ x: left, y: top });
-      
-      // Funktion för att hantera klick utanför menyn
-      const handleOutsideClick = (event: MouseEvent) => {
-        if (
-          menuButtonRef.current && 
-          !menuButtonRef.current.contains(event.target as Node) &&
-          menuRef.current &&
-          !menuRef.current.contains(event.target as Node)
-        ) {
-          setMenuVisible(false);
-        }
-      };
-      
-      // Lägg till lyssnare
-      document.addEventListener('mousedown', handleOutsideClick);
-      
-      // Ta bort lyssnare vid cleanup
-      return () => {
-        document.removeEventListener('mousedown', handleOutsideClick);
-      };
+  
+  // Förbättrad extraktion av medlemsnamn för konsekvent användning över plattformar
+  const memberName = useMemo(() => {
+    if (!member) return 'Okänd medlem';
+    
+    // Loggning för debugging
+    console.log('MemberItem profile:', {
+      profile: member.profile,
+      name: member.profile?.name,
+      platform: Platform.OS,
+      fallback: `Användare-${member.user_id.substring(0, 4)}`
+    });
+    
+    // Mer robust logik för att hantera profilen
+    if (member.profile && typeof member.profile.name === 'string' && member.profile.name.trim() !== '') {
+      return member.profile.name;
+    } else if (member.user_id) {
+      return `Användare-${member.user_id.substring(0, 4)}`;
+    } else {
+      return 'Okänd medlem';
     }
-  }, [menuVisible]);
+  }, [member]);
 
-  useEffect(() => {
-    if (!menuVisible) {
-      setActiveSubmenu(null);
-    }
-  }, [menuVisible]);
+  // Animera tryck på item
+  const handlePressIn = () => {
+    Animated.spring(pressAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
 
   // Kontrollera om den aktuella användaren kan modifiera denna medlem
   const canModify = useMemo(() => {
@@ -332,80 +349,6 @@ const MemberItemBase: React.FC<MemberItemProps> = ({
     return false;
   }, [currentUserRole, member.role, isCurrentUser, showActions, onChangeRole, onRemove]);
 
-  // Animera tryck på item
-  const handlePressIn = () => {
-    console.log('handlePressIn anropades');
-    if (Platform.OS === 'web') {
-      console.log('Kör web-specifik pressIn animation');
-      pressAnim.setValue(0.98);
-    } else {
-      console.log('Kör native pressIn animation');
-      Animated.spring(pressAnim, {
-        toValue: 0.98,
-        useNativeDriver: true,
-      }).start();
-    }
-  };
-
-  const handlePressOut = () => {
-    console.log('handlePressOut anropades');
-    if (Platform.OS === 'web') {
-      console.log('Kör web-specifik pressOut animation');
-      pressAnim.setValue(1);
-    } else {
-      console.log('Kör native pressOut animation');
-      Animated.spring(pressAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
-    }
-  };
-
-  const containerStyle = useMemo(() => {
-    const baseStyle = {
-      ...styles.container,
-      backgroundColor: colors.background.card,
-      borderColor: colors.border.subtle,
-      ...Platform.select({
-        ios: {
-          ...shadows.small,
-          overflow: 'hidden',
-        },
-        android: {
-          elevation: 2,
-          overflow: 'hidden',
-        },
-        web: {
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          overflow: 'hidden',
-        },
-      }),
-    };
-
-    switch (variant) {
-      case 'compact':
-        return {
-          ...baseStyle,
-          paddingVertical: 10,
-          minHeight: 56,
-        };
-      case 'detailed':
-        return {
-          ...baseStyle,
-          paddingVertical: 14,
-          minHeight: 88,
-        };
-      default:
-        return {
-          ...baseStyle,
-          paddingVertical: 12,
-          minHeight: 72,
-        };
-    }
-  }, [colors, shadows, variant]);
-
-  const RoleIcon = getRoleIcon(member.role);
-  
   const handleRoleChange = async (newRole: TeamRole) => {
     console.log('handleRoleChange anropades', { newRole, memberId: member.id, canModify, actionInProgress });
     
@@ -531,585 +474,267 @@ const MemberItemBase: React.FC<MemberItemProps> = ({
     }
   };
 
+  // Skapa menyalternativ baserat på tillgängliga åtgärder
   const menuItems = useMemo(() => {
-    if (!showActions) return [];
-
+    if (!canModify) return [];
+    
     const items: MenuItem[] = [];
-    const availableRoles = getAvailableRoles();
-
-    // Lägg till rolländringsalternativ om det finns tillgängliga roller
-    if (availableRoles.length > 0 && onChangeRole && member.role !== 'owner') {
-      items.push({
-        label: 'Ändra roll till',
-        submenu: availableRoles.map(role => {
-          // Skapa en bindning som fungerar oavsett hur klickhändelsen anropas
-          const roleLabel = getRoleLabel(role);
-          const handleClick = () => {
-            console.log('Anropar handleRoleChange med explicit roll:', role);
-            handleRoleChange(role);
-          };
-          
-          return {
-            label: roleLabel,
-            onPress: handleClick,
-            icon: getRoleIcon(role),
-            // Spara rollen som attribut för att möjliggöra extrahering i onClick-hanteraren
-            roleValue: role
-          } as SubmenuItem;
-        }),
-      });
+    
+    // Lägg till rollalternativ om vi kan ändra roller
+    if (onChangeRole) {
+      const availableRoles = getAvailableRoles();
+      if (availableRoles.length > 0) {
+        const roleSubmenu: SubmenuItem[] = availableRoles.map(role => ({
+          label: getRoleLabel(role),
+          roleValue: role,
+          onPress: () => handleRoleChange(role),
+          icon: getRoleIcon(role),
+        }));
+        
+        items.push({
+          label: 'Ändra roll',
+          icon: UserCog,
+          submenu: roleSubmenu,
+        });
+      }
     }
-
-    // Lägg till borttagningsalternativ om användaren har behörighet
-    if (onRemove && (
-      (currentUserRole === 'owner' && member.role !== 'owner') || 
-      (currentUserRole === 'admin' && member.role === 'member')
-    )) {
+    
+    // Lägg till ta bort medlem
+    if (onRemove) {
       items.push({
         label: 'Ta bort från team',
         onPress: handleRemoveMember,
         destructive: true,
-      } as MenuItem);
+        icon: member.status === 'inactive' ? Shield : UserCog,
+      });
     }
-
-    return items;
-  }, [currentUserRole, member.role, member.id, showActions, onChangeRole, onRemove]);
-
-  const memberName = member.profile?.name || member.user?.email || 'Okänd användare';
-  
-  // Debug-info för profildata
-  React.useEffect(() => {
-    if (!member.profile?.name && process.env.NODE_ENV !== 'production') {
-      console.debug(
-        'Medlem saknar profilnamn:',
-        {
-          id: member.id,
-          user_id: member.user_id,
-          profile: member.profile,
-          user: member.user
-        }
-      );
-    }
-  }, [member]);
-  
-  const toggleMenu = () => {
-    if (!menuVisible && menuButtonRef.current) {
-      console.log('Menu button clicked, opening menu');
-      try {
-        // Beräkna menyposition baserat på knappens position
-        const rect = menuButtonRef.current.getBoundingClientRect();
-        
-        // Säkerställ att menyn visas inom fönstrets gränser
-        const windowWidth = window.innerWidth;
-        const menuWidth = 200; // Uppskattad menybredd
-        
-        // Beräkna x-position så att menyn inte hamnar utanför skärmen
-        let xPos = rect.right;
-        if (xPos + menuWidth > windowWidth) {
-          xPos = rect.left - menuWidth;
-        }
-        if (xPos < 0) {
-          xPos = 10; // Sätt minimum x-position
-        }
-        
-        const yPos = Math.max(rect.bottom || 0, 0) + (window.scrollY || 0) + 5;
-        
-        setMenuPosition({
-          x: xPos,
-          y: yPos
+    
+    // Lägg till statushantering om den finns tillgänglig
+    if (onStatusChange && member.status !== 'pending') {
+      if (member.status === 'active') {
+        items.push({
+          label: 'Inaktivera konto',
+          onPress: () => handleStatusChange('inactive'),
+          icon: User,
         });
-        console.log('Setting menu position to:', { x: xPos, y: yPos });
-      } catch (error) {
-        console.error('Fel vid beräkning av menyposition:', error);
-        // Använd standardposition vid fel
-        setMenuPosition({ x: 10, y: 100 });
+      } else if (member.status === 'inactive') {
+        items.push({
+          label: 'Aktivera konto',
+          onPress: () => handleStatusChange('active'),
+          icon: User,
+        });
       }
-      // Öppna menyn efter att ha satt position
-      setMenuVisible(true);
+    }
+    
+    return items;
+  }, [canModify, onChangeRole, onRemove, onStatusChange, member.status]);
+
+  // Toggle för native-menyn
+  const toggleMenu = () => {
+    if (useCustomMenu && onShowMenu) {
+      // Använd den anpassade menyn om den är aktiverad
+      onShowMenu();
     } else {
-      // Stäng menyn
-      console.log('Menu button clicked, closing menu');
-      setMenuVisible(false);
+      // Annars använd standardmenyn
+      setMenuVisible(!menuVisible);
     }
   };
 
-  // Om allt ser bra ut, rendera komponenten
+  // Beräkna behållarstil baserat på variant
+  const containerStyle = useMemo(() => {
+    const baseStyle = {
+      ...styles.container,
+      backgroundColor: colors.background.card,
+      borderColor: colors.border.subtle,
+      ...Platform.select({
+        ios: {
+          ...shadows.small,
+          overflow: 'hidden',
+        },
+        android: {
+          elevation: 2,
+          overflow: 'hidden',
+        },
+        web: {
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          overflow: 'hidden',
+        },
+      }),
+    };
+
+    switch (variant) {
+      case 'compact':
+        return {
+          ...baseStyle,
+          paddingVertical: 10,
+          minHeight: 56,
+        };
+      case 'detailed':
+        return {
+          ...baseStyle,
+          paddingVertical: 14,
+          minHeight: 88,
+        };
+      default:
+        return {
+          ...baseStyle,
+          paddingVertical: 12,
+          minHeight: 72,
+        };
+    }
+  }, [colors, shadows, variant]);
+
+  const RoleIcon = getRoleIcon(member.role);
+
+  // Rendera cross-platform menyn baserat på platformstyp
+  const renderMenu = () => {
+    // Om anpassad meny används, visa ingen inbyggd meny
+    if (useCustomMenu) return null;
+    
+    // Om det inte finns några menyalternativ eller inte är synlig, visa inget
+    if (!menuVisible || menuItems.length === 0) return null;
+    
+    return (
+      <Menu
+        items={menuItems}
+        visible={menuVisible}
+        onDismiss={() => setMenuVisible(false)}
+        anchor={menuButtonRef}
+        mode="action"
+      />
+    );
+  };
+
   return (
-    <Animated.View style={{ transform: [{ scale: pressAnim }] }}>
-      {isWeb ? (
-        <div
-          onClick={() => onSelect?.(member)}
-          onMouseDown={handlePressIn}
-          onMouseUp={handlePressOut}
-          style={{
-            ...containerStyle,
-            display: 'flex', 
-            flexDirection: 'row',
+    <Animated.View style={[{ transform: [{ scale: pressAnim }] }]}>
+      <TouchableOpacity
+        onPress={() => onSelect?.(member)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.7}
+        disabled={!onSelect || actionInProgress}
+        style={[containerStyle, { opacity: actionInProgress ? 0.7 : 1 }]}
+      >
+        {actionInProgress && (
+          <View style={{
+            ...StyleSheet.absoluteFillObject,
+            justifyContent: 'center',
             alignItems: 'center',
-            cursor: !onSelect || actionInProgress ? 'default' : 'pointer',
-            opacity: actionInProgress ? 0.7 : 1,
-            position: 'relative',
-            overflow: 'hidden'
-          }}
-          role="button"
-          aria-disabled={!onSelect || actionInProgress}
-          aria-label={`Teammedlem ${memberName}`}
-          aria-busy={actionInProgress}
-        >
-          {actionInProgress && (
-            <div 
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                backgroundColor: 'rgba(0,0,0,0.05)',
-                zIndex: 5,
-                pointerEvents: 'none'
-              }}
-            >
-              <ActivityIndicator size="small" color={colors.text.light} />
-            </div>
-          )}
-          <View style={styles.content}>
-            <View style={styles.avatarContainer}>
-              <Avatar
-                size={variant === 'compact' ? 36 : variant === 'detailed' ? 48 : 40}
-                source={member.profile?.avatar_url}
-                fallback={member.profile?.name?.[0] || '?'}
-              />
-              {member.status === 'active' && (
-                <View style={[styles.statusDot, { 
-                  backgroundColor: colors.success,
-                  borderColor: colors.background.card 
-                }]} />
-              )}
-            </View>
+            backgroundColor: 'rgba(0,0,0,0.05)',
+            zIndex: 5,
+          }}>
+            <ActivityIndicator size="small" color={colors.text.light} />
+          </View>
+        )}
 
-            <View style={styles.info}>
-              <Text 
-                style={[styles.name, { 
-                  color: colors.text.main,
-                  fontSize: variant === 'compact' ? 14 : 16,
-                }]}
-                numberOfLines={1}
-              >
-                {memberName}
-              </Text>
-              
-              {showRoleLabel && (
-                <View style={styles.roleContainer}>
-                  <RoleIcon 
-                    size={variant === 'compact' ? 12 : 14} 
-                    color={colors.text.light} 
-                    style={styles.roleIcon} 
-                  />
-                  <Text style={[styles.role, { 
-                    color: colors.text.light,
-                    fontSize: variant === 'compact' ? 12 : 14,
-                  }]}>
-                    {getRoleLabel(member.role)}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.badgeContainer}>
-              {showStatusBadge && (
-                <Badge
-                  label={getStatusLabel(member.status)}
-                  color={getStatusColor(member.status, colors)}
-                  style={styles.statusBadge}
-                  size={variant === 'compact' ? 'small' : 'medium'}
-                />
-              )}
-              
-              {showRoleBadge && (
-                <Badge
-                  icon={getRoleIcon(member.role)}
-                  label={getRoleLabel(member.role)}
-                  color={colors.primary.main}
-                  style={styles.roleBadge}
-                  size={variant === 'compact' ? 'small' : 'medium'}
-                />
-              )}
-            </View>
-
-            {canModify && menuItems.length > 0 && (
-              <div
-                ref={menuButtonRef}
-                style={{
-                  position: 'relative'
-                }}
-              >
-                <div
-                  onClick={toggleMenu}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    border: `1px solid ${colors.border.subtle}`,
-                    backgroundColor: menuVisible 
-                      ? colors.primary.main 
-                      : colors.background.subtle,
-                    cursor: actionInProgress ? 'not-allowed' : 'pointer',
-                  }}
-                  role="button"
-                  aria-label="Öppna åtgärdsmeny"
-                  aria-disabled={actionInProgress}
-                >
-                  {actionInProgress ? (
-                    <ActivityIndicator size="small" color={colors.text.light} />
-                  ) : (
-                    <MoreVertical 
-                      size={20} 
-                      color={menuVisible ? colors.text.main : colors.text.light} 
-                    />
-                  )}
-                </div>
-                {menuVisible && menuPosition && (
-                  <div
-                    ref={menuRef}
-                    style={{
-                      position: 'fixed',
-                      top: menuPosition.y,
-                      left: menuPosition.x,
-                      backgroundColor: colors.background.paper,
-                      borderRadius: 8,
-                      overflow: 'visible',
-                      zIndex: 99999,
-                      boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
-                      minWidth: 180,
-                      maxWidth: 250,
-                      fontFamily: 'system-ui, -apple-system, sans-serif',
-                    }}
-                  >
-                    {menuItems.map((item, index) => (
-                      <div
-                        key={`menu-item-${index}`}
-                        style={{
-                          padding: '12px 16px',
-                          cursor: 'pointer',
-                          borderBottom: index < menuItems.length - 1 ? `1px solid ${colors.border.subtle}` : 'none',
-                          color: colors.text.main,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          fontFamily: 'system-ui, -apple-system, sans-serif',
-                          fontSize: '14px',
-                          position: 'relative',
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          console.log('Menyalternativ klickat:', item.label);
-                          
-                          if (item.submenu) {
-                            console.log('Öppnar undermeny med alternativ:', item.submenu.map(sm => sm.label).join(', '));
-                            setActiveSubmenu(activeSubmenu === index ? null : index);
-                          } else if (item.onPress) {
-                            console.log('Kör onPress för menyalternativ');
-                            item.onPress();
-                            setMenuVisible(false);
-                          }
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
-                            {item.icon && (
-                              <div style={{ marginRight: 8 }}>
-                                {React.createElement(item.icon, { 
-                                  size: 18, 
-                                  color: item.destructive ? colors.error : colors.text.main
-                                })}
-                              </div>
-                            )}
-                            <span style={{
-                              fontWeight: 500,
-                              color: item.destructive ? colors.error : colors.text.main,
-                            }}>
-                              {item.label}
-                            </span>
-                          </div>
-                          {item.submenu && (
-                            <div style={{ marginLeft: 8 }}>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {item.submenu && activeSubmenu === index && (
-                          <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: '100%',
-                            backgroundColor: colors.background.card,
-                            border: `1px solid ${colors.border.subtle}`,
-                            borderRadius: 12,
-                            minWidth: 180,
-                            zIndex: 10000,
-                            boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-                          }}>
-                            {item.submenu.map((subItem, subIndex) => (
-                              <div
-                                key={`submenu-item-${subIndex}`}
-                                style={{
-                                  padding: '12px 16px',
-                                  cursor: 'pointer',
-                                  borderBottom: subIndex < item.submenu!.length - 1 ? `1px solid ${colors.border.subtle}` : 'none',
-                                  color: colors.text.main,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                                  fontSize: '14px',
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  console.log('Klickade på undermenyalternativ:', subItem.label);
-                                  
-                                  // Kontrollera om alternativet har ett roleValue-attribut
-                                  if (subItem.roleValue) {
-                                    console.log('Använder explicit roleValue:', subItem.roleValue);
-                                    handleRoleChange(subItem.roleValue);
-                                  } 
-                                  // Som en fallback, försök extrahera rollen från etiketten
-                                  else if (subItem.label.includes('Admin') || subItem.label.includes('Medlem')) {
-                                    const role = getRoleFromLabel(subItem.label);
-                                    console.log('Extraherarad roll från etikett:', role);
-                                    handleRoleChange(role);
-                                  } 
-                                  // För andra alternativ, använd den ursprungliga onPress-funktionen
-                                  else if (subItem.onPress) {
-                                    subItem.onPress();
-                                  }
-                                  
-                                  setMenuVisible(false);
-                                  setActiveSubmenu(null);
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                                    {subItem.icon && (
-                                      <div style={{ marginRight: 8 }}>
-                                        {React.createElement(subItem.icon, { 
-                                          size: 18, 
-                                          color: subItem.destructive ? colors.error : colors.text.main 
-                                        })}
-                                      </div>
-                                    )}
-                                    <span style={{
-                                      fontWeight: 500,
-                                      color: subItem.destructive ? colors.error : colors.text.main,
-                                    }}>
-                                      {subItem.label}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+        <View style={styles.content}>
+          <View style={styles.avatarContainer}>
+            <Avatar
+              size={variant === 'compact' ? 36 : variant === 'detailed' ? 48 : 40}
+              source={member.profile?.avatar_url}
+              fallback={Platform.OS === 'android' ? 
+                // På Android, använd första bokstaven i namnet eller användar-ID
+                (member.profile?.name?.[0]?.toUpperCase() || member.user_id?.[0] || '?') : 
+                // På andra plattformar, använd normal fallback
+                (memberName[0] || '?')}
+            />
+            {member.status === 'active' && (
+              <View style={[styles.statusDot, { 
+                backgroundColor: colors.success,
+                borderColor: colors.background.card 
+              }]} />
             )}
           </View>
-        </div>
-      ) : (
-        <TouchableOpacity
-          style={[containerStyle, styles.cardShadow]}
-          onPress={() => onSelect?.(member)}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          disabled={!onSelect || actionInProgress}
-          activeOpacity={0.8}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel={`Teammedlem ${memberName}`}
-          accessibilityHint={actionInProgress ? 'Åtgärd pågår' : 'Tryck för att visa mer information'}
-          accessibilityState={{ 
-            disabled: actionInProgress,
-            busy: actionInProgress
-          }}
-        >
-          {actionInProgress && (
-            <div 
-              style={{
-                ...StyleSheet.absoluteFillObject,
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                pointerEvents: 'none',
-                zIndex: 1,
-              }}
-            />
-          )}
-          <View style={styles.content}>
-            <View style={styles.avatarContainer}>
-              <Avatar
-                size={variant === 'compact' ? 36 : variant === 'detailed' ? 48 : 40}
-                source={member.profile?.avatar_url}
-                fallback={member.profile?.name?.[0] || '?'}
-              />
-              {member.status === 'active' && (
-                <View style={[styles.statusDot, { 
-                  backgroundColor: colors.success,
-                  borderColor: colors.background.card 
-                }]} />
-              )}
-            </View>
 
-            <View style={styles.info}>
+          <View style={styles.info}>
+            {/* Specialhantering för Android */}
+            {Platform.OS === 'android' ? (
+              // Direktare renderingsmetod för Android
+              renderAndroidMemberName(member.profile?.name, member.user_id, colors)
+            ) : (
+              // För webb och iOS
               <Text 
                 style={[styles.name, { 
                   color: colors.text.main,
                   fontSize: variant === 'compact' ? 14 : 16,
                 }]}
                 numberOfLines={1}
+                testID="member-name-text-web"
               >
                 {memberName}
               </Text>
-              
-              {showRoleLabel && (
-                <View style={styles.roleContainer}>
-                  <RoleIcon 
-                    size={variant === 'compact' ? 12 : 14} 
-                    color={colors.text.light} 
-                    style={styles.roleIcon} 
-                  />
-                  <Text style={[styles.role, { 
-                    color: colors.text.light,
-                    fontSize: variant === 'compact' ? 12 : 14,
-                  }]}>
-                    {getRoleLabel(member.role)}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.badgeContainer}>
-              {showStatusBadge && (
-                <Badge
-                  label={getStatusLabel(member.status)}
-                  color={getStatusColor(member.status, colors)}
-                  style={styles.statusBadge}
-                  size={variant === 'compact' ? 'small' : 'medium'}
+            )}
+            
+            {showRoleLabel && (
+              <View style={styles.roleContainer}>
+                <RoleIcon 
+                  size={variant === 'compact' ? 12 : 14} 
+                  color={colors.text.light} 
+                  style={styles.roleIcon} 
                 />
-              )}
-              
-              {showRoleBadge && (
-                <Badge
-                  icon={getRoleIcon(member.role)}
-                  label={getRoleLabel(member.role)}
-                  color={colors.primary.main}
-                  style={styles.roleBadge}
-                  size={variant === 'compact' ? 'small' : 'medium'}
-                />
-              )}
-            </View>
-
-            {canModify && menuItems.length > 0 && (
-              <View>
-                {!isWeb && (
-                  <TouchableOpacity
-                    onPress={toggleMenu}
-                    style={[
-                      styles.menuButton,
-                      {
-                        backgroundColor: menuVisible 
-                          ? colors.primary.main 
-                          : colors.background.subtle,
-                        borderColor: colors.border.subtle,
-                        opacity: actionInProgress ? 0.5 : 1
-                      }
-                    ]}
-                    disabled={actionInProgress}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Öppna åtgärdsmeny"
-                    accessibilityHint="Tryck för att visa tillgängliga åtgärder för medlemmen"
-                  >
-                    {actionInProgress ? (
-                      <ActivityIndicator size="small" color={colors.text.light} />
-                    ) : (
-                      <MoreVertical 
-                        size={20} 
-                        color={menuVisible ? colors.text.main : colors.text.light} 
-                      />
-                    )}
-                  </TouchableOpacity>
-                )}
-                {menuVisible && menuPosition && (
-                  <View style={[
-                    styles.menuDropdown,
-                    {
-                      backgroundColor: colors.background.card,
-                      borderColor: colors.border.subtle,
-                      ...Platform.select({
-                        ios: shadows.medium,
-                        android: {
-                          elevation: 4,
-                        },
-                      }),
-                    }
-                  ]}>
-                    {menuItems.map((item, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={[
-                          styles.menuItem,
-                          {
-                            borderBottomColor: colors.border.subtle,
-                            borderBottomWidth: index < menuItems.length - 1 ? StyleSheet.hairlineWidth : 0,
-                          }
-                        ]}
-                        onPress={() => {
-                          item.onPress?.();
-                          setMenuVisible(false);
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
-                            {item.icon && (
-                              <div style={{ marginRight: 8 }}>
-                                {React.createElement(item.icon, { 
-                                  size: 18, 
-                                  color: item.destructive ? colors.error : colors.text.main
-                                })}
-                              </div>
-                            )}
-                            <span style={{
-                              fontWeight: 500,
-                              color: item.destructive ? colors.error : colors.text.main,
-                            }}>
-                              {item.label}
-                            </span>
-                          </div>
-                          {item.submenu && (
-                            <div style={{ marginLeft: 8 }}>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
+                <Text style={[styles.role, { 
+                  color: colors.text.light,
+                  fontSize: variant === 'compact' ? 12 : 14,
+                }]}>
+                  {getRoleLabel(member.role)}
+                </Text>
               </View>
             )}
           </View>
-        </TouchableOpacity>
-      )}
+
+          <View style={styles.badgeContainer}>
+            {showStatusBadge && (
+              <Badge
+                label={getStatusLabel(member.status)}
+                color={getStatusColor(member.status, colors)}
+                style={styles.statusBadge}
+                size={variant === 'compact' ? 'small' : 'medium'}
+              />
+            )}
+            
+            {showRoleBadge && (
+              <Badge
+                icon={getRoleIcon(member.role)}
+                label={getRoleLabel(member.role)}
+                color={colors.primary.main}
+                style={styles.roleBadge}
+                size={variant === 'compact' ? 'small' : 'medium'}
+              />
+            )}
+          </View>
+
+          {canModify && menuItems.length > 0 && (
+            <TouchableOpacity
+              ref={menuButtonRef}
+              onPress={toggleMenu}
+              disabled={actionInProgress}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: colors.border.subtle,
+                backgroundColor: menuVisible 
+                  ? colors.primary.main 
+                  : colors.background.subtle,
+              }}
+            >
+              {actionInProgress ? (
+                <ActivityIndicator size="small" color={colors.text.light} />
+              ) : (
+                <MoreVertical 
+                  size={20} 
+                  color={menuVisible ? colors.text.main : colors.text.light} 
+                />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        {renderMenu()}
+      </TouchableOpacity>
     </Animated.View>
   );
 };
@@ -1215,5 +840,10 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  androidNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
   },
 });

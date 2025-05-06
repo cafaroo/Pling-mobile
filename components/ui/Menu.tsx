@@ -12,32 +12,53 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { ChevronDown } from 'lucide-react-native';
 
+// Standard menyalternativ för dropdown select
 export interface MenuItem {
   label: string;
-  value: string;
+  value?: string;
   icon?: React.ElementType;
   variant?: 'default' | 'danger';
+  destructive?: boolean;
+  onPress?: () => void;
+  submenu?: any[];
 }
 
-interface MenuProps {
+// Props när komponenten används som dropdown
+interface DropdownMenuProps {
   items: MenuItem[];
   value?: string;
   placeholder?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
   style?: object;
+  mode?: 'dropdown';
+  triggerComponent?: React.ReactNode;
+  visible?: boolean;
+  onDismiss?: () => void;
+  anchor?: React.RefObject<any>;
 }
 
-export const Menu = ({
-  items,
-  value,
-  placeholder = 'Välj ett alternativ',
-  onChange,
-  disabled = false,
-  style,
-}: MenuProps) => {
+// Props när komponenten används som action menu
+interface ActionMenuProps {
+  items: MenuItem[];
+  visible: boolean;
+  onDismiss: () => void;
+  anchor: React.RefObject<any>;
+  mode: 'action';
+  style?: object;
+}
+
+// Union type för alla möjliga props
+type MenuProps = DropdownMenuProps | ActionMenuProps;
+
+// Type guard för att skilja mellan prop-typer
+const isActionMenu = (props: MenuProps): props is ActionMenuProps => {
+  return props.mode === 'action';
+};
+
+export const Menu = (props: MenuProps) => {
   const { colors } = useTheme();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
   const triggerRef = useRef<View>(null);
 
@@ -46,12 +67,18 @@ export const Menu = ({
     return null;
   }
 
-  const selectedItem = items.find(item => item.value === value);
+  // Bestäm om vi använder action menu eller dropdown
+  const isAction = 'mode' in props && props.mode === 'action';
+  const isVisible = isAction ? props.visible : isDropdownOpen;
+  const onClose = isAction ? props.onDismiss : () => setIsDropdownOpen(false);
+  const anchorRef = isAction ? props.anchor : triggerRef;
 
-  const handlePress = () => {
-    if (disabled) return;
+  const handleDropdownPress = () => {
+    if (isAction) return;
     
-    triggerRef.current?.measure((x, y, width, height, pageX, pageY) => {
+    if ((props as DropdownMenuProps).disabled) return;
+    
+    anchorRef.current?.measure((x, y, width, height, pageX, pageY) => {
       const windowHeight = Dimensions.get('window').height;
       const spaceBelow = windowHeight - pageY - height;
       const spaceAbove = pageY;
@@ -64,120 +91,217 @@ export const Menu = ({
         left: pageX,
         width: width,
       });
-      setIsOpen(true);
+      setIsDropdownOpen(true);
     });
   };
 
+  // Position the menu for action menu
+  React.useEffect(() => {
+    if (isAction && isVisible && anchorRef.current) {
+      anchorRef.current.measure((x, y, width, height, pageX, pageY) => {
+        const windowHeight = Dimensions.get('window').height;
+        const windowWidth = Dimensions.get('window').width;
+        const spaceBelow = windowHeight - pageY - height;
+        const spaceRight = windowWidth - pageX;
+        
+        // Place the menu below and to the right of the anchor
+        const menuTop = spaceBelow < 200 ? pageY - 200 : pageY + height;
+        const menuLeft = spaceRight < 150 ? pageX - 150 : pageX;
+        
+        setMenuPosition({
+          top: menuTop,
+          left: menuLeft,
+          width: 150,
+        });
+      });
+    }
+  }, [isAction, isVisible]);
+
   const handleSelect = (item: MenuItem) => {
-    onChange?.(item.value);
-    setIsOpen(false);
+    if (isAction) {
+      item.onPress?.();
+    } else {
+      if (item.value) {
+        (props as DropdownMenuProps).onChange?.(item.value);
+      }
+    }
+    onClose();
   };
 
-  return (
-    <>
-      <TouchableOpacity
-        onPress={handlePress}
-        disabled={disabled}
-        style={[style]}
-      >
-        <View
-          ref={triggerRef}
-          style={[
-            styles.trigger,
-            {
-              backgroundColor: colors.background.light,
-              borderColor: colors.background.light,
-              opacity: disabled ? 0.5 : 1,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.triggerText,
-              { color: selectedItem ? colors.text.main : colors.text.light },
-            ]}
-            numberOfLines={1}
-          >
-            {selectedItem?.label || placeholder}
-          </Text>
-          <ChevronDown
-            size={20}
-            color={colors.text.light}
-            style={[
-              styles.icon,
-              { transform: [{ rotate: isOpen ? '180deg' : '0deg' }] },
-            ]}
-          />
-        </View>
-      </TouchableOpacity>
+  // För dropdown-läge, visa triggerkomponent
+  if (!isAction) {
+    const dropdownProps = props as DropdownMenuProps;
+    const selectedItem = dropdownProps.items.find(item => item.value === dropdownProps.value);
 
-      <Modal
-        visible={isOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsOpen(false)}
-      >
-        <Pressable
-          style={styles.overlay}
-          onPress={() => setIsOpen(false)}
+    return (
+      <>
+        <TouchableOpacity
+          onPress={handleDropdownPress}
+          disabled={dropdownProps.disabled}
+          style={[dropdownProps.style]}
         >
-          <View
-            style={[
-              styles.menu,
-              {
-                top: menuPosition.top,
-                left: menuPosition.left,
-                width: menuPosition.width,
-                backgroundColor: colors.background.main,
-                borderColor: colors.background.light,
-              },
-            ]}
+          {dropdownProps.triggerComponent || (
+            <View
+              ref={triggerRef}
+              style={[
+                styles.trigger,
+                {
+                  backgroundColor: colors.background.light,
+                  borderColor: colors.background.light,
+                  opacity: dropdownProps.disabled ? 0.5 : 1,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.triggerText,
+                  { color: selectedItem ? colors.text.main : colors.text.light },
+                ]}
+                numberOfLines={1}
+              >
+                {selectedItem?.label || dropdownProps.placeholder || 'Välj alternativ'}
+              </Text>
+              <ChevronDown
+                size={20}
+                color={colors.text.light}
+                style={[
+                  styles.icon,
+                  { transform: [{ rotate: isDropdownOpen ? '180deg' : '0deg' }] },
+                ]}
+              />
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <Modal
+          visible={isVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={onClose}
+        >
+          <Pressable
+            style={styles.overlay}
+            onPress={onClose}
           >
-            {items.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <TouchableOpacity
-                  key={item.value}
-                  style={[
-                    styles.item,
-                    index < items.length - 1 && {
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.background.light,
-                    },
-                  ]}
-                  onPress={() => handleSelect(item)}
-                >
-                  {Icon && (
-                    <Icon
-                      size={20}
-                      color={
-                        item.variant === 'danger'
-                          ? colors.error
-                          : colors.text.main
-                      }
-                      style={styles.itemIcon}
-                    />
-                  )}
-                  <Text
+            <View
+              style={[
+                styles.menu,
+                {
+                  top: menuPosition.top,
+                  left: menuPosition.left,
+                  width: menuPosition.width,
+                  backgroundColor: colors.background.main,
+                  borderColor: colors.background.light,
+                },
+              ]}
+            >
+              {props.items.map((item, index) => {
+                const Icon = item.icon;
+                const isDestructive = item.variant === 'danger' || item.destructive;
+                
+                return (
+                  <TouchableOpacity
+                    key={item.value || `item-${index}`}
                     style={[
-                      styles.itemText,
-                      {
-                        color:
-                          item.variant === 'danger'
-                            ? colors.error
-                            : colors.text.main,
+                      styles.item,
+                      index < props.items.length - 1 && {
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.background.light,
                       },
                     ]}
+                    onPress={() => handleSelect(item)}
                   >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Modal>
-    </>
+                    {Icon && (
+                      <Icon
+                        size={20}
+                        color={isDestructive ? colors.error : colors.text.main}
+                        style={styles.itemIcon}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.itemText,
+                        {
+                          color: isDestructive ? colors.error : colors.text.main,
+                        },
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Modal>
+      </>
+    );
+  } 
+  
+  // För action-läge, visa endast menyn
+  return (
+    <Modal
+      visible={isVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        style={styles.overlay}
+        onPress={onClose}
+      >
+        <View
+          style={[
+            styles.menu,
+            {
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+              backgroundColor: colors.background.card,
+              borderColor: colors.border.subtle,
+            },
+            props.style
+          ]}
+        >
+          {props.items.map((item, index) => {
+            const Icon = item.icon;
+            const isDestructive = item.variant === 'danger' || item.destructive;
+            
+            return (
+              <TouchableOpacity
+                key={`action-item-${index}`}
+                style={[
+                  styles.item,
+                  index < props.items.length - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border.subtle,
+                  },
+                ]}
+                onPress={() => handleSelect(item)}
+              >
+                {Icon && (
+                  <Icon
+                    size={20}
+                    color={isDestructive ? colors.error : colors.text.main}
+                    style={styles.itemIcon}
+                  />
+                )}
+                <Text
+                  style={[
+                    styles.itemText,
+                    {
+                      color: isDestructive ? colors.error : colors.text.main,
+                    },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Pressable>
+    </Modal>
   );
 };
 

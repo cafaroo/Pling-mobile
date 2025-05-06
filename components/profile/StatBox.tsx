@@ -1,11 +1,11 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { Video as LucideIcon } from 'lucide-react-native';
+import { LucideIcon } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 
 type StatBoxProps = {
   title: string;
   value: string;
-  icon: LucideIcon;
+  icon: React.ElementType;
   color: string;
 };
 

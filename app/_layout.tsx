@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { Stack, useRouter, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Accelerometer } from 'expo-sensors';
@@ -10,6 +10,7 @@ import { UserProvider } from '@/context/UserContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { TeamProvider } from '@/context/TeamContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -79,25 +80,33 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <UserProvider>
-            <TeamProvider>
-              <Stack 
-                screenOptions={{ 
-                  headerShown: false,
-                  animation: 'slide_from_right',
-                  contentStyle: Platform.OS === 'web' ? {
-                    pointerEvents: 'auto'
-                  } : undefined
-                }}
-              />
-              <StatusBar style="light" />
-            </TeamProvider>
-          </UserProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={styles.container}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <UserProvider>
+              <TeamProvider>
+                <Stack 
+                  screenOptions={{ 
+                    headerShown: false,
+                    animation: 'slide_from_right',
+                    contentStyle: Platform.OS === 'web' ? {
+                      pointerEvents: 'auto'
+                    } : undefined
+                  }}
+                />
+                <StatusBar style="light" />
+              </TeamProvider>
+            </UserProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

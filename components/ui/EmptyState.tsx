@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { Button } from './Button';
-import { FolderOpen } from 'lucide-react-native';
+import { FolderOpen, AlertCircle, Users, Info } from 'lucide-react-native';
 
 interface EmptyStateProps {
   title: string;
@@ -11,16 +11,43 @@ interface EmptyStateProps {
     label: string;
     onPress: () => void;
   };
+  icon?: React.ElementType | string;
+  iconColor?: string;
 }
 
-export const EmptyState = ({ title, message, action }: EmptyStateProps) => {
+export const EmptyState = ({ title, message, action, icon, iconColor }: EmptyStateProps) => {
   const { colors } = useTheme();
+  
+  // Bestäm vilken ikon som ska användas
+  const IconComponent = React.useMemo(() => {
+    if (typeof icon === 'function') {
+      return icon;
+    }
+    
+    // Om icon är en sträng, välj från fördefinierade ikoner
+    if (typeof icon === 'string') {
+      switch (icon) {
+        case 'users':
+          return Users;
+        case 'alert-circle':
+          return AlertCircle;
+        case 'info':
+          return Info;
+        case 'folder-open':
+        default:
+          return FolderOpen;
+      }
+    }
+    
+    // Standardikon
+    return FolderOpen;
+  }, [icon]);
 
   return (
     <View style={styles.container}>
-      <FolderOpen
+      <IconComponent
         size={48}
-        color={colors.text.light}
+        color={iconColor || colors.text.light}
         style={styles.icon}
       />
       <Text style={[styles.title, { color: colors.text.main }]}>

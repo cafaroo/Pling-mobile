@@ -8,7 +8,7 @@ import { useUser } from '@/context/UserContext';
 import { addSale } from '@/services/salesService';
 import { playSoundEffect } from '@/utils/sound';
 import Container from '@/components/ui/Container';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import PlingAnimation from '@/components/animations/PlingAnimation';
 
 export default function PlingScreen() {

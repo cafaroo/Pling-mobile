@@ -173,14 +173,14 @@ export const getTeamMembers = async (teamId: string): Promise<TeamMember[]> => {
       throw new Error('Kunde inte hämta teammedlemmar');
     }
 
-    console.log('Rådata från Supabase:', members);
+    console.log('Rådata från Supabase:', JSON.stringify(members));
 
     if (!members || members.length === 0) {
       console.log('Inga medlemmar hittades');
       return [];
     }
 
-    // Transformera data till rätt format
+    // Transformera data till rätt format med förbättrad felhantering och plattformsspecifik anpassning
     const transformedMembers = members.map((member: {
       id: string;
       team_id: string;
@@ -191,22 +191,50 @@ export const getTeamMembers = async (teamId: string): Promise<TeamMember[]> => {
       name?: string;
       email?: string;
       avatar_url?: string;
-    }) => ({
-      id: member.id,
-      team_id: member.team_id,
-      user_id: member.user_id,
-      role: member.role,
-      status: member.status || 'active',
-      created_at: member.joined_at,
-      profile: {
-        id: member.user_id,
-        name: member.name || 'Okänt namn',
-        email: member.email || '',
-        avatar_url: member.avatar_url
-      }
-    }));
+      profile_id?: string;
+    }, index: number) => {
+      console.log(`Transformerar medlem ${index} (${member.id}):`, JSON.stringify(member));
+      
+      // Ta reda på om medlemmen har ett namn
+      const hasName = !!member.name && member.name.trim() !== '';
+      
+      // Skapa ett förtydligat fallback-namn baserat på användar-ID eller index
+      const fallbackName = member.user_id ? 
+        `Användare-${member.user_id.substring(0, 4)}` : 
+        `Medlem #${index + 1}`;
+      
+      // Logga tydligt vad som används som namn
+      console.log(`Medlem ${index} namndetaljer:`, {
+        id: member.id,
+        originalName: member.name,
+        hasName,
+        fallbackName,
+        finalName: hasName ? member.name : fallbackName
+      });
+      
+      // Säkerställ att alla värden är korrekta, med tydliga fallbacks och plattformsoberoende struktur
+      const transformedMember: TeamMember = {
+        id: member.id || `missing-id-${index}`,
+        team_id: member.team_id || teamId,
+        user_id: member.user_id || `missing-user-${index}`,
+        role: (member.role as TeamRole) || 'member',
+        status: (member.status as TeamMember['status']) || 'active',
+        created_at: member.joined_at || new Date().toISOString(),
+        updated_at: member.joined_at || new Date().toISOString(),
+        // Säkerställ att profilen är ett komplett objekt med alla nödvändiga egenskaper
+        profile: {
+          id: member.profile_id || member.user_id || `missing-user-${index}`,
+          name: hasName ? member.name : fallbackName,
+          email: member.email || '',
+          avatar_url: member.avatar_url || null
+        }
+      };
+      
+      console.log(`Transformerad medlem ${index} (${member.id}):`, JSON.stringify(transformedMember.profile));
+      return transformedMember;
+    });
 
-    console.log('Transformerade medlemmar:', transformedMembers);
+    console.log('Transformerade medlemmar:', transformedMembers.length);
     return transformedMembers;
   } catch (error) {
     console.error('Error in getTeamMembers:', error);

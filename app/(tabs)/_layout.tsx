@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Bell, User, Trophy, Award, Users, Target } from 'lucide-react-native';
+import { Bell, User, Trophy, Award, Users, Target, Settings } from 'lucide-react-native';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useTheme } from '@/context/ThemeContext';
 import TabBarIcon from '@/components/ui/TabBarIcon';
@@ -94,6 +94,15 @@ export default function TabLayout() {
           title: 'Profil',
           tabBarIcon: ({ color, size }) => (
             <TabBarIcon icon={User} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Inställningar',
+          tabBarIcon: ({ color, size }) => (
+            <TabBarIcon icon={Settings} color={color} size={size} />
           ),
         }}
       />

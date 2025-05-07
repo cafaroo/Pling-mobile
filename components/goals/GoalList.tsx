@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  FlatList, 
   ActivityIndicator, 
-  RefreshControl 
+  RefreshControl,
+  useWindowDimensions
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useTheme } from '@/context/ThemeContext';
 import { Goal, GoalFilter } from '@/types/goal';
-import { GoalCard } from './GoalCard';
+import { TouchableGoalCard } from './TouchableGoalCard';
+import { GoalStatistics } from './GoalStatistics';
 import { useGoals } from '@/hooks/useGoals';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { Search, AlertCircle, ListFilter } from 'lucide-react-native';
 import { TextInput } from '@/components/ui/TextInput';
 import { Button } from '@/components/ui/Button';
@@ -19,12 +22,14 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 interface GoalListProps {
   filter?: GoalFilter;
   onGoalPress?: (goal: Goal) => void;
-  refreshTrigger?: number; // Används för att tvinga en uppdatering
+  refreshTrigger?: number;
   listHeaderComponent?: React.ReactElement;
   emptyStateComponent?: React.ReactElement;
   showFilters?: boolean;
+  showStatistics?: boolean;
+  teamView?: boolean;
   variant?: 'default' | 'compact' | 'detailed';
-  bottomSpacerHeight?: number; // Ny prop för bottom spacer höjd
+  bottomSpacerHeight?: number;
 }
 
 /**
@@ -37,21 +42,23 @@ export const GoalList: React.FC<GoalListProps> = ({
   listHeaderComponent,
   emptyStateComponent,
   showFilters = true,
+  showStatistics = false,
+  teamView = false,
   variant = 'default',
-  bottomSpacerHeight = 80 // Standardvärde för bottom spacer
+  bottomSpacerHeight = 80
 }) => {
   const { colors } = useTheme();
+  const { containerStyle, cardStyle, gridStyle } = useResponsiveLayout();
+  
   const [localFilter, setLocalFilter] = React.useState<GoalFilter>(filter);
   const [searchText, setSearchText] = React.useState('');
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
-  
-  // Uppdatera lokalfilter när utomstående filter ändras
+
   React.useEffect(() => {
     setLocalFilter({ ...filter });
   }, [filter]);
-  
-  // Hantera sökning
-  const handleSearch = (text: string) => {
+
+  const handleSearch = useCallback((text: string) => {
     setSearchText(text);
     if (text.trim()) {
       setLocalFilter(prev => ({ ...prev, search: text }));
@@ -59,46 +66,44 @@ export const GoalList: React.FC<GoalListProps> = ({
       const { search, ...rest } = localFilter;
       setLocalFilter(rest);
     }
-  };
-  
-  // Hämta mål med React Query
+  }, [localFilter]);
+
   const { 
-    data, 
+    data: goalData, 
     isLoading, 
     isError, 
-    refetch, 
-    isFetching,
-    hasNextPage,
-    fetchNextPage
+    refetch,
+    isFetching
   } = useGoals(localFilter, {
-    keepPreviousData: true
+    keepPreviousData: true,
+    staleTime: 30000,
+    cacheTime: 5 * 60 * 1000
   });
-  
-  // Hantera refresh
+
+  const goals = useMemo(() => 
+    goalData?.goals ?? [], 
+    [goalData?.goals]
+  );
+
   React.useEffect(() => {
     if (refreshTrigger) {
       refetch();
     }
   }, [refreshTrigger, refetch]);
-  
-  // Hantera paginering
-  const handleLoadMore = () => {
-    if (hasNextPage && !isFetching) {
-      fetchNextPage();
-    }
-  };
-  
-  // Rendrera ett mål
-  const renderGoal = ({ item }: { item: Goal }) => (
-    <GoalCard 
-      goal={item} 
-      onPress={onGoalPress}
-      variant={variant}
-    />
-  );
-  
-  // Rendrera tom lista
-  const renderEmptyState = () => {
+
+  const renderGoal = useCallback(({ item }: { item: Goal }) => (
+    <View style={[styles.goalCardContainer, cardStyle]}>
+      <TouchableGoalCard 
+        goal={item} 
+        onPress={onGoalPress}
+        onSwipeComplete={(goal) => {
+          // Implementera svep-logik här
+        }}
+      />
+    </View>
+  ), [cardStyle, onGoalPress]);
+
+  const EmptyState = useMemo(() => {
     if (isLoading) return null;
     
     if (emptyStateComponent) {
@@ -121,26 +126,9 @@ export const GoalList: React.FC<GoalListProps> = ({
         </Text>
       </Animated.View>
     );
-  };
-  
-  // Rendrera felmeddelande
-  const renderError = () => (
-    <View style={styles.errorContainer}>
-      <AlertCircle size={24} color={colors.error} />
-      <Text style={[styles.errorText, { color: colors.error }]}>
-        Kunde inte ladda mål
-      </Text>
-      <Button 
-        title="Försök igen" 
-        onPress={() => refetch()}
-        variant="outline"
-        style={styles.retryButton}
-      />
-    </View>
-  );
-  
-  // Rendrera filter
-  const renderFilters = () => {
+  }, [isLoading, emptyStateComponent, colors, searchText]);
+
+  const Filters = useMemo(() => {
     if (!showFilters) return null;
     
     return (
@@ -173,18 +161,19 @@ export const GoalList: React.FC<GoalListProps> = ({
         )}
       </View>
     );
-  };
-  
-  // Rendrera header för listan
-  const renderHeader = () => (
+  }, [showFilters, searchText, handleSearch, colors, isFilterVisible]);
+
+  const Header = useMemo(() => (
     <>
-      {renderFilters()}
+      {showStatistics && goals.length > 0 && (
+        <GoalStatistics goals={goals} teamView={teamView} />
+      )}
+      {Filters}
       {listHeaderComponent}
     </>
-  );
-  
-  // Rendrera footer för listan (laddningsindikator och bottom spacer)
-  const renderFooter = () => (
+  ), [Filters, listHeaderComponent, showStatistics, goals, teamView]);
+
+  const Footer = useMemo(() => (
     <View>
       {isFetching && !isLoading && (
         <View style={styles.footerContainer}>
@@ -193,33 +182,48 @@ export const GoalList: React.FC<GoalListProps> = ({
       )}
       <View style={{ height: bottomSpacerHeight }} />
     </View>
-  );
-  
-  // Om det är fel, visa felmeddelande
+  ), [isFetching, isLoading, colors, bottomSpacerHeight]);
+
   if (isError) {
-    return renderError();
+    return (
+      <View style={styles.errorContainer}>
+        <AlertCircle size={24} color={colors.error} />
+        <Text style={[styles.errorText, { color: colors.error }]}>
+          Kunde inte ladda mål
+        </Text>
+        <Button 
+          title="Försök igen" 
+          onPress={() => refetch()}
+          variant="outline"
+          style={styles.retryButton}
+        />
+      </View>
+    );
   }
-  
+
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={data?.goals}
+    <View style={[styles.container, containerStyle]}>
+      <FlashList
+        data={goals}
         renderItem={renderGoal}
+        estimatedItemSize={200}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmptyState}
-        ListFooterComponent={renderFooter}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
+        ListHeaderComponent={Header}
+        ListEmptyComponent={EmptyState}
+        ListFooterComponent={Footer}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
             onRefresh={refetch}
-            colors={[colors.primary.main]}
             tintColor={colors.primary.main}
           />
         }
+        numColumns={gridStyle.columnCount}
+        columnWrapperStyle={gridStyle.columnCount > 1 ? {
+          justifyContent: 'space-between',
+          marginHorizontal: -gridStyle.spacing
+        } : undefined}
+        contentContainerStyle={styles.listContent}
       />
     </View>
   );
@@ -231,7 +235,9 @@ const styles = StyleSheet.create({
   },
   listContent: {
     flexGrow: 1,
-    padding: 16,
+  },
+  goalCardContainer: {
+    marginBottom: 16,
   },
   emptyStateContainer: {
     flex: 1,

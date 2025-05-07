@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
-import { Link, Plus, Search, X, ChevronDown } from 'lucide-react-native';
+import { Link, Plus, Search, X } from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { RelatedGoalCard } from './RelatedGoalCard';
 import { Goal, GoalRelationType } from '@/types/goal';
@@ -99,22 +99,6 @@ export const RelatedGoalsList: React.FC<RelatedGoalsListProps> = ({
     });
   };
   
-  // Rendrera ett mål i sökresultatet
-  const renderSearchGoal = ({ item }: { item: Goal }) => (
-    <TouchableOpacity
-      style={[
-        styles.searchGoalItem, 
-        selectedGoal?.id === item.id && styles.selectedSearchGoal
-      ]}
-      onPress={() => setSelectedGoal(item)}
-    >
-      <GoalCard 
-        goal={item} 
-        variant="compact" 
-      />
-    </TouchableOpacity>
-  );
-
   // Rendrera alla relaterade mål direkt utan FlatList
   const renderRelatedGoals = () => {
     if (isLoading) {
@@ -278,7 +262,7 @@ export const RelatedGoalsList: React.FC<RelatedGoalsListProps> = ({
               <View style={styles.searchLoadingContainer}>
                 <ActivityIndicator size="small" color={colors.accent.yellow} />
                 <Text style={[styles.searchLoadingText, { color: colors.text.light }]}>
-                  Söker efter mål...
+                  Laddar mål...
                 </Text>
               </View>
             ) : !goalsData || goalsData.goals.length === 0 ? (
@@ -286,13 +270,29 @@ export const RelatedGoalsList: React.FC<RelatedGoalsListProps> = ({
                 Inga mål hittades
               </Text>
             ) : (
-              <FlatList
-                data={goalsData.goals.filter(g => g.id !== goalId)}
-                renderItem={renderSearchGoal}
-                keyExtractor={(item) => item.id}
+              <ScrollView 
                 style={styles.searchResults}
                 contentContainerStyle={styles.searchResultsContent}
-              />
+              >
+                {goalsData.goals
+                  .filter(goal => goal.id !== goalId)
+                  .map(goal => (
+                    <TouchableOpacity
+                      key={goal.id}
+                      style={[
+                        styles.searchGoalItem, 
+                        selectedGoal?.id === goal.id && styles.selectedSearchGoal
+                      ]}
+                      onPress={() => setSelectedGoal(goal)}
+                    >
+                      <GoalCard 
+                        goal={goal} 
+                        variant="compact" 
+                      />
+                    </TouchableOpacity>
+                  ))
+                }
+              </ScrollView>
             )}
             
             <View style={styles.modalFooter}>
@@ -491,5 +491,22 @@ const styles = StyleSheet.create({
   },
   modalConfirmButton: {
     flex: 1,
+  },
+  tagList: {
+    padding: 16,
+  },
+  tagItem: {
+    marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  tagColorIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 8,
+  },
+  tagName: {
+    fontSize: 14,
   },
 }); 

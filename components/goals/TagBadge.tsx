@@ -85,14 +85,14 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
   
   // Skapa färger för gradient baserad på taggfärg
   const getGradientColors = () => {
-    // Mycket subtila närliggande gråtoner
-    const baseColor = '#51546E';
-    // Bara aningen ljusare nyans
-    const lighterColor = '#54586F';
-    // Bara aningen mörkare nyans
-    const darkerColor = '#4E516A';
+    // Mycket subtila transparenta gråtoner för neutral bakgrund
+    const baseColor = 'rgba(63, 65, 77, 0.85)';
+    // Aningen ljusare nyans med mjuk transparens
+    const lighterColor = 'rgba(70, 72, 85, 0.80)';
+    // Aningen mörkare nyans med mjuk transparens
+    const darkerColor = 'rgba(60, 62, 72, 0.90)';
     
-    // Returnera en mycket subtil gradient
+    // Returnera en mycket subtil gradient med transparens
     return [darkerColor, baseColor, lighterColor];
   };
   
@@ -227,7 +227,7 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
               styles.container,
               { 
                 ...getPadding(),
-                backgroundColor: '#51546E' // Fallback om gradient inte skulle renderas
+                backgroundColor: 'rgba(63, 65, 77, 0.85)' // Fallback med transparent grå
               },
               style
             ]}

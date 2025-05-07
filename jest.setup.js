@@ -1,5 +1,24 @@
+// Konfigurera global
+global = {
+  ...global,
+  window: {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  },
+};
+
 import 'react-native-gesture-handler/jestSetup';
 import '@testing-library/jest-native/extend-expect';
+import '@testing-library/jest-dom';
+import 'jest-expect-message';
+
+// Konfigurera testmiljövariabler
+process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test-key';
+process.env.NODE_ENV = 'test';
+
+// Öka timeout för långsammare tester
+jest.setTimeout(10000);
 
 // Mock för react-native-reanimated
 jest.mock('react-native-reanimated', () => {
@@ -12,126 +31,88 @@ jest.mock('react-native-reanimated', () => {
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     push: jest.fn(),
-    replace: jest.fn(),
     back: jest.fn(),
   }),
-  useSegments: () => [''],
-  useLocalSearchParams: () => ({}),
-  Link: ({ children }) => children,
+  Stack: {
+    Screen: () => null,
+  },
+  Tabs: {
+    Screen: () => null,
+  },
 }));
 
-// Mock för lucide-react-native ikoner
-jest.mock('lucide-react-native', () => ({
-  UserGroup: () => 'UserGroup',
-  Lock: () => 'Lock',
-  Globe: () => 'Globe',
-  ChevronRight: () => 'ChevronRight',
-  Bell: () => 'Bell',
-  Settings: () => 'Settings',
-  Plus: () => 'Plus',
-  Users: () => 'Users'
-}));
-
-// Mock för react-native
-jest.mock('react-native', () => {
-  const rn = jest.requireActual('react-native');
-  rn.NativeModules.SettingsManager = {
-    getConstants: () => ({
-      settings: {
-        AppleLocale: 'en_US',
-        AppleLanguages: ['en'],
-      }
-    })
-  };
-  rn.UIManager.measureInWindow = jest.fn((node, callback) => {
-    callback(0, 0, 100, 100);
-  });
-  
-  rn.UIManager.getViewManagerConfig = (name) => {
-    if (name === 'RCTView') {
-      return {
-        Commands: {
-          hotspotUpdate: jest.fn(),
-          setPressed: jest.fn(),
-        },
-      };
-    }
-    return {};
-  };
-  
+// Mock för react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => {
+  const inset = { top: 0, right: 0, bottom: 0, left: 0 };
   return {
-    ...rn,
-    Platform: {
-      ...rn.Platform,
-      OS: 'ios',
-      select: jest.fn(x => x.ios),
-    },
-    NativeEventEmitter: jest.fn().mockImplementation(() => ({
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      removeAllListeners: jest.fn(),
-    })),
-    Animated: {
-      timing: () => ({
-        start: jest.fn(),
-      }),
-      Value: jest.fn(),
-      View: 'AnimatedView',
-      Text: 'AnimatedText',
-    },
+    ...jest.requireActual('react-native-safe-area-context'),
+    SafeAreaProvider: ({ children }) => children,
+    SafeAreaConsumer: ({ children }) => children(inset),
+    useSafeAreaInsets: () => inset,
+    useSafeAreaFrame: () => ({ x: 0, y: 0, width: 390, height: 844 }),
   };
 });
 
-// Mock för ThemeContext
-jest.mock('@/context/ThemeContext', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: {
-        main: '#000000',
-        light: '#333333',
-        dark: '#000000'
-      },
-      text: {
-        main: '#000000',
-        light: '#666666',
-        dark: '#000000'
-      },
-      background: {
-        main: '#FFFFFF',
-        light: '#F5F5F5',
-        dark: '#EEEEEE',
-        selected: '#E0E0E0'
-      },
-      error: '#FF0000',
-      success: '#00FF00',
-      warning: '#FFA500',
-      secondary: {
-        main: '#0000FF',
-        light: '#3333FF',
-        dark: '#0000CC'
-      }
-    },
-  }),
-  ThemeProvider: ({ children }) => children,
+// Mock för expo-blur
+jest.mock('expo-blur', () => ({
+  BlurView: 'BlurView',
 }));
 
-// Mock för AsyncStorage
+// Mock för react-native/Settings
+jest.mock('react-native/Libraries/Settings/Settings', () => ({
+  get: jest.fn(),
+  set: jest.fn(),
+}));
+
+// Mock för NativeEventEmitter
+jest.mock('react-native/Libraries/EventEmitter/NativeEventEmitter', () => {
+  const NativeEventEmitter = jest.fn();
+  NativeEventEmitter.prototype.addListener = jest.fn();
+  NativeEventEmitter.prototype.removeListener = jest.fn();
+  return NativeEventEmitter;
+});
+
+// Mock för react-native komponenter
+jest.mock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+  RN.NativeModules.SettingsManager = {
+    settings: {
+      AppleLocale: 'en_US',
+      AppleLanguages: ['en'],
+    },
+  };
+  return RN;
+});
+
+// Mock för react-native-toast-message
+jest.mock('react-native-toast-message', () => ({
+  show: jest.fn(),
+  hide: jest.fn(),
+}));
+
+// Mock för @react-native-async-storage/async-storage
 jest.mock('@react-native-async-storage/async-storage', () => ({
   setItem: jest.fn(),
   getItem: jest.fn(),
   removeItem: jest.fn(),
   clear: jest.fn(),
-  getAllKeys: jest.fn(),
-  multiGet: jest.fn(),
-  multiSet: jest.fn(),
-  multiRemove: jest.fn(),
 }));
 
-// Tysta konsolvarningar under tester
-console.warn = jest.fn();
-
-// Globala test timeout
-jest.setTimeout(10000);
+// Mock för ThemeContext
+jest.mock('src/context/ThemeContext', () => ({
+  useTheme: () => ({
+    colors: {
+      primary: '#000000',
+      secondary: '#0000FF',
+      background: '#FFFFFF',
+      text: '#000000',
+      error: '#FF0000',
+      success: '#00FF00',
+      warning: '#FFA500'
+    },
+  }),
+  ThemeProvider: ({ children }) => children,
+}), { virtual: true });
 
 // Mock för Supabase
 jest.mock('@/lib/supabase', () => ({
@@ -157,6 +138,18 @@ jest.mock('expo-image', () => ({
   ImageBackground: 'ImageBackground'
 }));
 
+// Mock för lucide-react-native ikoner
+jest.mock('lucide-react-native', () => ({
+  UserGroup: () => 'UserGroup',
+  Lock: () => 'Lock',
+  Globe: () => 'Globe',
+  ChevronRight: () => 'ChevronRight',
+  Bell: () => 'Bell',
+  Settings: () => 'Settings',
+  Plus: () => 'Plus',
+  Users: () => 'Users'
+}));
+
 // Mock för expo-modules-core
 jest.mock('expo-modules-core', () => ({
   EventEmitter: class {
@@ -165,12 +158,6 @@ jest.mock('expo-modules-core', () => ({
     removeAllListeners() {}
     emit() {}
   }
-}));
-
-// Mock för react-native-toast-message
-jest.mock('react-native-toast-message', () => ({
-  show: jest.fn(),
-  hide: jest.fn(),
 }));
 
 // Mock för expo-constants
@@ -247,4 +234,95 @@ console.error = (...args) => {
 // Rensa mockar efter varje test
 afterEach(() => {
   jest.clearAllMocks();
+});
+
+// Global error handling
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled Promise Rejection:', error);
+});
+
+// Polyfills och miljövariabler som behövs före testmiljön
+process.env.EXPO_ROUTER_APP_ROOT = '../../app';
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_ANON_KEY = 'test-key';
+
+// Grundläggande globala mockar
+global.fetch = jest.fn();
+global.__reanimatedWorkletInit = jest.fn();
+
+// React Native specifika mockar
+jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper', () => ({
+  default: {},
+}));
+
+jest.mock('react-native-gesture-handler/jestSetup', () => ({}));
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  }),
+  useSegments: () => [],
+  usePathname: () => '',
+}));
+
+// Tysta RN-varningar
+// (Mockar för @react-native-clipboard/clipboard, @react-native-community/push-notification-ios och ProgressBarAndroid tas bort härifrån)
+// (Mock för expo-router tas också bort härifrån)
+
+// Tysta alla console.warn i testmiljön
+jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+// Mock för @expo/vector-icons
+jest.mock('@expo/vector-icons', () => {
+  const originalModule = jest.requireActual('@expo/vector-icons');
+  
+  const IconComponents = {};
+  // Skapa mockar för alla ikoner som finns i vector-icons
+  const iconNames = [
+    'Ionicons', 
+    'MaterialIcons', 
+    'FontAwesome', 
+    'MaterialCommunityIcons', 
+    'Feather', 
+    'AntDesign',
+    'Entypo',
+    'EvilIcons',
+    'Fontisto',
+    'Foundation',
+    'Octicons',
+    'SimpleLineIcons',
+    'Zocial'
+  ];
+  
+  iconNames.forEach(iconName => {
+    IconComponents[iconName] = ({ name, size, color, style }) => ({
+      type: 'Icon',
+      props: { name, size, color, style }
+    });
+  });
+  
+  // Mocka createIconSetFromIcoMoon och liknande
+  const mockCreateIconSet = () => {
+    return function MockIcon({ name, size, color, style }) {
+      return {
+        type: 'Icon',
+        props: { name, size, color, style }
+      };
+    };
+  };
+  
+  return {
+    ...originalModule,
+    ...IconComponents,
+    createIconSet: mockCreateIconSet,
+    createIconSetFromIcoMoon: mockCreateIconSet,
+    createIconSetFromFontello: mockCreateIconSet,
+    createMultiStyleIconSet: mockCreateIconSet,
+    // Lägger till en mock för isLoaded-funktionen som används av createIconSet
+    Font: {
+      isLoaded: jest.fn().mockReturnValue(true),
+    }
+  };
 }); 

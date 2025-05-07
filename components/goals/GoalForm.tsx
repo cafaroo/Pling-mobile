@@ -6,16 +6,15 @@ import {
   ScrollView, 
   TouchableOpacity, 
   KeyboardAvoidingView, 
-  Platform 
+  Platform,
+  Switch 
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
 import { Target, Save, Plus, Trash2, AlertCircle } from 'lucide-react-native';
-import { TextInput } from '@/components/ui/TextInput';
+import TextInput from '@/components/ui/TextInput';
 import { Button } from '@/components/ui/Button';
 import DateTimePicker from '@/components/ui/DateTimePicker';
-import { Switch } from '@/components/ui/Switch';
-import { Dropdown } from '@/components/ui/Dropdown';
 import { useCreateGoal, useUpdateGoal } from '@/hooks/useGoals';
 import { Goal, CreateGoalInput, GoalType, GoalDifficulty, GoalScope, GoalTag } from '@/types/goal';
 import { useAuth } from '@/context/AuthContext';
@@ -48,7 +47,15 @@ export const GoalForm: React.FC<GoalFormProps> = ({
 }) => {
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { activeTeam } = useActiveTeam();
+  
+  // Använd try/catch för att hantera fallet där TeamContext inte existerar
+  let activeTeamData = null;
+  try {
+    const { activeTeam } = useActiveTeam();
+    activeTeamData = activeTeam;
+  } catch (error) {
+    console.log('TeamContext inte tillgänglig, fortsätter utan active team data');
+  }
   
   const createGoalMutation = useCreateGoal();
   const updateGoalMutation = useUpdateGoal();
@@ -66,7 +73,7 @@ export const GoalForm: React.FC<GoalFormProps> = ({
     start_date: new Date().toISOString(),
     status: 'active',
     scope: isTeamGoal ? 'team' : defaultScope,
-    team_id: isTeamGoal ? (teamId || activeTeam?.id) : undefined,
+    team_id: isTeamGoal ? (teamId || activeTeamData?.id) : undefined,
     created_by: user?.id || '',
     milestones: [],
     tags: []
@@ -297,14 +304,14 @@ export const GoalForm: React.FC<GoalFormProps> = ({
             
             <View style={styles.row}>
               <View style={styles.flex2}>
-        <TextInput
+                <TextInput
                   label="Målvärde"
                   value={formData.target?.toString()}
                   onChangeText={(value) => handleChange('target', parseInt(value) || 0)}
-          keyboardType="numeric"
+                  keyboardType="numeric"
                   error={errors.target}
-        />
-      </View>
+                />
+              </View>
 
               <View style={styles.flex1}>
                 <TextInput
@@ -312,9 +319,9 @@ export const GoalForm: React.FC<GoalFormProps> = ({
                   value={formData.unit}
                   onChangeText={(value) => handleChange('unit', value)}
                   placeholder="%"
-          />
-        </View>
-      </View>
+                />
+              </View>
+            </View>
 
             {isEditing && (
               <TextInput
@@ -446,9 +453,9 @@ export const GoalForm: React.FC<GoalFormProps> = ({
                   >
                     <Trash2 size={16} color={colors.error} />
                   </TouchableOpacity>
-          </View>
-        ))}
-      </View>
+                </View>
+              ))}
+            </View>
 
             <View style={styles.addMilestoneContainer}>
               <TextInput
@@ -476,19 +483,67 @@ export const GoalForm: React.FC<GoalFormProps> = ({
               variant="outline"
               style={styles.cancelButton}
             />
-      <Button
+            <Button
               title={isEditing ? 'Uppdatera' : 'Skapa'}
-        onPress={handleSubmit}
-        loading={isLoading}
+              onPress={handleSubmit}
+              loading={isLoading}
               icon={Save}
-        style={styles.submitButton}
-      />
+              style={styles.submitButton}
+            />
           </View>
         </BlurView>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
+
+// Custom Dropdown-komponent för denna sida
+function Dropdown({ label, items, value, onValueChange }) {
+  const { colors } = useTheme();
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const selectedItem = items.find(item => item.value === value);
+  
+  return (
+    <View style={{ marginBottom: 16 }}>
+      {label && (
+        <Text style={[styles.inputLabel, { color: colors.text.light }]}>
+          {label}
+        </Text>
+      )}
+      
+      <TouchableOpacity
+        style={[styles.dropdownButton, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }]}
+        onPress={() => setIsOpen(!isOpen)}
+      >
+        <Text style={{ color: colors.text.main }}>
+          {selectedItem ? selectedItem.label : 'Välj...'}
+        </Text>
+      </TouchableOpacity>
+      
+      {isOpen && (
+        <View style={[styles.dropdownMenu, { backgroundColor: 'rgba(0, 0, 0, 0.9)' }]}>
+          {items.map((item) => (
+            <TouchableOpacity
+              key={item.value}
+              style={styles.dropdownItem}
+              onPress={() => {
+                onValueChange(item.value);
+                setIsOpen(false);
+              }}
+            >
+              <Text style={{ 
+                color: item.value === value ? colors.accent.yellow : colors.text.main
+              }}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -611,5 +666,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  dropdownButton: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 74,
+    left: 0,
+    right: 0,
+    borderRadius: 8,
+    padding: 8,
+    backgroundColor: 'rgba(30, 30, 60, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    zIndex: 1000,
+  },
+  dropdownItem: {
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 4,
   },
 });

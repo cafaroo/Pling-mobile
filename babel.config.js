@@ -1,4 +1,4 @@
-module.exports = function(api) {
+module.exports = function (api) {
   api.cache(true);
   return {
     presets: ['babel-preset-expo'],
@@ -6,20 +6,24 @@ module.exports = function(api) {
       [
         'module-resolver',
         {
-          root: ['.'],
+          root: ['./src'],
+          extensions: ['.ios.js', '.android.js', '.js', '.ts', '.tsx', '.json'],
           alias: {
-            '@': '.',
+            '@': './src',
+            '@shared': './src/shared',
+            '@domain': './src/domain',
+            '@application': './src/application',
+            '@utils': './src/utils',
             '@components': './components',
             '@constants': './constants',
             '@context': './context',
             '@hooks': './hooks',
             '@services': './services',
             '@styles': './styles',
-            '@types': './types',
-          },
-          extensions: ['.js', '.jsx', '.ts', '.tsx'],
-        },
-      ],
-    ],
+            '@types': './types'
+          }
+        }
+      ]
+    ]
   };
 }; 

@@ -7,14 +7,15 @@ import {
   FlatList, 
   TextInput as RNTextInput,
   Modal,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
 import { GoalTag } from '@/types/goal';
 import { TagBadge } from './TagBadge';
 import { Plus, Search, X, Check, Tag as TagIcon, PaintBucket } from 'lucide-react-native';
-import { TextInput } from '@/components/ui/TextInput';
+import TextInput from '@/components/ui/TextInput';
 import { Button } from '@/components/ui/Button';
 import { useTags, useCreateTag } from '@/hooks/useTags';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -120,26 +121,6 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
     }
   };
   
-  // Rendering av tagg i listan
-  const renderTagItem = ({ item }: { item: GoalTag }) => (
-    <TouchableOpacity
-      style={[
-        styles.tagItem,
-        isTagSelected(item.id) && { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
-      ]}
-      onPress={() => handleTagToggle(item)}
-    >
-      <View style={[styles.tagColorIndicator, { backgroundColor: item.color }]} />
-      <Text style={[styles.tagName, { color: colors.text.main }]}>
-        {item.name}
-      </Text>
-      
-      {isTagSelected(item.id) && (
-        <Check size={16} color={colors.accent.green} />
-      )}
-    </TouchableOpacity>
-  );
-  
   return (
     <View style={[styles.container, style]}>
       {label && (
@@ -211,12 +192,22 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
             </View>
             
             <View style={styles.searchContainer}>
-              <TextInput
-                value={searchText}
-                onChangeText={setSearchText}
-                placeholder="Sök taggar..."
-                icon={<Search size={20} color={colors.text.light} />}
-              />
+              <View style={styles.searchInputContainer}>
+                <Search size={20} color={colors.text.light} style={styles.searchIcon} />
+                <RNTextInput
+                  style={[
+                    styles.searchInput,
+                    { 
+                      color: colors.text.main,
+                      backgroundColor: 'transparent',
+                    }
+                  ]}
+                  value={searchText}
+                  onChangeText={setSearchText}
+                  placeholder="Sök taggar..."
+                  placeholderTextColor={colors.text.light}
+                />
+              </View>
             </View>
             
             <View style={styles.tagListContainer}>
@@ -231,12 +222,27 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
                   Inga taggar hittades
                 </Text>
               ) : (
-                <FlatList
-                  data={filteredTags}
-                  renderItem={renderTagItem}
-                  keyExtractor={item => item.id}
-                  contentContainerStyle={styles.tagList}
-                />
+                <ScrollView contentContainerStyle={styles.tagList}>
+                  {filteredTags.map(item => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        styles.tagItem,
+                        isTagSelected(item.id) && { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                      ]}
+                      onPress={() => handleTagToggle(item)}
+                    >
+                      <View style={[styles.tagColorIndicator, { backgroundColor: item.color }]} />
+                      <Text style={[styles.tagName, { color: colors.text.main }]}>
+                        {item.name}
+                      </Text>
+                      
+                      {isTagSelected(item.id) && (
+                        <Check size={16} color={colors.accent.green} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               )}
             </View>
             
@@ -403,6 +409,23 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     marginBottom: 16,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    padding: 8,
   },
   tagListContainer: {
     flex: 1,

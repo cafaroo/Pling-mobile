@@ -1116,6 +1116,52 @@ export async function getUserActiveTeam(): Promise<Team | null> {
   }
 }
 
+/**
+ * Hämtar team ranking och statistik
+ * @param teamId - ID för teamet
+ * @returns Ett löfte som innehåller team ranking och statistik
+ */
+export const getTeamRanking = async (teamId: string) => {
+  try {
+    // Hämta team statistik
+    const { data: stats } = await supabase.rpc('get_team_stats', { team_id: teamId });
+    
+    // Hämta team medlemmar
+    const { data: members } = await supabase
+      .from('team_members')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('status', 'active');
+
+    // Hämta team försäljning
+    const { data: sales } = await supabase
+      .from('sales')
+      .select('amount')
+      .eq('team_id', teamId)
+      .gte('created_at', new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString());
+
+    const totalAmount = sales?.reduce((sum, sale) => sum + (sale.amount || 0), 0) || 0;
+    
+    return {
+      rank: stats?.rank || 1,
+      totalAmount,
+      teamMembers: members?.length || 0,
+      growth: stats?.growth || 0,
+      competitions: stats?.competitions || 0
+    };
+  } catch (error) {
+    console.error('Error getting team ranking:', error);
+    // Returnera standardvärden om något går fel
+    return {
+      rank: 1,
+      totalAmount: 0,
+      teamMembers: 0,
+      growth: 0,
+      competitions: 0
+    };
+  }
+};
+
 const teamService = {
   createTeam,
   getTeam,
@@ -1140,7 +1186,8 @@ const teamService = {
   getTeamInvitation,
   createTeamInvitation,
   getUserRole,
-  getUserActiveTeam
+  getUserActiveTeam,
+  getTeamRanking
 };
 
 export default teamService;

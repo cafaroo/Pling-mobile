@@ -63,7 +63,7 @@ export default function GoalDetailScreen() {
           onPress: () => {
             deleteGoal.mutate(id, {
               onSuccess: () => {
-                router.back();
+                router.push('/goals');
               }
             });
           }
@@ -91,7 +91,7 @@ export default function GoalDetailScreen() {
   if (isLoading) {
     return (
       <Container>
-        <Header title="Måldetaljer" leftIcon={<ArrowLeft color={colors.text.main} />} onBackPress={() => router.back()} />
+        <Header title="Måldetaljer" leftIcon={<ArrowLeft color={colors.text.main} />} onBackPress={() => router.push('/goals')} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent.yellow} />
           <Text style={[styles.loadingText, { color: colors.text.light }]}>
@@ -105,7 +105,7 @@ export default function GoalDetailScreen() {
   if (isError || !goal) {
     return (
       <Container>
-        <Header title="Måldetaljer" leftIcon={<ArrowLeft color={colors.text.main} />} onBackPress={() => router.back()} />
+        <Header title="Måldetaljer" leftIcon={<ArrowLeft color={colors.text.main} />} onBackPress={() => router.push('/goals')} />
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.error }]}>
             Kunde inte hämta målinformation
@@ -128,7 +128,7 @@ export default function GoalDetailScreen() {
       <Header 
         title={isEditing ? "Redigera mål" : "Måldetaljer"} 
         leftIcon={<ArrowLeft color={colors.text.main} />} 
-        onBackPress={() => isEditing ? setIsEditing(false) : router.back()} 
+        onBackPress={() => isEditing ? setIsEditing(false) : router.push('/goals')} 
       />
       
       <ScrollView
@@ -138,7 +138,7 @@ export default function GoalDetailScreen() {
         {isEditing ? (
           <Animated.View entering={FadeIn} exiting={FadeOut}>
             <GoalForm
-              initialValues={goal}
+              initialData={goal}
               onCancel={handleCancelEdit}
               onSuccess={handleSaveEdit}
               mode="edit"

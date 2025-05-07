@@ -57,7 +57,7 @@ Detta dokument beskriver strukturen och implementationen av användardomänen i 
 - Konfiguerat Jest-mockar för vanliga beroenden ✅
 - Skapad batch-filer för stabil testkörning ✅
 - Dokumenterat testproblem och skapat åtgärdsplan ✅
-- Skippat problematiska tester med tydlig dokumentation ✅
+- Skippat problematiska testers med tydlig dokumentation ✅
 - Utökat testfallen för useUserSettings hook ✅
 - Implementerat testfil för useUser hook ✅
 - Skapat user-testing-guide.md med mönster och best practices ✅
@@ -97,11 +97,8 @@ Detta dokument beskriver strukturen och implementationen av användardomänen i 
 ### Pågående arbete 🚧
 
 #### Domänlager
-- Implementera användarroller och behörigheter ✅
-- Utöka värde-objekten med fler metoder för domänlogik ✅
 
 #### Applikationslager
-- Implementera användaraktivering ✅
 - Förbättra cachingstrategier för användardata 🚧
 - Korrigera applikationslagertester för nya komponenter ✅
 
@@ -123,16 +120,19 @@ Detta dokument beskriver strukturen och implementationen av användardomänen i 
 - Utöka integrationstestning till team-domänen ✅
 - Implementera fler exempeltester med error-helpers.ts ✅
 
-### Kommande arbete ��
+#### Infrastrukturlager
+- Implementera DTOValidation.test.ts 🚧
+
+### Kommande arbete 📋
 
 #### Domänlager
-- Utveckla integrationer med andra domäner
-- Utöka värde-objekten med fler funktioner för domänlogik
+- Utveckla integrationer med andra domäner 🚧
+- Utöka värde-objekten med fler funktioner för domänlogik 🚧
 
 #### Infrastrukturlager
-- Implementera caching-strategi
-- Optimera databasfrågor
-- Lägga till loggning och övervakning
+- Implementera caching-strategi 🚧
+- Optimera databasfrågor 🚧
+- Lägga till loggning och övervakning 🚧
 
 #### UI-lager
 - Skapa användarprofilvy
@@ -436,7 +436,7 @@ export const ProfileScreen: React.FC = () => {
 
 - Mappers
   - UserMapper.test.ts ✅
-  - DTOValidation.test.ts 📋
+  - DTOValidation.test.ts 🚧
 
 ### UI-lager 🚧
 - Komponenter
@@ -524,6 +524,7 @@ Vi har implementerat stöd för domänhändelser genom:
 - Implementerat infrastructure-lager med caching, loggning och prestandaövervakning ✅
 - Optimerat databasfrågor genom indexering av användarrelaterade tabeller ✅
 - Förbättrat prestanda för team-relaterade användarfrågor med GIN-index ✅
+- Implementerat behörighetssystemet för användarroller ✅
 
 Legender:
 ✅ Implementerat och testat

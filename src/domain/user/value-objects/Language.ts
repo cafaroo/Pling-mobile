@@ -50,7 +50,7 @@ export class Language extends ValueObject<string> {
       isSupported: true
     },
     no: {
-      displayName: 'Norska',
+      displayName: 'Norsk',
       nativeName: 'Norsk',
       isRightToLeft: false,
       defaultDateFormat: 'DD.MM.YYYY',
@@ -61,7 +61,7 @@ export class Language extends ValueObject<string> {
       isSupported: true
     },
     dk: {
-      displayName: 'Danska',
+      displayName: 'Dansk',
       nativeName: 'Dansk',
       isRightToLeft: false,
       defaultDateFormat: 'DD.MM.YYYY',
@@ -162,24 +162,31 @@ export class Language extends ValueObject<string> {
   };
 
   private constructor(code: string) {
-    super(code);
+    super(code.toLowerCase());
   }
 
   /**
    * Skapar ett nytt språkobjekt
    */
   public static create(code: string): Result<Language, Error> {
-    if (!this.SUPPORTED_LANGUAGES.includes(code as LanguageCode)) {
+    if (!code) {
+      return err(new Error('Språkkod kan inte vara null eller undefined'));
+    }
+    
+    // Konvertera till lowercase för att normalisera
+    const normalizedCode = code.toLowerCase();
+    
+    if (!this.SUPPORTED_LANGUAGES.includes(normalizedCode as LanguageCode)) {
       return err(new Error(`Språket "${code}" stöds inte av systemet`));
     }
     
-    return ok(new Language(code));
+    return ok(new Language(normalizedCode));
   }
   
   /**
    * Returnerar standardspråket (svenska)
    */
-  public static getDefault(): Language {
+  public static getDefaultLanguage(): Language {
     return this.create('sv').getValue();
   }
   
@@ -202,6 +209,15 @@ export class Language extends ValueObject<string> {
   }
   
   /**
+   * Returnerar en lista av alla stödda språkkoder
+   */
+  public static getAllSupportedLanguages(): LanguageCode[] {
+    return this.SUPPORTED_LANGUAGES.filter(
+      code => this.LANGUAGE_DETAILS[code].isSupported
+    );
+  }
+  
+  /**
    * Returnerar språkkoden
    */
   public get code(): LanguageCode {
@@ -216,147 +232,119 @@ export class Language extends ValueObject<string> {
   }
   
   /**
-   * Returnerar lokaliserat visningsnamn
+   * Returnerar språkets visningsnamn
    */
   public get displayName(): string {
     return this.details.displayName;
   }
   
   /**
-   * Returnerar det lokala namnet på språket
+   * Returnerar språkets namn på det språket
    */
   public get nativeName(): string {
     return this.details.nativeName;
   }
   
   /**
-   * Returnerar flagg-emoji för språket
+   * Returnerar språkets flagg-emoji
    */
   public get flagEmoji(): string {
     return this.details.flagEmoji;
   }
   
   /**
-   * Returnerar den lokala strängen för språket (t.ex. 'sv-SE', 'en-US')
+   * Returnerar språkets locale (t.ex. sv-SE)
    */
   public get locale(): string {
     return this.details.locale;
   }
   
   /**
-   * Kontrollerar om språket är fullt stött i systemet
+   * Returnerar om språket är fullt stött med översättningar
    */
   public get isSupported(): boolean {
     return this.details.isSupported;
   }
   
   /**
-   * Formaterar ett datum enligt språkets standardformat
+   * Returnerar standardvaluta för språket
    */
-  public formatDate(date: Date): string {
-    return date.toLocaleDateString(this.locale, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
+  public get defaultCurrency(): string {
+    return this.details.defaultCurrency;
   }
   
   /**
-   * Formaterar en tid enligt språkets standardformat
+   * Returnerar standarddatumformat för språket
+   */
+  public get defaultDateFormat(): string {
+    return this.details.defaultDateFormat;
+  }
+  
+  /**
+   * Returnerar standardtidformat för språket
+   */
+  public get defaultTimeFormat(): string {
+    return this.details.defaultTimeFormat;
+  }
+  
+  /**
+   * Formaterar ett datum enligt språkets konventioner
+   */
+  public formatDate(date: Date): string {
+    // Enkel implementation, i verkligheten skulle vi använda ett datumbibliotek
+    return new Intl.DateTimeFormat(this.locale, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(date);
+  }
+  
+  /**
+   * Formaterar en tid enligt språkets konventioner
    */
   public formatTime(date: Date): string {
-    return date.toLocaleTimeString(this.locale, {
+    // Enkel implementation, i verkligheten skulle vi använda ett datumbibliotek
+    return new Intl.DateTimeFormat(this.locale, {
       hour: '2-digit',
       minute: '2-digit'
-    });
+    }).format(date);
   }
   
   /**
    * Formaterar ett belopp enligt språkets valuta
    */
   public formatCurrency(amount: number): string {
+    // Enkel implementation, i verkligheten skulle vi använda ett valutabibliotek
     return new Intl.NumberFormat(this.locale, {
       style: 'currency',
-      currency: this.details.defaultCurrency
+      currency: this.defaultCurrency
     }).format(amount);
+  }
+  
+  /**
+   * Kontrollerar om det är ett nordiskt språk
+   */
+  public isNordic(): boolean {
+    return ['sv', 'no', 'dk', 'fi'].includes(this.code);
+  }
+  
+  /**
+   * Kontrollerar om det är ett europeiskt språk
+   */
+  public isEuropean(): boolean {
+    return ['sv', 'no', 'dk', 'fi', 'de', 'fr', 'es', 'it', 'nl', 'pl'].includes(this.code);
+  }
+  
+  /**
+   * Jämför om detta språk är lika med ett annat
+   */
+  public equals(other: Language): boolean {
+    return this.code === other.code;
   }
   
   /**
    * Returnerar en strängrepresentation av språket
    */
-  public toString(): string {
-    // Normalisera språkkoden (lowercase)
-    const normalizedCode = code.toLowerCase();
-    
-    // Kontrollera om språket stöds
-    if (!Language.SUPPORTED_LANGUAGES.includes(normalizedCode as LanguageCode)) {
-      return Result.err(
-        new Error(
-          `Språket "${code}" stöds inte. Tillgängliga språk: ${Language.SUPPORTED_LANGUAGES.join(', ')}`
-        )
-      );
-    }
-
-    return Result.ok(new Language(normalizedCode));
-  }
-
-  public static getDefaultLanguage(): Language {
-    // Skapa en instans av standardspråket (Svenska)
-    const result = Language.create('sv');
-    
-    if (result.isErr()) {
-      // Detta ska inte kunna hända eftersom 'sv' är en giltig språkkod
-      throw new Error('Kunde inte skapa standardspråk');
-    }
-    
-    return result.value;
-  }
-
-  public static getAllSupportedLanguages(): LanguageCode[] {
-    return [...Language.SUPPORTED_LANGUAGES];
-  }
-
-  public get code(): string {
-    return this.props;
-  }
-
-  public get displayName(): string {
-    return Language.LANGUAGE_DETAILS[this.code as LanguageCode].displayName;
-  }
-
-  public get nativeName(): string {
-    return Language.LANGUAGE_DETAILS[this.code as LanguageCode].nativeName;
-  }
-
-  public get isRightToLeft(): boolean {
-    return Language.LANGUAGE_DETAILS[this.code as LanguageCode].isRightToLeft;
-  }
-
-  public get defaultDateFormat(): string {
-    return Language.LANGUAGE_DETAILS[this.code as LanguageCode].defaultDateFormat;
-  }
-
-  public get defaultTimeFormat(): string {
-    return Language.LANGUAGE_DETAILS[this.code as LanguageCode].defaultTimeFormat;
-  }
-
-  public get defaultCurrency(): string {
-    return Language.LANGUAGE_DETAILS[this.code as LanguageCode].defaultCurrency;
-  }
-
-  public equals(other: Language): boolean {
-    return this.code === other.code;
-  }
-  
-  public isNordic(): boolean {
-    return ['sv', 'no', 'dk', 'fi'].includes(this.code);
-  }
-  
-  public isEuropean(): boolean {
-    // Alla våra nuvarande språk är europeiska
-    return true;
-  }
-  
   public toString(): string {
     return this.code;
   }

@@ -77,4 +77,8 @@ export class Result<T, E = Error> {
     }
     return this._value;
   }
-} 
+}
+
+// Exportera även funktionerna direkt för enklare användning
+export const ok = <T>(value: T): Result<T> => Result.ok(value);
+export const err = <T, E>(error: E): Result<T, E> => Result.err(error); 

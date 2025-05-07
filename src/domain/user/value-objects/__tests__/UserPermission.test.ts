@@ -114,7 +114,7 @@ describe('UserPermission', () => {
     
     it('ska konvertera till läsbar sträng', () => {
       const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).getValue();
-      expect(manageUsers.toString()).toBe('manage_users (user)');
+      expect(manageUsers.toString()).toBe('Hantera alla användare och deras konton (manage_users)');
     });
     
     it('ska jämföra behörigheter korrekt', () => {

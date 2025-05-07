@@ -9,7 +9,7 @@ describe('UserRole', () => {
         const result = UserRole.create(role);
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().value).toBe(role);
+          expect(result.getValue().name).toBe(role);
         }
       });
     });
@@ -18,7 +18,7 @@ describe('UserRole', () => {
       const result = UserRole.create('invalid_role');
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError().message).toContain('Ogiltig användarroll');
+        expect(result.getError().message).toContain('är inte en giltig systemroll');
       }
     });
   });
@@ -54,7 +54,7 @@ describe('UserRole', () => {
       if (result.isOk()) {
         const role = result.getValue();
         expect(role.permissions).toContain('manage_profile');
-        expect(role.permissions).toContain('join_teams');
+        expect(role.permissions).toContain('join_team');
         expect(role.permissions).not.toContain('manage_users');
       }
     });

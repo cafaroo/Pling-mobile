@@ -1,3 +1,12 @@
+// Mocka miljövariabler för tester
+process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://mock-test-supabase.co';
+process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key-for-testing';
+process.env.SUPABASE_TEST_URL = 'https://mock-test-supabase.co';
+process.env.SUPABASE_TEST_ANON_KEY = 'mock-anon-key-for-testing';
+process.env.API_URL = 'https://mock-api.pling.app/api';
+process.env.DOMAIN = 'mock.pling.app';
+process.env.ENVIRONMENT = 'test';
+
 // Konfigurera global
 global = {
   ...global,

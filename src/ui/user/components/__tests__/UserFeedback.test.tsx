@@ -4,38 +4,59 @@ import { UserFeedback, FeedbackType, useFeedback } from '../UserFeedback';
 
 // Mock av Portal-komponenten från react-native-paper
 jest.mock('react-native-paper', () => {
-  const RealModule = jest.requireActual('react-native-paper');
   const mockComponent = (name) => {
-    const component = ({ children, ...props }) => {
-      return React.createElement('mock-' + name.toLowerCase(), props, children);
-    };
-    component.displayName = name;
-    return component;
+    return jest.fn().mockImplementation((props) => ({
+      type: `mock-${name.toLowerCase()}`,
+      props: { ...props }
+    }));
   };
   
+  // Skapa mockar för alla komponenter vi behöver
+  const mockPortal = jest.fn().mockImplementation(props => props.children);
+  const mockModal = jest.fn().mockImplementation(props => props.visible ? props.children : null);
+  const mockSurface = mockComponent('Surface');
+  const mockIconButton = mockComponent('IconButton');
+  const mockButton = mockComponent('Button');
+  const mockText = jest.fn().mockImplementation(props => ({
+    type: 'mock-text',
+    props: { ...props }
+  }));
+  const mockUseTheme = jest.fn().mockReturnValue({
+    colors: {
+      primary: '#2196F3',
+      secondary: '#9C27B0',
+      error: '#F44336'
+    }
+  });
+  
   return {
-    ...RealModule,
-    Portal: ({ children }) => children,
-    Modal: ({ children, visible, ...props }) => visible ? children : null,
-    Surface: mockComponent('Surface'),
-    IconButton: mockComponent('IconButton'),
-    Button: mockComponent('Button'),
-    Text: ({ children, ...props }) => React.createElement('mock-text', props, children),
-    useTheme: () => ({
-      colors: {
-        primary: '#2196F3',
-        secondary: '#9C27B0',
-        error: '#F44336'
-      }
-    })
+    ...jest.requireActual('react-native-paper'),
+    Portal: mockPortal,
+    Modal: mockModal,
+    Surface: mockSurface,
+    IconButton: mockIconButton,
+    Button: mockButton,
+    Text: mockText,
+    useTheme: mockUseTheme
   };
 });
 
 // Mock av MaterialCommunityIcons från @expo/vector-icons
-jest.mock('@expo/vector-icons', () => ({
-  MaterialCommunityIcons: ({ name, size, color, ...props }) => 
-    React.createElement('mock-icon', { 'data-name': name, 'data-size': size, 'data-color': color, ...props })
-}));
+jest.mock('@expo/vector-icons', () => {
+  const mockIcon = jest.fn().mockImplementation(props => ({
+    type: 'mock-icon',
+    props: {
+      'data-name': props.name,
+      'data-size': props.size,
+      'data-color': props.color,
+      ...props
+    }
+  }));
+  
+  return {
+    MaterialCommunityIcons: mockIcon
+  };
+});
 
 // Mock timer
 jest.useFakeTimers();

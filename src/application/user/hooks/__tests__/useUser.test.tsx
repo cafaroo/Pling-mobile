@@ -3,18 +3,39 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useUser } from '../useUser';
 import React from 'react';
 
+// Skapa mockar före användning
+const mockSupabase = {
+  auth: {
+    getUser: jest.fn().mockResolvedValue({
+      data: { user: { id: 'test-user-id', email: 'test@example.com' } },
+      error: null,
+    })
+  }
+};
+
+const mockUniqueId = (id) => ({
+  toString: () => id,
+  value: id
+});
+
+const mockEventBus = {
+  publish: jest.fn(),
+  subscribe: jest.fn(),
+  unsubscribe: jest.fn()
+};
+
 // Mocka dependencies som normalt skulle mockats i setup-apptest.js
 jest.mock('@/infrastructure/supabase/index', () => ({
-  supabase: global.__mockSupabase
+  supabase: mockSupabase
 }));
 
 jest.mock('@/shared/domain/UniqueId', () => ({
-  UniqueId: jest.fn().mockImplementation(global.__mockUniqueId)
+  UniqueId: jest.fn().mockImplementation((id) => mockUniqueId(id))
 }));
 
 jest.mock('@/shared/events/EventBus', () => ({
-  EventBus: jest.fn().mockImplementation(() => global.__mockEventBus),
-  useEventBus: jest.fn().mockReturnValue(global.__mockEventBus)
+  EventBus: jest.fn().mockImplementation(() => mockEventBus),
+  useEventBus: jest.fn().mockReturnValue(mockEventBus)
 }));
 
 // Mock för useUserDependencies
@@ -55,8 +76,8 @@ describe('useUser', () => {
       },
     });
     
-    // Återställ global mock för Supabase
-    global.__mockSupabase.auth.getUser.mockResolvedValue({
+    // Återställ mock för Supabase
+    mockSupabase.auth.getUser.mockResolvedValue({
       data: { user: { id: 'test-user-id', email: 'test@example.com' } },
       error: null,
     });
@@ -103,7 +124,7 @@ describe('useUser', () => {
 
   it('ska hantera fel när användaren inte är inloggad', async () => {
     // Konfigurera Supabase-mock för att simulera att ingen användare är inloggad
-    global.__mockSupabase.auth.getUser.mockResolvedValue({
+    mockSupabase.auth.getUser.mockResolvedValue({
       data: { user: null },
       error: null,
     });
@@ -120,19 +141,22 @@ describe('useUser', () => {
   });
 
   it('ska hantera fel från användarrepository', async () => {
-    // Återanvänd mocken från useUserDependencies men ändra implementationen
-    const getProfileMock = jest.fn().mockRejectedValue(new Error('Databasfel'));
-    jest.mock('../useUserDependencies', () => ({
+    // Skapa en ny mock med jest.mock och specificera i testet, utan att referera till en extern variabel
+    const mockUserDependenciesWithError = {
       useUserDependencies: jest.fn().mockReturnValue({
         userRepository: {
-          getProfile: getProfileMock,
+          getProfile: jest.fn().mockRejectedValue(new Error('Databasfel')),
           getSettings: jest.fn().mockResolvedValue({
             theme: 'dark',
             language: 'sv',
           })
         }
       })
-    }));
+    };
+
+    // Ersätt den befintliga mock-implementationen tillfälligt, bara inom detta test
+    const originalImplementation = require('../useUserDependencies');
+    jest.doMock('../useUserDependencies', () => mockUserDependenciesWithError, { virtual: true });
 
     const { result } = renderHook(() => useUser(), { wrapper });
 
@@ -142,6 +166,9 @@ describe('useUser', () => {
     // Vi förväntar oss att testet misslyckas på grund av databasfel
     // men React Query fångar felet och visar ett generiskt meddelande
     expect(result.current.error).toBeDefined();
+
+    // Återställ den ursprungliga implementationen
+    jest.doMock('../useUserDependencies', () => originalImplementation, { virtual: true });
   });
   
   it('ska cachea data korrekt', async () => {
@@ -149,8 +176,8 @@ describe('useUser', () => {
     const { result: firstResult } = renderHook(() => useUser(), { wrapper });
     await waitFor(() => expect(firstResult.current.isSuccess).toBe(true));
     
-    // Kontrollera att useQuery-anropet i andra renderingen återanvänder cachad data
-    const getProfileMock = jest.fn().mockResolvedValue({
+    // För andra renderingen, skapa en ny mock
+    const mockProfileFunction = jest.fn().mockResolvedValue({
       firstName: 'Test',
       lastName: 'User',
       displayName: 'TestUser',
@@ -158,17 +185,21 @@ describe('useUser', () => {
       location: 'Stockholm',
     });
     
-    jest.mock('../useUserDependencies', () => ({
+    const mockUserDependenciesForCaching = {
       useUserDependencies: jest.fn().mockReturnValue({
         userRepository: {
-          getProfile: getProfileMock,
+          getProfile: mockProfileFunction,
           getSettings: jest.fn().mockResolvedValue({
             theme: 'dark',
             language: 'sv',
           })
         }
       })
-    }));
+    };
+
+    // Ersätt den befintliga mock-implementationen tillfälligt, bara inom detta test
+    const originalCachingImplementation = require('../useUserDependencies');
+    jest.doMock('../useUserDependencies', () => mockUserDependenciesForCaching, { virtual: true });
     
     const { result: secondResult } = renderHook(() => useUser(), { wrapper });
     
@@ -176,6 +207,9 @@ describe('useUser', () => {
     await waitFor(() => expect(secondResult.current.isSuccess).toBe(true));
     
     // getProfile ska inte kallas igen eftersom data redan är cachad
-    expect(getProfileMock).not.toHaveBeenCalled();
+    expect(mockProfileFunction).not.toHaveBeenCalled();
+
+    // Återställ den ursprungliga implementationen
+    jest.doMock('../useUserDependencies', () => originalCachingImplementation, { virtual: true });
   });
 }); 

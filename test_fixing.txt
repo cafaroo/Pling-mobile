@@ -1,0 +1,160 @@
+# Testfixeringsplan för Pling-mobilapplikation
+
+## 1. Introduktion
+
+Detta dokument beskriver en strukturerad plan för att metodiskt åtgärda alla testproblem i Pling-mobilapplikationen. Problemen har kategoriserats och prioriterats för att effektivisera fixarbetet.
+
+## 2. Problemkategorier
+
+Baserat på testresultaten har vi identifierat följande huvudproblemkategorier:
+
+### A. Miljökonfigurationsproblem
+- Supabase-konfiguration saknas
+- Testdatabaskonfiguration saknas
+
+### B. Jest.mock-referensfel
+- Referenser till variabler utanför scope i mockdefinitioner
+- JSX-användning i mockdefinitioner
+
+### C. Modulsökvägsfel
+- Kan inte hitta importerade moduler
+- Felaktiga sökvägar i jest.mock-anrop
+
+### D. Syntaxfel och kodstrukturproblem
+- Oväntade tokens i testfiler
+- Strukturella problem i testfiler
+
+### E. Funktionella fel
+- Null/undefined-referenser (t.ex. contact.email)
+- Felaktiga mockdata eller testscenarier
+
+## 3. Lösningsstrategi per kategori
+
+### A. Miljökonfigurationsproblem
+1. ✅ Uppdatera jest.setup.js med mockade miljövariabler
+2. Fixa Supabase-konfiguration för tester i mockdata
+3. Skapa mockad infrastruktur för alla tester som använder Supabase
+
+### B. Jest.mock-referensfel
+1. ✅ Implementera lösningen från useUser.test.tsx för alla tester 
+2. ✅ Ersätta JSX i mockdefinitioner med objekt som returneras av jest.fn()
+3. Standardisera mockstil för reaktiva komponenter
+
+### C. Modulsökvägsfel
+1. Korrigera jest.config.js för att matcha sökvägarna i koden
+2. Uppdatera mockdefinitioner med korrekta sökvägar
+3. Skapa alias eller hjälpare för tester i komplexa mappar
+
+### D. Syntaxfel
+1. Identifiera och åtgärda extra parenteser och brackets
+2. Åtgärda strukturella problemfiler en i taget
+
+### E. Funktionella fel
+1. Fixa createTestUser och relaterade funktioner för konsekvent testdata
+2. Fixa Result-hantering i mocks
+3. Skapa korrekta TestCaseProvider med mock-kontextvärden
+
+## 4. Framsteg
+
+### ✅ Fas 1: Grundläggande infrastruktur
+1. ✅ Löst miljövariabler för tester genom att uppdatera jest.setup.js
+2. ✅ Skapat en standardiserad mock för EventBus (src/test-utils/mocks/EventBusMock.ts)
+3. ✅ Skapat en standardiserad mock för SupabaseClient (src/test-utils/mocks/SupabaseMock.ts)
+4. ✅ Skapat en standardiserad mock för Results (src/test-utils/mocks/ResultMock.ts)
+5. ✅ Skapat standardiserade mockkomponenter (src/test-utils/mocks/ComponentMocks.ts)
+6. ✅ Skapat standardiserad testdata (src/test-utils/mocks/UserTestData.ts)
+7. ✅ Skapat en indexfil för enkla imports (src/test-utils/mocks/index.ts)
+
+### Fas 2: Nästa steg - Specifika fixar för testfilerna
+
+#### Steg 1: Fixa event-handling.test.ts
+- Uppdatera testet att använda standardmockar
+- Fixa createTestUser med korrekt kontaktinformation
+- Implementera förbättrade mockningar för Result-klassen
+
+#### Steg 2: Fixa UserEvent.test.ts
+- Fixa syntaxfel med parenteser
+- Uppdatera mockad EventBus
+
+#### Steg 3: Fixa UserRepositoryIntegration.test.ts
+- Uppdatera för att använda mockad Supabase-konfiguration
+- Uppdatera med korrekt Result-mockhantering
+
+#### Steg 4: Fixa team-komponenter
+- Korrigera sökvägar i jest.mock-anrop
+- Standardisera mockar mellan JavaScript och TypeScript-tester
+
+## 5. Hur man använder de nya mock-verktygen
+
+### EventBusMock
+```typescript
+import { mockEventBus } from '@/test-utils/mocks';
+
+jest.mock('@/shared/events/EventBus', () => ({
+  EventBus: jest.fn().mockImplementation(() => mockEventBus),
+  useEventBus: jest.fn().mockReturnValue(mockEventBus),
+  getEventBus: jest.fn().mockReturnValue(mockEventBus)
+}));
+
+// Verifiering i testet
+verifyEventPublished(mockEventBus.publish, 'UserCreated', { userId: 'test-id' });
+```
+
+### ResultMock
+```typescript
+import { mockResult } from '@/test-utils/mocks';
+
+jest.mock('@/shared/core/Result', () => ({
+  Result: mockResult
+}));
+
+// Användning i testet
+it('returnerar ett korrrekt Result.ok-objekt', () => {
+  expect(myFunction()).toEqual(mockResult.ok('Förväntat värde').getValue());
+});
+```
+
+### SupabaseMock
+```typescript
+import { mockSupabase } from '@/test-utils/mocks';
+
+jest.mock('@/infrastructure/supabase', () => ({
+  supabase: mockSupabase
+}));
+
+// Användning i testet
+mockSupabase.auth.getUser.mockResolvedValueOnce({
+  data: { user: { id: 'test-id', email: 'test@example.com' } },
+  error: null
+});
+```
+
+### UserTestData
+```typescript
+import { createTestUser, createTestUserDTO } from '@/test-utils/mocks';
+
+it('skapar en användare korrekt', () => {
+  // Fullt domänobjekt
+  const user = createTestUser().getValue();
+  
+  // DTO-version för repositorytester
+  const userDTO = createTestUserDTO();
+});
+```
+
+## 6. Återstående arbete
+
+Prioritering för att fixa testerna:
+
+1. Fixa `event-handling.test.ts` - Många fel (contact-problem, Result-mockningar)
+2. Fixa `UserEvent.test.ts` - Syntaxfel
+3. Fixa `UserRepositoryIntegration.test.ts` - Supabase-konfiguration
+4. Fixa `useCreateUser.test.tsx` - Mockningsproblem
+5. Fixa `components/team/__tests__/*` - Sökvägsfel
+
+## 7. Tidplan
+
+- Dag 1: Fix event-handling.test.ts och UserEvent.test.ts
+- Dag 2: Fix UserRepositoryIntegration.test.ts och useCreateUser.test.tsx
+- Dag 3: Fix team-komponenter
+- Dag 4: Köra alla tester och rätta upp kvarstående problem 

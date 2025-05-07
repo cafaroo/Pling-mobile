@@ -31,144 +31,115 @@ jest.mock('expo-image-picker', () => ({
   }
 }));
 
-// Mock ProfileAvatar med testbar komponent
+// Mock ProfileAvatar med testbar funktion
 jest.mock('../../components/ProfileAvatar', () => {
-  const ProfileAvatar = ({ 
-    onPress, 
-    uri, 
-    size, 
-    style 
-  }: { 
-    onPress?: () => void;
-    uri?: string;
-    size: number;
-    style?: StyleProp<ViewStyle>;
-  }) => (
-    <View
-      testID="profile-avatar"
-      style={style}
-      accessibilityRole="button"
-    >
-      <Text>Avatar URI: {uri || 'none'}</Text>
-      {onPress && (
-        <View 
-          testID="avatar-edit-button" 
-          accessibilityRole="button"
-          onTouchEnd={onPress}
-        >
-          <Text>Ändra bild</Text>
-        </View>
-      )}
-    </View>
-  );
-  return { ProfileAvatar };
+  return {
+    ProfileAvatar: jest.fn().mockImplementation(props => {
+      const mockProfileAvatar = {
+        type: 'mockProfileAvatar',
+        props: {
+          testID: 'profile-avatar',
+          style: props.style,
+          accessibilityRole: 'button',
+          children: [
+            { type: 'text', props: { children: ['Avatar URI: ', props.uri || 'none'] } },
+            props.onPress && {
+              type: 'view',
+              props: {
+                testID: 'avatar-edit-button',
+                accessibilityRole: 'button',
+                onTouchEnd: props.onPress,
+                children: [{ type: 'text', props: { children: 'Ändra bild' } }]
+              }
+            }
+          ].filter(Boolean)
+        }
+      };
+      
+      return mockProfileAvatar;
+    })
+  };
 });
 
 // Förbättrad mock för react-native-paper
 jest.mock('react-native-paper', () => {
-  const actualPaper = jest.requireActual('react-native-paper');
-  
-  // Skapa mockar för Avatar-komponenter
-  const Avatar = {
-    Image: ({ 
-      size, 
-      source 
-    }: { 
-      size: number; 
-      source: { uri: string } 
-    }) => (
-      <View testID="avatar-image" style={{ width: size, height: size }}>
-        <Text>Avatar Image: {source.uri}</Text>
-      </View>
-    ),
-    Icon: ({ 
-      size, 
-      icon 
-    }: { 
-      size: number; 
-      icon: string 
-    }) => (
-      <View testID="avatar-icon" style={{ width: size, height: size }}>
-        <Text>Avatar Icon: {icon}</Text>
-      </View>
-    )
+  const mockAvatar = {
+    Image: jest.fn().mockImplementation(props => ({
+      type: 'mock-avatar-image',
+      props: {
+        testID: 'avatar-image',
+        style: { width: props.size, height: props.size },
+        children: [{ type: 'text', props: { children: ['Avatar Image: ', props.source.uri] } }]
+      }
+    })),
+    Icon: jest.fn().mockImplementation(props => ({
+      type: 'mock-avatar-icon',
+      props: {
+        testID: 'avatar-icon',
+        style: { width: props.size, height: props.size },
+        children: [{ type: 'text', props: { children: ['Avatar Icon: ', props.icon] } }]
+      }
+    }))
   };
   
-  // Skapa mockar för Button och TextInput
-  const Button = ({ 
-    children, 
-    onPress, 
-    mode, 
-    loading, 
-    disabled, 
-    style, 
-    testID 
-  }: {
-    children: React.ReactNode;
-    onPress?: () => void;
-    mode?: string;
-    loading?: boolean;
-    disabled?: boolean;
-    style?: StyleProp<ViewStyle>;
-    testID?: string;
-  }) => (
-    <View
-      testID={testID || 'paper-button'}
-      style={style}
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      onPress={onPress}
-      onTouchEnd={onPress}
-    >
-      <Text>{children} {loading ? '(Loading)' : ''}</Text>
-    </View>
-  );
+  const mockButton = jest.fn().mockImplementation(props => ({
+    type: 'mock-button',
+    props: {
+      testID: props.testID || 'paper-button',
+      style: props.style,
+      accessibilityRole: 'button',
+      accessibilityState: { disabled: props.disabled },
+      onPress: props.onPress,
+      onTouchEnd: props.onPress,
+      children: [
+        { 
+          type: 'text', 
+          props: { 
+            children: [props.children, ' ', props.loading ? '(Loading)' : ''] 
+          } 
+        }
+      ]
+    }
+  }));
   
-  const TextInput = ({ 
-    label, 
-    onChangeText, 
-    value, 
-    style, 
-    multiline, 
-    keyboardType, 
-    testID, 
-    ...props 
-  }: any) => (
-    <View style={style} testID={testID || `input-${label?.toLowerCase().replace(/\s/g, '-')}`}>
-      <Text>{label}</Text>
-      <View 
-        accessibilityRole="textbox"
-        onTouchEnd={() => { }}
-      >
-        <Text>Värde: {value || props.defaultValue || ''}</Text>
-      </View>
-    </View>
-  );
+  const mockTextInput = jest.fn().mockImplementation(props => ({
+    type: 'mock-text-input',
+    props: {
+      style: props.style,
+      testID: props.testID || `input-${(props.label || '').toLowerCase().replace(/\s/g, '-')}`,
+      children: [
+        { type: 'text', props: { children: props.label } },
+        {
+          type: 'view',
+          props: {
+            accessibilityRole: 'textbox',
+            onTouchEnd: jest.fn(),
+            children: [
+              { 
+                type: 'text', 
+                props: { 
+                  children: ['Värde: ', props.value || props.defaultValue || ''] 
+                } 
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }));
   
-  // Skapa mock för IconButton
-  const IconButton = ({ 
-    icon, 
-    size, 
-    onPress, 
-    style 
-  }: {
-    icon: string;
-    size: number;
-    onPress?: () => void;
-    style?: StyleProp<ViewStyle>;
-  }) => (
-    <View
-      testID={`icon-${icon}`}
-      style={style}
-      accessibilityRole="button"
-      onTouchEnd={onPress}
-    >
-      <Text>Icon: {icon}</Text>
-    </View>
-  );
+  const mockIconButton = jest.fn().mockImplementation(props => ({
+    type: 'mock-icon-button',
+    props: {
+      testID: `icon-${props.icon}`,
+      style: props.style,
+      accessibilityRole: 'button',
+      onTouchEnd: props.onPress,
+      children: [{ type: 'text', props: { children: ['Icon: ', props.icon] } }]
+    }
+  }));
   
-  // Skapa mock för useTheme
-  const useTheme = () => ({
+  const mockUseTheme = jest.fn().mockReturnValue({
     colors: {
       primary: '#6200ee',
       surface: '#ffffff',
@@ -180,12 +151,13 @@ jest.mock('react-native-paper', () => {
   });
   
   return {
-    ...actualPaper,
-    Avatar,
-    Button,
-    TextInput,
-    IconButton,
-    useTheme
+    // Använd spread för att behålla övriga delar av det faktiska objektet
+    ...jest.requireActual('react-native-paper'),
+    Avatar: mockAvatar,
+    Button: mockButton,
+    TextInput: mockTextInput,
+    IconButton: mockIconButton,
+    useTheme: mockUseTheme
   };
 });
 

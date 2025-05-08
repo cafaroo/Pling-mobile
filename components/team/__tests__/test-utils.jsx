@@ -1,5 +1,7 @@
 const React = require('react');
 const { render } = require('@testing-library/react-native');
+const { QueryClient, QueryClientProvider } = require('@tanstack/react-query');
+const { mockSupabaseClient } = require('@/test-utils/mocks/SupabaseMock');
 
 // Fake ThemeProvider för tester
 const ThemeProvider = ({ children }) => {
@@ -7,7 +9,7 @@ const ThemeProvider = ({ children }) => {
 };
 
 // Skapa en QueryClient för tester
-const createTestQueryClient = () => ({
+const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
@@ -87,6 +89,9 @@ const mockTeams = [
   }
 ];
 
+// Uppdatera mockad Supabase-klient med teamdata
+mockSupabaseClient.setMockData('teams', mockTeams);
+
 // Wrapper för tester med providers
 const renderWithProviders = (
   ui,
@@ -95,9 +100,13 @@ const renderWithProviders = (
     ...renderOptions
   } = {}
 ) => {
-  const Wrapper = ({ children }) => (
-    React.createElement(ThemeProvider, null, children)
-  );
+  const Wrapper = ({ children }) => {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      React.createElement(ThemeProvider, null, children)
+    );
+  };
 
   return render(ui, { wrapper: Wrapper, ...renderOptions });
 };
@@ -114,21 +123,19 @@ const createTestProps = (props = {}) => ({
   ...props,
 });
 
-// Mocka Supabase-klienten
-const mockSupabaseClient = {
-  auth: {
-    getUser: jest.fn(),
-    signOut: jest.fn(),
-    onAuthStateChange: jest.fn(),
-  },
-  from: jest.fn().mockReturnThis(),
-  select: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  delete: jest.fn().mockReturnThis(),
-  eq: jest.fn().mockReturnThis(),
-  single: jest.fn(),
-};
+// Mock för useSupabase hook för teamkomponenter
+jest.mock('@/infrastructure/supabase/hooks/useSupabase', () => ({
+  useSupabase: jest.fn().mockReturnValue(mockSupabaseClient)
+}));
+
+// Konfigurera globala mockar för team-komponenter
+beforeEach(() => {
+  // Återställ mockar före varje test
+  jest.clearAllMocks();
+  
+  // Seed mock-databasen med standarddata
+  mockSupabaseClient.setMockData('teams', mockTeams);
+});
 
 module.exports = {
   renderWithProviders,

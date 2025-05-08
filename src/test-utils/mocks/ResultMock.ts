@@ -20,7 +20,8 @@ export const mockResult = {
     getValue: () => value,
     isErr: () => false,
     isOk: () => true,
-    error: null
+    error: null,
+    unwrap: () => value
   })),
   
   err: jest.fn().mockImplementation(error => ({
@@ -29,7 +30,8 @@ export const mockResult = {
     getValue: () => { throw new Error(typeof error === 'string' ? error : 'Error'); },
     isErr: () => true,
     isOk: () => false,
-    error
+    error,
+    unwrap: () => { throw new Error(typeof error === 'string' ? error : 'Error'); }
   }))
 };
 
@@ -41,7 +43,8 @@ export const createOkResult = <T>(value: T) => {
     getValue: () => value,
     isErr: () => false,
     isOk: () => true,
-    error: null
+    error: null,
+    unwrap: () => value
   };
 };
 
@@ -53,7 +56,8 @@ export const createErrResult = <E>(error: E) => {
     getValue: () => { throw new Error(typeof error === 'string' ? error : 'Error'); },
     isErr: () => true,
     isOk: () => false,
-    error
+    error,
+    unwrap: () => { throw new Error(typeof error === 'string' ? error : 'Error'); }
   };
 };
 

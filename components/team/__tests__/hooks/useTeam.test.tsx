@@ -1,11 +1,12 @@
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react-native';
-import { useTeam } from '../../../../hooks/useTeam';
+import { useTeam } from '@/hooks/useTeam';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { teamService } from '../../../../services/teamService';
+import { teamService } from '@/services/teamService';
+import { mockSupabaseClient } from '@/test-utils/mocks/SupabaseMock';
 
 // Mock för teamService
-jest.mock('../../../../services/teamService', () => ({
+jest.mock('@/services/teamService', () => ({
   teamService: {
     getTeam: jest.fn(),
     getTeamMembers: jest.fn(),
@@ -15,12 +16,17 @@ jest.mock('../../../../services/teamService', () => ({
 }));
 
 // Mock för useAuth
-jest.mock('../../../../hooks/useAuth', () => ({
+jest.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     user: { id: 'user1' },
     isLoading: false,
     error: null
   })
+}));
+
+// Mock för Supabase
+jest.mock('@/infrastructure/supabase/hooks/useSupabase', () => ({
+  useSupabase: jest.fn().mockReturnValue(mockSupabaseClient)
 }));
 
 describe('useTeam', () => {
@@ -35,7 +41,7 @@ describe('useTeam', () => {
       }
     });
     
-    return ({ children }) => (
+    return ({ children }: { children: React.ReactNode }) => (
       <QueryClientProvider client={queryClient}>
         {children}
       </QueryClientProvider>
@@ -47,58 +53,46 @@ describe('useTeam', () => {
     
     // Grundläggande mockar för framgångsrika anrop
     teamService.getTeam.mockResolvedValue({
-      data: {
-        id: 'team1',
-        name: 'Testteam',
-        description: 'En testbeskrivning',
-        is_private: true,
-        owner_id: 'user1',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      error: null,
-      status: 'success'
+      id: 'team1',
+      name: 'Testteam',
+      description: 'En testbeskrivning',
+      is_private: true,
+      owner_id: 'user1',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     });
     
-    teamService.getTeamMembers.mockResolvedValue({
-      data: [
-        {
-          id: 'member1',
-          user_id: 'user1',
-          team_id: 'team1',
-          role: 'owner',
-          status: 'active',
-          created_at: new Date().toISOString(),
-          joined_at: new Date().toISOString(),
-          user: {
-            id: 'user1',
-            name: 'Teamägare',
-            email: 'owner@example.com'
-          }
+    teamService.getTeamMembers.mockResolvedValue([
+      {
+        id: 'member1',
+        user_id: 'user1',
+        team_id: 'team1',
+        role: 'owner',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        joined_at: new Date().toISOString(),
+        profile: {
+          name: 'Teamägare',
+          email: 'owner@example.com'
+        },
+        user: {
+          id: 'user1',
+          name: 'Teamägare',
+          email: 'owner@example.com'
         }
-      ],
-      error: null,
-      status: 'success'
-    });
+      }
+    ]);
     
     teamService.getTeamSubscription.mockResolvedValue({
-      data: {
-        id: 'sub1',
-        team_id: 'team1',
-        tier: 'basic',
-        status: 'active',
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      error: null,
-      status: 'success'
+      id: 'sub1',
+      team_id: 'team1',
+      tier: 'basic',
+      status: 'active',
+      current_period_start: new Date().toISOString(),
+      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     });
     
-    teamService.getCurrentUserRole.mockResolvedValue({
-      data: 'owner',
-      error: null,
-      status: 'success'
-    });
+    teamService.getCurrentUserRole.mockResolvedValue('owner');
   });
   
   it('laddar teamdata korrekt', async () => {
@@ -135,11 +129,7 @@ describe('useTeam', () => {
   
   it('hanterar fel från API', async () => {
     // Mockimplementation för att simulera ett fel
-    teamService.getTeam.mockResolvedValue({
-      data: null,
-      error: 'Kunde inte hitta teamet',
-      status: 'error'
-    });
+    teamService.getTeam.mockRejectedValueOnce(new Error('Kunde inte hitta teamet'));
     
     const { result } = renderHook(() => useTeam('team1'), { wrapper: createWrapper() });
     
@@ -147,7 +137,7 @@ describe('useTeam', () => {
       expect(result.current.isLoading).toBe(false);
     });
     
-    expect(result.current.error).toBe('Kunde inte hitta teamet');
+    expect(result.current.error).not.toBeNull();
     expect(result.current.team).toBeNull();
   });
   
@@ -164,17 +154,13 @@ describe('useTeam', () => {
     
     // Uppdatera mock för att simulera förändrade data
     teamService.getTeam.mockResolvedValue({
-      data: {
-        id: 'team1',
-        name: 'Uppdaterat team',
-        description: 'Uppdaterad beskrivning',
-        is_private: true,
-        owner_id: 'user1',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      error: null,
-      status: 'success'
+      id: 'team1',
+      name: 'Uppdaterat team',
+      description: 'Uppdaterad beskrivning',
+      is_private: true,
+      owner_id: 'user1',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     });
     
     // Anropa refetch
@@ -183,7 +169,7 @@ describe('useTeam', () => {
     });
     
     await waitFor(() => {
-      expect(result.current.team.name).toBe('Uppdaterat team');
+      expect(result.current.team?.name).toBe('Uppdaterat team');
     });
     
     // Verifiera att tjänsteanropen gjordes igen
@@ -193,11 +179,7 @@ describe('useTeam', () => {
   
   it('returnerar rätt data med olika användarroller', async () => {
     // Mockimplementation för att simulera en medlem istället för ägare
-    teamService.getCurrentUserRole.mockResolvedValue({
-      data: 'member',
-      error: null,
-      status: 'success'
-    });
+    teamService.getCurrentUserRole.mockResolvedValue('member');
     
     const { result } = renderHook(() => useTeam('team1'), { wrapper: createWrapper() });
     

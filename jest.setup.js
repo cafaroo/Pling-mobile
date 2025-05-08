@@ -14,6 +14,17 @@ global = {
     addEventListener: () => {},
     removeEventListener: () => {},
   },
+  __mockEventBus: {
+    publish: jest.fn().mockResolvedValue(undefined),
+    subscribe: jest.fn().mockImplementation(() => ({ unsubscribe: jest.fn() })),
+    unsubscribe: jest.fn()
+  },
+  __mockUniqueId: function(id) {
+    return {
+      toString: () => id || 'mock-id',
+      value: id || 'mock-id'
+    };
+  },
 };
 
 import 'react-native-gesture-handler/jestSetup';

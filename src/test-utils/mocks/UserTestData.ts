@@ -129,7 +129,9 @@ export const createTestUser = (overrides = {}) => {
     addRole: jest.fn(),
     removeRole: jest.fn(),
     activate: jest.fn(),
-    deactivate: jest.fn()
+    deactivate: jest.fn(),
+    domainEvents: [],
+    clearDomainEvents: jest.fn()
   });
 };
 

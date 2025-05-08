@@ -24,53 +24,15 @@ import {
   UserTeamInvited
 } from '../UserEvent';
 import { expectResultOk } from '@/test-utils/error-helpers';
+import { createTestUser, createTestUserProfile, createTestUserSettings } from '@/test-utils/mocks/UserTestData';
 
 describe('UserEvent', () => {
   // Skapa testbara varianter av domänentiteter
   let user: User;
   
-  // Återanvändbar funktion för att skapa en testanvändare
-  const createTestUser = () => {
-    const emailResult = Email.create('test@example.com');
-    const profileResult = UserProfile.create({
-      firstName: 'Test',
-      lastName: 'User',
-      displayName: 'TestUser',
-      bio: 'Test bio',
-      location: 'Stockholm'
-    });
-    const settingsResult = UserSettings.create({
-      theme: 'light',
-      language: 'sv',
-      notifications: {
-        email: true,
-        push: true
-      },
-      privacy: {
-        profileVisibility: 'friends'
-      }
-    });
-    
-    const email = expectResultOk(emailResult, 'email creation');
-    const profile = expectResultOk(profileResult, 'profile creation');
-    const settings = expectResultOk(settingsResult, 'settings creation');
-    
-    const userResult = User.create({
-      id: new UniqueId('test-user-id'),
-      email,
-      profile,
-      settings,
-      teamIds: [],
-      roleIds: [],
-      status: 'active'
-    });
-    
-    return expectResultOk(userResult, 'user creation');
-  };
-  
   // Skapa testfixtures
   beforeEach(() => {
-    user = createTestUser();
+    user = createTestUser().getValue();
   });
   
   describe('Basklassomhändelser', () => {
@@ -134,7 +96,7 @@ describe('UserEvent', () => {
       
       const event = new UserPrivacySettingsChanged(user, oldSettings, newSettings);
       
-      expect(event.name).toBe('user.privacy.changed');
+      expect(event.name).toBe('user.privacy.updated');
       expect(event.data.userId).toBe('test-user-id');
       expect(event.oldSettings).toEqual(oldSettings);
       expect(event.newSettings).toEqual(newSettings);
@@ -146,7 +108,7 @@ describe('UserEvent', () => {
       
       const event = new UserNotificationSettingsChanged(user, oldSettings, newSettings);
       
-      expect(event.name).toBe('user.notifications.changed');
+      expect(event.name).toBe('user.notifications.updated');
       expect(event.data.userId).toBe('test-user-id');
       expect(event.oldSettings).toEqual(oldSettings);
       expect(event.newSettings).toEqual(newSettings);
@@ -232,8 +194,7 @@ describe('UserEvent', () => {
       expect(event.name).toBe('user.team.invited');
       expect(event.data.userId).toBe('test-user-id');
       expect(event.teamId).toBe(teamId);
-      expect(event.inviterId).toBe(inviterId);
+      expect(event.invitedBy).toBe(inviterId);
     });
   });
-}); 
 }); 

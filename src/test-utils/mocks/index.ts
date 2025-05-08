@@ -57,4 +57,35 @@ export {
   createTestUserSettings,
   createTestUser,
   createTestUserDTO
-} from './UserTestData'; 
+} from './UserTestData';
+
+// AsyncStorage-mockexporter
+export {
+  resetMockAsyncStorage
+} from './AsyncStorageMock';
+
+/**
+ * Återställer alla mockar till deras ursprungstillstånd
+ * 
+ * Användbar i beforeEach() i testsviter för att
+ * säkerställa att mockarna är i ett rent tillstånd
+ * före varje test.
+ */
+export const resetAllMocks = () => {
+  resetMockResult();
+  resetMockEventBus();
+  resetMockSupabase();
+  resetMockAsyncStorage();
+};
+
+/**
+ * Standardmockar för appen
+ * 
+ * Använd detta objekt för att snabbt skapa globala mockar
+ * för grundläggande funktioner
+ */
+export const standardMocks = {
+  result: mockResult,
+  eventBus: mockEventBus,
+  supabase: mockSupabase
+}; 

@@ -37,4 +37,11 @@ export class EventBus {
       handlers.map(handler => handler(event))
     );
   }
-} 
+}
+
+/**
+ * Returnerar den globala EventBus-instansen
+ */
+export const getEventBus = (): EventBus => {
+  return new EventBus(); // Detta kommer returnera den singleton-instans som finns tack vare konstruktorn
+}; 

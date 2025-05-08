@@ -7,7 +7,7 @@
  * ```
  * import { mockEventBus } from '@/test-utils/mocks/EventBusMock';
  * 
- * jest.mock('@/shared/events/EventBus', () => ({
+ * jest.mock('@/shared/core/EventBus', () => ({
  *   EventBus: jest.fn().mockImplementation(() => mockEventBus),
  *   useEventBus: jest.fn().mockReturnValue(mockEventBus),
  *   getEventBus: jest.fn().mockReturnValue(mockEventBus)

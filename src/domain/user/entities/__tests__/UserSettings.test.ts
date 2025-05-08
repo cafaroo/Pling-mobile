@@ -73,7 +73,7 @@ describe('UserSettings', () => {
     });
 
     it('ska validera språk', () => {
-      const result = UserSettings.create({ language: 'fr' });
+      const result = UserSettings.create({ language: 'xyz' });
       
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {

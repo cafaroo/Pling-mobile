@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { TextInput, Button, HelperText, Card } from 'react-native-paper';
 import { useTeam } from '@/application/team/hooks/useTeam';
-import { useAuth } from '@/application/auth/hooks/useAuth';
+import { useAuth } from '@context/AuthContext';
 import { Team } from '@/domain/team/entities/Team';
 import { TeamPermission } from '@/domain/team/value-objects/TeamPermission';
 

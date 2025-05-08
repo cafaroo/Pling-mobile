@@ -6,7 +6,7 @@ import { MessageAttachment } from '@/domain/team/value-objects/MessageAttachment
 import { MessageMention } from '@/domain/team/value-objects/MessageMention';
 import { MessageReaction } from '@/domain/team/value-objects/MessageReaction';
 import { TeamMessageRepository, MessageQueryOptions, MessageSearchOptions } from '@/domain/team/repositories/TeamMessageRepository';
-import { supabase } from '../supabaseClient';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 interface MessageDataFromDb {
   id: string;
@@ -51,11 +51,14 @@ interface ReactionDataFromDb {
 }
 
 export class SupabaseTeamMessageRepository implements TeamMessageRepository {
-  constructor(private readonly eventBus: EventBus) {}
+  constructor(
+    private readonly supabase: SupabaseClient,
+    private readonly eventBus: EventBus
+  ) {}
 
   async findById(messageId: UniqueId): Promise<Result<TeamMessage, string>> {
     try {
-      const { data: messageData, error: messageError } = await supabase
+      const { data: messageData, error: messageError } = await this.supabase
         .from('team_messages')
         .select('*, attachments:team_message_attachments(*), mentions:team_message_mentions(*), reactions:team_message_reactions(*)')
         .eq('id', messageId.toString())
@@ -100,7 +103,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
 
   async findByTeamId(teamId: UniqueId, options?: MessageQueryOptions): Promise<Result<TeamMessage[], string>> {
     try {
-      let query = supabase
+      let query = this.supabase
         .from('team_messages')
         .select('*')
         .eq('team_id', teamId.toString())
@@ -116,7 +119,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       }
 
       if (options?.beforeId) {
-        const { data: beforeMessage } = await supabase
+        const { data: beforeMessage } = await this.supabase
           .from('team_messages')
           .select('created_at')
           .eq('id', options.beforeId)
@@ -128,7 +131,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       }
 
       if (options?.afterId) {
-        const { data: afterMessage } = await supabase
+        const { data: afterMessage } = await this.supabase
           .from('team_messages')
           .select('created_at')
           .eq('id', options.afterId)
@@ -161,7 +164,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       const messageIds = messagesData.map(m => m.id);
 
       // Hämta bilagor för alla meddelanden
-      const { data: attachmentsData, error: attachmentsError } = await supabase
+      const { data: attachmentsData, error: attachmentsError } = await this.supabase
         .from('team_message_attachments')
         .select('*')
         .in('message_id', messageIds);
@@ -171,7 +174,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       }
 
       // Hämta omnämnanden för alla meddelanden
-      const { data: mentionsData, error: mentionsError } = await supabase
+      const { data: mentionsData, error: mentionsError } = await this.supabase
         .from('team_message_mentions')
         .select('*')
         .in('message_id', messageIds);
@@ -181,7 +184,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       }
 
       // Hämta reaktioner för alla meddelanden
-      const { data: reactionsData, error: reactionsError } = await supabase
+      const { data: reactionsData, error: reactionsError } = await this.supabase
         .from('team_message_reactions')
         .select('message_id, emoji, user_id')
         .in('message_id', messageIds);
@@ -243,7 +246,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
 
   async searchMessages(teamId: UniqueId, options: MessageSearchOptions): Promise<Result<TeamMessage[], string>> {
     try {
-      let query = supabase
+      let query = this.supabase
         .from('team_messages')
         .select('*')
         .eq('team_id', teamId.toString())
@@ -282,7 +285,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       const messageIds = messagesData.map(m => m.id);
 
       // Hämta bilagor för alla meddelanden
-      const { data: attachmentsData, error: attachmentsError } = await supabase
+      const { data: attachmentsData, error: attachmentsError } = await this.supabase
         .from('team_message_attachments')
         .select('*')
         .in('message_id', messageIds);
@@ -292,7 +295,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       }
 
       // Hämta omnämnanden för alla meddelanden
-      const { data: mentionsData, error: mentionsError } = await supabase
+      const { data: mentionsData, error: mentionsError } = await this.supabase
         .from('team_message_mentions')
         .select('*')
         .in('message_id', messageIds);
@@ -302,7 +305,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       }
 
       // Hämta reaktioner för alla meddelanden
-      const { data: reactionsData, error: reactionsError } = await supabase
+      const { data: reactionsData, error: reactionsError } = await this.supabase
         .from('team_message_reactions')
         .select('message_id, emoji, user_id')
         .in('message_id', messageIds);
@@ -365,7 +368,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
   async findMentionsForUser(userId: UniqueId, options?: MessageQueryOptions): Promise<Result<TeamMessage[], string>> {
     try {
       // Hämta meddelanden där användaren är omnämnd
-      let query = supabase
+      let query = this.supabase
         .from('team_message_mentions')
         .select('message_id')
         .eq('user_id', userId.toString());
@@ -383,7 +386,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       const messageIds = mentionsData.map(m => m.message_id);
 
       // Hämta meddelanden baserat på ID
-      let messagesQuery = supabase
+      let messagesQuery = this.supabase
         .from('team_messages')
         .select('*')
         .in('id', messageIds)
@@ -420,7 +423,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       const filteredMessageIds = messagesData.map(m => m.id);
 
       // Hämta bilagor för alla meddelanden
-      const { data: attachmentsData, error: attachmentsError } = await supabase
+      const { data: attachmentsData, error: attachmentsError } = await this.supabase
         .from('team_message_attachments')
         .select('*')
         .in('message_id', filteredMessageIds);
@@ -430,7 +433,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       }
 
       // Hämta omnämnanden för alla meddelanden
-      const { data: allMentionsData, error: allMentionsError } = await supabase
+      const { data: allMentionsData, error: allMentionsError } = await this.supabase
         .from('team_message_mentions')
         .select('*')
         .in('message_id', filteredMessageIds);
@@ -440,7 +443,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       }
 
       // Hämta reaktioner för alla meddelanden
-      const { data: reactionsData, error: reactionsError } = await supabase
+      const { data: reactionsData, error: reactionsError } = await this.supabase
         .from('team_message_reactions')
         .select('message_id, emoji, user_id')
         .in('message_id', filteredMessageIds);
@@ -519,7 +522,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       };
 
       // Skapa eller uppdatera meddelandet
-      const { data: savedMessage, error: messageError } = await supabase
+      const { data: savedMessage, error: messageError } = await this.supabase
         .from('team_messages')
         .upsert(messageData)
         .select()
@@ -540,7 +543,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
           mime_type: attachment.mimeType
         }));
 
-        const { error: attachmentsError } = await supabase
+        const { error: attachmentsError } = await this.supabase
           .from('team_message_attachments')
           .upsert(attachmentsData);
 
@@ -558,7 +561,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
           length: mention.length
         }));
 
-        const { error: mentionsError } = await supabase
+        const { error: mentionsError } = await this.supabase
           .from('team_message_mentions')
           .upsert(mentionsData);
 
@@ -570,7 +573,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       // Hantera reaktioner
       if (message.reactions.length > 0) {
         // Ta bort befintliga reaktioner för att sedan lägga till de nya
-        await supabase
+        await this.supabase
           .from('team_message_reactions')
           .delete()
           .eq('message_id', message.id.toString());
@@ -585,7 +588,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
         );
 
         if (reactionsData.length > 0) {
-          const { error: reactionsError } = await supabase
+          const { error: reactionsError } = await this.supabase
             .from('team_message_reactions')
             .upsert(reactionsData);
 
@@ -612,7 +615,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
   async delete(messageId: UniqueId): Promise<Result<void, string>> {
     try {
       // Uppdatera is_deleted till true istället för att faktiskt ta bort meddelandet
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from('team_messages')
         .update({ is_deleted: true, updated_at: new Date().toISOString() })
         .eq('id', messageId.toString());
@@ -629,7 +632,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
 
   async getUnreadCount(teamId: UniqueId, userId: UniqueId): Promise<Result<number, string>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .rpc('get_unread_message_count', {
           team_id_param: teamId.toString(),
           user_id_param: userId.toString()
@@ -648,7 +651,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
   async markAllAsRead(teamId: UniqueId, userId: UniqueId): Promise<Result<void, string>> {
     try {
       // Uppdatera eller skapa en post för användarens lässtatus
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from('team_message_read_status')
         .upsert({
           team_id: teamId.toString(),
@@ -674,7 +677,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
 
   async findByParentId(parentId: UniqueId, options?: MessageQueryOptions): Promise<Result<TeamMessage[], string>> {
     try {
-      let query = supabase
+      let query = this.supabase
         .from('team_messages')
         .select('*, attachments:team_message_attachments(*), mentions:team_message_mentions(*), reactions:team_message_reactions(*)')
         .eq('parent_message_id', parentId.toString())

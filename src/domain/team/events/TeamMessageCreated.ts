@@ -1,4 +1,4 @@
-import { DomainEvent } from '@/domain/core/DomainEvent';
+import { DomainEvent } from '@/shared/core/DomainEvent';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { MessageAttachment } from '../value-objects/MessageAttachment';
 import { MessageMention } from '../value-objects/MessageMention';

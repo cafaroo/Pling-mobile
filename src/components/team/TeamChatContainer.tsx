@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Searchbar, IconButton, ActivityIndicator, Text } from 'react-native-paper';
-import { useAuth } from '@/application/auth/hooks/useAuth';
+import { useAuth } from '@context/AuthContext';
 import { useTeamMessages, TeamMessageData } from '@/application/team/hooks/useTeamMessages';
 import { TeamMessageList } from './TeamMessageList';
 import { MessageComposer } from './MessageComposer';

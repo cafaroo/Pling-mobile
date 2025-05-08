@@ -18,6 +18,16 @@ Detta dokument beskriver strukturen och implementationen av användardomänen i 
 
 ### Nyligen slutförda ✅
 
+#### Autentisering & Profilhantering
+- Förbättrat AuthContext för korrekt separering mellan auth.users och profiles ✅
+  - Implementerat tydlig separation mellan autentiseringsdata (email) och profildata ✅
+  - Eliminerat redundans genom att inte duplicera email i profiles-tabellen ✅
+  - Förbättrat felhantering vid saknade profilkolumner ✅
+  - Implementerat robust namn-komposition från first_name, last_name eller display_name ✅
+- Åtgärdat felhantering för React.Children.only i Link-komponenter ✅
+  - Konverterat till router.push istället för nästlade Link-komponenter ✅
+  - Standardiserat navigationsmetoder i appen ✅
+
 #### Databasmigrering
 - Migrerat från `profiles` till ny användardomänstruktur
 - Implementerat `users` tabell med JSONB-stöd

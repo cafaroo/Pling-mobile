@@ -1,4 +1,5 @@
-import { MD3DarkTheme, configureFonts } from 'react-native-paper';
+import { MD3DarkTheme, configureFonts, type MD3Theme } from 'react-native-paper';
+import type { Theme } from 'react-native-paper/lib/typescript/types';
 
 const fontConfig = {
   customVariant: {
@@ -7,7 +8,19 @@ const fontConfig = {
   },
 };
 
-export const theme = {
+// Vi utvidgar MD3Theme med våra egna properties
+interface CustomTheme extends MD3Theme {
+  spacing: {
+    xs: number;
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+    xxl: number;
+  }
+}
+
+export const theme: CustomTheme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,

@@ -10,6 +10,7 @@ Detta dokument beskriver infrastrukturlagret i Pling-applikationen, inklusive ca
 4. [Prestandaövervakning](#prestandaövervakning)
 5. [Databasoptimering](#databasoptimering)
 6. [Användning](#användning)
+7. [Viktiga integrationspunkter](#viktiga-integrationspunkter)
 
 ## Översikt
 
@@ -199,4 +200,84 @@ Följande områden kan förbättras ytterligare i framtiden:
 3. Implementera automatisk skalning baserat på prestandadata
 4. Optimera cache-strategier baserat på användningsmönster
 5. Utveckla mer avancerade databasfrågor med materializedviews
-6. Implementera real-time synkronisering mellan cacher i olika klienter 
+6. Implementera real-time synkronisering mellan cacher i olika klienter
+
+## Viktiga integrationspunkter
+
+### Auth.users och Profiles
+
+#### Aktuell implementation
+
+Vi har uppdaterat hanteringen av användarautentisering och profiledata för att följa bästa praxis för Supabase:
+
+1. **Email-hantering**: 
+   - Email lagras nu enbart i `auth.users`-tabellen, inte i `profiles`
+   - Detta eliminerar redundans och potentiella synkroniseringsproblem
+   - AuthContext hämtar email från auth-systemet och profiledata separat
+
+2. **Profildata**:
+   - Profildata lagras i `profiles`-tabellen (first_name, last_name, display_name, etc.)
+   - User-objektet komponeras ihop av data från båda källor:
+     ```typescript
+     setUser({
+       id: profileData.id,
+       email: email, // Från auth.users
+       name: profileData.display_name || 
+             (profileData.first_name && profileData.last_name 
+               ? `${profileData.first_name} ${profileData.last_name}` 
+               : profileData.first_name || null),
+       // Övriga profilfält...
+     });
+     ```
+
+3. **Hantering av saknade kolumner**:
+   - Koden är nu robust mot ändringar i databasschema
+   - Fallback-värden används när kolumner saknas
+   - Felhantering är implementerad för att hantera databasförändringar
+
+Detta säkerställer en korrekt separation av ansvarsområden mellan autentisering och användarprofildata, följer Supabase rekommendationer, och ökar systemets robusthet vid databasändringar.
+
+## Supabase-integrering och säkerhet
+
+### Supabase-klientarkitektur
+
+Vi har implementerat en enhetlig arkitektur för Supabase-klienten:
+
+1. **En enda källa:**
+   - Hela applikationen använder Supabase-klienten som exporteras från `src/lib/supabase.ts`
+   - Andra moduler som behöver Supabase-klienten importerar den från denna källa
+   - Detta förhindrar problem med flera `GoTrueClient`-instanser
+
+2. **Korrekt koddelning:**
+   - Infrastrukturlagret re-exporterar supabase-klienten för att bibehålla rena gränser
+   - Tjänster och repositories använder bara den centrala klienten
+   - Testmockar använder konsekvent samma pattern
+
+```typescript
+// Exempel på korrekt import av supabase-klienten
+import { supabase } from '@/lib/supabase';
+
+// INTE detta (skapar en ny klient):
+// import { createClient } from '@supabase/supabase-js';
+// const supabase = createClient(...);
+```
+
+### Row Level Security (RLS)
+
+Vi har implementerat robusta RLS-policyer för databasåtkomst:
+
+1. **För profiles-tabellen:**
+   - `Users can view their own profile` - Användare kan endast se sin egen profil
+   - `Users can update their own profile` - Användare kan endast uppdatera sin egen profil
+   - `Users can insert their own profile` - Användare kan skapa sin egen profil
+   - `Service role can insert profiles` - Service role kan skapa profiler
+   - `Admin role can do all operations` - Administratörer har full kontroll
+
+2. **För andra tabeller:**
+   - Liknande separation av behörigheter baserat på användarroller
+   - Konsekvent användning av `auth.uid()` för att begränsa åtkomst
+
+3. **Implementationsguide:**
+   - Alla ändringar i RLS-policyer måste göras genom migrationsfiler
+   - Alltid testa ändringar i RLS-policyer noggrant
+   - Dokumentera alla RLS-policyer i projektdokumentationen 

@@ -156,6 +156,15 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
 - Utveckla teamkommunikationsgränssnitt 🚧
 - Integrera händelselyssnare i UI-komponenter 🚧
 
+#### Integration med Användardomänen
+- ✅ Uppdaterat teamkomponenter för kompatibilitet med ny användarprofilhantering
+  - ✅ Anpassat TeamMemberList för att hantera user.email från auth.users istället för profiles
+  - ✅ Implementerat robust namnvisning genom komposition av first_name, last_name eller display_name
+  - ✅ Förbättrat felhantering vid interaktion med användardata
+- 🚧 Uppdatera team-sidor för förbättrad navigation
+  - 🚧 Konvertera länkar till router.push för konsekvent användarupplevelse
+  - 🚧 Standardisera navigering över team-relaterade skärmar
+
 ### Kommande arbete 📋
 
 #### Domänlager
@@ -208,7 +217,7 @@ src/
 │       │   ├─ getTeamActivities.ts ✅
 │       │   ├─ getTeamStatistics.ts ✅
 │       │   ├─ createThreadReplyUseCase.ts ✅
-│       │   └─ updateSettings.ts ��
+│       │   └─ updateSettings.ts ✅
 │       ├─ hooks/
 │       │   ├─ useTeam.ts ✅
 │       │   ├─ useTeamActivities.ts ✅
@@ -702,3 +711,19 @@ interface Reaction {
 - Ny team_message_mentions-tabell för omnämnanden
 - Real-time subscriptions för livechatfunktionalitet
 - Notifikationsintegrering för omnämnanden och viktiga meddelanden
+
+### Nyligen slutförda ✅
+
+#### Bugfixar och förbättringar
+- ✅ Åtgärdat dublettinstanser av Supabase GoTrueClient
+  - ✅ Konsoliderat Supabase-klientkonfigurationen till en enda källa
+  - ✅ Undviker varningen "Multiple GoTrueClient instances detected"
+  - ✅ Förhindrar potentiellt odefinierat beteende i autentiseringsprocessen
+- ✅ Fixat Row Level Security (RLS) för profiles-tabellen
+  - ✅ Lagt till INSERT-policy för användarprofilskapande
+  - ✅ Lagt till servicerole-behörigheter för administratörsoperationer
+  - ✅ Löst "violates row-level security policy for table profiles"-felet
+- ✅ Förbättrat integrationerna med Supabase
+  - ✅ Standardiserat autentiseringshanteringen
+  - ✅ Förbättrat felhantering vid profilskapande
+  - ✅ Säkerställt korrekt separation av auth.users och profiles

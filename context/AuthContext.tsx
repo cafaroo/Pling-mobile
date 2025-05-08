@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { router } from 'expo-router';
-import { supabase } from '@/services/supabaseClient';
+import { supabase } from '@/lib/supabase';
 import { User } from '@/types';
 
 // Define the auth context type
@@ -11,6 +11,7 @@ type AuthContextType = {
   signInWithMagicLink: (email: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
 };
 
 // Create the auth context
@@ -34,9 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isInitialized) return;
     
     if (user) {
-      router.replace('/(tabs)');
+      // Om vi redan är på tabs, gör ingen omdirigering
+      if (!router.canGoBack() || !router.getCurrentOptions().path?.includes('(tabs)')) {
+        router.replace('/(tabs)');
+      }
     } else {
-      router.replace('/(auth)');
+      // Använd explicit path istället för mapp för att undvika cirkulär redirects
+      if (!router.canGoBack() || !router.getCurrentOptions().path?.includes('login')) {
+        router.replace('/login');
+      }
     }
   }, [user, isInitialized]);
 
@@ -94,45 +101,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
 
-      let userData = data;
+      let profileData = data;
 
       // If no profile exists, create one
-      if (!userData && email) {
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: userId,
-              email: email,
-              name: null,
-              avatar_url: null,
-            }
-          ])
-          .select()
-          .single();
+      if (!profileData && email) {
+        try {
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: userId,
+                first_name: '',
+                last_name: '',
+                display_name: null,
+                avatar_url: null,
+              }
+            ])
+            .select()
+            .single();
+            
+          if (createError) {
+            console.error('Error creating profile:', createError);
+            throw createError;
+          }
           
-        if (createError) {
-          console.error('Error creating profile:', createError);
-          throw createError;
+          profileData = newProfile;
+        } catch (insertError) {
+          console.error('Error during profile creation:', insertError);
+          throw insertError;
         }
-
-        userData = newProfile;
       }
 
-      if (userData) {
-        // Set user data
+      if (profileData) {
+        // Kombinera auth-data (email) med profildata
         setUser({
-          id: userData.id,
-          name: userData.name,
-          email: userData.email,
-          avatarUrl: userData.avatar_url,
+          id: profileData.id,
+          email: email, // Från auth.users
+          name: profileData.display_name || 
+                (profileData.first_name && profileData.last_name 
+                  ? `${profileData.first_name} ${profileData.last_name}` 
+                  : profileData.first_name || null),
+          first_name: profileData.first_name,
+          last_name: profileData.last_name,
+          display_name: profileData.display_name,
+          avatarUrl: profileData.avatar_url,
+          avatar_url: profileData.avatar_url,
         });
 
         setIsInitialized(true);
         setIsLoading(false);
 
         // Only navigate if the component is mounted and initialization is complete
-        if (isMounted && isInitialized) {
+        // och bara om vi inte redan är på tabs-sidan
+        if (isMounted && isInitialized && 
+            (!router.canGoBack() || !router.getCurrentOptions().path?.includes('(tabs)'))) {
           router.push('/(tabs)');
         }
       }
@@ -141,7 +163,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setIsLoading(false);
       setIsInitialized(true);
-      router.replace('/(auth)');
+      
+      // Navigera till login istället för auth-mappen
+      if (!router.canGoBack() || !router.getCurrentOptions().path?.includes('login')) {
+        router.replace('/login');
+      }
     }
   };
 
@@ -233,8 +259,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Send password reset email
+  const sendPasswordResetEmail = async (email: string) => {
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        // Optional: Specify the URL to redirect the user to after they click the link
+        // redirectTo: 'your-app-url/reset-password',
+      });
+      if (error) {
+        // Handle specific Supabase errors if needed
+        console.error('Password reset email error:', error.message);
+        throw new Error(error.message || 'Kunde inte skicka återställningslänk.');
+      }
+    } catch (error: any) {
+      console.error('Error sending password reset email:', error);
+      throw new Error(error.message || 'Kunde inte skicka återställningslänk.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, signInWithEmail, signInWithMagicLink, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, isLoading, signInWithEmail, signInWithMagicLink, signUp, signOut, sendPasswordResetEmail }}>
       {children}
     </AuthContext.Provider>
   );

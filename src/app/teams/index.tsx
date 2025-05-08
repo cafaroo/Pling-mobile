@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { Stack } from 'expo-router';
-import { useAuth } from '@/application/auth/hooks/useAuth';
+import { useAuth } from '@context/AuthContext';
 import { TeamList } from '@/components/team/TeamList';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

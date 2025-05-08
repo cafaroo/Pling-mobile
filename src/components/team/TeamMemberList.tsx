@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { Avatar, Divider, Button, IconButton, Menu } from 'react-native-paper';
 import { useTeam } from '@/application/team/hooks/useTeam';
-import { useAuth } from '@/application/auth/hooks/useAuth';
+import { useAuth } from '@context/AuthContext';
 import { TeamMember as TeamMemberType } from '@/domain/team/value-objects/TeamMember';
 import { TeamRole, getTeamRoleLabel } from '@/domain/team/value-objects/TeamRole';
 import { Team } from '@/domain/team/entities/Team';

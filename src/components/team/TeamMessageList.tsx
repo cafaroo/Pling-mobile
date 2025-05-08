@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { TeamMessageData } from '@/application/team/hooks/useTeamMessages';
-import { useAuth } from '@/application/auth/hooks/useAuth';
+import { useAuth } from '@context/AuthContext';
 import { TeamMessageItem } from './TeamMessageItem';
 import { EmptyState } from '../common/EmptyState';
 

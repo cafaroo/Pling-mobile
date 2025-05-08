@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Alert, ScrollView } from 'react-native';
 import { TextInput, Button, HelperText, Card, Title, Text } from 'react-native-paper';
 import { useTeam } from '@/application/team/hooks/useTeam';
-import { useAuth } from '@/application/auth/hooks/useAuth';
+import { useAuth } from '@context/AuthContext';
 import { useRouter } from 'expo-router';
 
 interface TeamCreateProps {

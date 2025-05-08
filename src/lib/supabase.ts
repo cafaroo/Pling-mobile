@@ -1,13 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
 import { Database } from '@/types/supabase';
 
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl as string;
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey as string;
+// Använd process.env direkt
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
-    'Supabase URL och Anon Key måste konfigureras i app.config.js'
+    'Supabase URL och Anon Key måste konfigureras i .env-filen med EXPO_PUBLIC_SUPABASE_URL och EXPO_PUBLIC_SUPABASE_ANON_KEY'
   );
 }
 

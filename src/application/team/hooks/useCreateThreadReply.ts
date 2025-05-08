@@ -4,7 +4,8 @@ import { TeamMessage } from '@/domain/team/entities/TeamMessage';
 import { CreateThreadReplyUseCase, CreateThreadReplyUseCaseProps } from '../useCases/createThreadReplyUseCase';
 import { TeamMessageRepository } from '@/domain/team/repositories/TeamMessageRepository'; // Importerad för mock/placeholder
 import { SupabaseTeamMessageRepository } from '@/infrastructure/supabase/repositories/SupabaseTeamMessageRepository';
-import { eventBus } from '@/infrastructure/events/EventBus'; // Assuming eventBus is singleton or easily accessible
+import { getEventBus } from '@/shared/core/EventBus'; // Använder getEventBus för att få den globala instansen
+import { supabase } from '@/lib/supabase'; // Matchar importen i useTeamMessages.ts
 
 // Funktion för att få en instans av use caset
 // Detta bör anpassas till er applikations dependency injection-strategi.
@@ -12,7 +13,7 @@ const getCreateThreadReplyUseCase = (): CreateThreadReplyUseCase => {
   // Detta är ett exempel på direkt instansiering. 
   // I en större applikation hanteras detta oftast mer centraliserat.
   if (!(globalThis as any).createThreadReplyUseCaseInstance) {
-    const teamMessageRepository = new SupabaseTeamMessageRepository(eventBus);
+    const teamMessageRepository = new SupabaseTeamMessageRepository(supabase, getEventBus());
     (globalThis as any).createThreadReplyUseCaseInstance = new CreateThreadReplyUseCase(teamMessageRepository);
   }
   return (globalThis as any).createThreadReplyUseCaseInstance as CreateThreadReplyUseCase;

@@ -1,4 +1,4 @@
-import { DomainEvent } from '@/domain/core/DomainEvent';
+import { DomainEvent } from '@/shared/core/DomainEvent';
 import { UniqueId } from '@/domain/core/UniqueId';
 
 export class TeamMessageDeleted extends DomainEvent {

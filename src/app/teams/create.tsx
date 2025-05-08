@@ -4,7 +4,7 @@ import { useTheme } from 'react-native-paper';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TeamCreate } from '@/components/team/TeamCreate';
-import { useAuth } from '@/application/auth/hooks/useAuth';
+import { useAuth } from '@context/AuthContext';
 
 export default function CreateTeamScreen() {
   const theme = useTheme();

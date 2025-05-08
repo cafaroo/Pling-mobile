@@ -1,4 +1,4 @@
-import { AggregateRoot, AggregateRootProps } from '@/domain/core/AggregateRoot';
+import { AggregateRoot, AggregateRootProps } from '@/shared/core/AggregateRoot';
 import { Result } from '@/domain/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { MessageAttachment } from '../value-objects/MessageAttachment';

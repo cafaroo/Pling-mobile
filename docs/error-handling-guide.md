@@ -11,6 +11,7 @@ Detta dokument beskriver hur du kan använda verktyg från `src/test-utils/error
 5. [Testa strukturer](#testa-strukturer)
 6. [Testa domänhändelser](#testa-domänhändelser)
 7. [Best practices](#best-practices)
+8. [Vanliga feltyper och lösningar](#vanliga-feltyper-och-lösningar)
 
 ## Översikt
 
@@ -207,4 +208,78 @@ it('publicerar rätt händelser', async () => {
 
 4. **Använd för enhetstester och integrationstester**: Hjälparna är användbara i alla typer av tester för att förbättra läsbarhet och felrapportering.
 
-5. **Inkludera testfiler i Pull Requests**: När du skapar nya funktioner, inkludera alltid tester som använder dessa hjälpare för att säkerställa robust felhantering. 
+5. **Inkludera testfiler i Pull Requests**: När du skapar nya funktioner, inkludera alltid tester som använder dessa hjälpare för att säkerställa robust felhantering.
+
+## Vanliga feltyper och lösningar
+
+### Supabase Authentication Error
+
+#### Multiple GoTrueClient instances
+
+```
+Multiple GoTrueClient instances detected in the same browser context.
+```
+
+**Orsak:** Det finns flera instanser av Supabase-klienten som skapats genom anrop till createClient.
+
+**Lösning:**
+1. Konsolidera all Supabase-klientinitiering till en central plats (src/lib/supabase.ts)
+2. Importera supabase-klienten från denna plats i all kod som behöver den
+3. Använd aldrig createClient direkt i komponentkod
+
+```typescript
+// Korrekt:
+import { supabase } from '@/lib/supabase';
+
+// INTE korrekt:
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient(url, key);
+```
+
+#### Row Level Security Violation
+
+```
+new row violates row-level security policy for table "profiles"
+```
+
+**Orsak:** Databasen har RLS (Row Level Security) aktiverat, men saknar lämpliga policyer för att tillåta operationen.
+
+**Lösning:**
+1. Identifiera vilken operation som orsakar felet (INSERT, UPDATE, SELECT, etc.)
+2. Skapa lämpliga RLS-policyer via SQL-migrationsfiler:
+
+```sql
+-- För att tillåta infogning (INSERT)
+CREATE POLICY "Users can insert their own profile" 
+  ON profiles FOR INSERT 
+  WITH CHECK (auth.uid() = id);
+
+-- För administratörsåtkomst
+CREATE POLICY "Service role can do all" 
+  ON profiles
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+```
+
+3. Kör migrationen i Supabase-projektet
+4. Testa noggrant för att bekräfta att felet är åtgärdat
+5. Uppdatera dokumentationen med nya RLS-policyer
+
+### React Native Style Warnings
+
+```
+style.resizeMode is deprecated. Please use props.resizeMode
+```
+
+**Orsak:** Användande av äldre stilprops som nu är ersatta med nya attribut.
+
+**Lösning:** Uppdatera komponenten att använda rekommenderade attribut:
+
+```tsx
+// Innan:
+<Image style={{ resizeMode: 'contain' }} ... />
+
+// Efter:
+<Image resizeMode="contain" ... />
+``` 

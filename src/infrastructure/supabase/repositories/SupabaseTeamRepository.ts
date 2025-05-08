@@ -7,9 +7,13 @@ import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/shared/domain/UniqueId';
 import { TeamMapper } from '../mappers/TeamMapper';
 import { DatabaseError } from '@/shared/core/errors/DatabaseError';
+import { EventBus } from '@/infrastructure/events/EventBus';
 
 export class SupabaseTeamRepository implements TeamRepository {
-  constructor(private readonly supabase: SupabaseClient) {}
+  constructor(
+    private readonly supabase: SupabaseClient,
+    private readonly eventBus?: EventBus
+  ) {}
 
   async findById(id: UniqueId): Promise<Team | null> {
     const { data, error } = await this.supabase

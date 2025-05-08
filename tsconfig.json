@@ -11,8 +11,8 @@
       "@utils/*": ["src/utils/*"],
       "@components/*": ["components/*"],
       "@constants/*": ["constants/*"],
-      "@context/*": ["context/*"],
       "@hooks/*": ["hooks/*"],
+      "@context/*": ["context/*"],
       "@services/*": ["services/*"],
       "@styles/*": ["styles/*"],
       "@types/*": ["types/*"]

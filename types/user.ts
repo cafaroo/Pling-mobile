@@ -13,9 +13,13 @@ export type User = {
   id: string;
   email?: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
   avatarUrl?: string;
-  avatar_url: string | null;
-  created_at: string;
+  avatar_url?: string | null;
+  contact_email?: string;
+  created_at?: string;
   teams?: Team[];
   role?: UserRole;
 }; 

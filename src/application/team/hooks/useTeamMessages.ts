@@ -1,14 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
-import { useAuth } from '@/application/auth/hooks/useAuth';
-import { useRepository } from '@/application/shared/hooks/useRepository';
+import { useAuth } from '@context/AuthContext';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { TeamMessage } from '@/domain/team/entities/TeamMessage';
 import { MessageQueryOptions, MessageSearchOptions } from '@/domain/team/repositories/TeamMessageRepository';
 import { CreateTeamMessageUseCasePayload } from '../useCases/createTeamMessage';
 import { CreateTeamMessageUseCase } from '../useCases/createTeamMessage';
-import { useDependencies } from '@/application/shared/hooks/useDependencies';
-import { supabase } from '@/infrastructure/supabase/supabaseClient';
+import { supabase } from '@/lib/supabase';
+import { SupabaseTeamMessageRepository } from '@/infrastructure/supabase/repositories/SupabaseTeamMessageRepository';
+import { SupabaseTeamRepository } from '@/infrastructure/supabase/repositories/SupabaseTeamRepository';
+import { EventBus } from '@/shared/core/EventBus';
+
+// Singleton instance av EventBus för att dela mellan repositories
+const eventBus = new EventBus();
+
+// Funktion för att få instanser av repositories
+const getRepositories = () => {
+  if (!(globalThis as any).teamRepositories) {
+    (globalThis as any).teamRepositories = {
+      teamMessageRepository: new SupabaseTeamMessageRepository(supabase, eventBus),
+      teamRepository: new SupabaseTeamRepository(supabase, eventBus)
+    };
+  }
+  return (globalThis as any).teamRepositories;
+};
 
 export interface TeamMessageData {
   id: string;
@@ -74,8 +89,7 @@ export interface UseTeamMessagesOptions {
 export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { teamMessageRepository, teamRepository } = useRepository();
-  const { eventBus } = useDependencies();
+  const { teamMessageRepository, teamRepository } = getRepositories();
   
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);

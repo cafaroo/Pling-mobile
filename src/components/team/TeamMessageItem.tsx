@@ -30,12 +30,36 @@ export const TeamMessageItem = memo(function TeamMessageItem({
   onOpenThread,
   isInThreadView = false
 }: TeamMessageItemProps) {
+  // Använd useTheme-hooken för att få temat som konfigurerast i PaperProvider
   const theme = useTheme();
+  
+  // Skapa defaults om theme inte finns eller saknar properties
+  const defaultColors = {
+    primary: '#5B21B6',
+    onPrimary: '#FFFFFF',
+    secondary: '#FACC15',
+    onSecondary: '#0F0E2A',
+  };
+  
+  // Fallbacks för färger
+  const primary = theme?.colors?.primary || defaultColors.primary;
+  const onPrimary = theme?.colors?.onPrimary || defaultColors.onPrimary;
+  const secondary = theme?.colors?.secondary || defaultColors.secondary;
+  const onSecondary = theme?.colors?.onSecondary || defaultColors.onSecondary;
+  
   const [menuVisible, setMenuVisible] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   
   const { member, isLoading } = useTeamMember(teamId, message.senderId);
+  
+  // Skapa stilar med temafärger
+  const dynamicStyles = {
+    replyInThreadText: {
+      fontSize: 12,
+      color: primary
+    }
+  };
   
   // Formatera datum
   const formatMessageDate = (date: Date) => {
@@ -123,8 +147,8 @@ export const TeamMessageItem = memo(function TeamMessageItem({
             <Avatar.Text 
               size={32} 
               label={member?.displayName?.substring(0, 2) || '??'} 
-              color={theme.colors.onPrimary}
-              style={{ backgroundColor: isCurrentUser ? theme.colors.primary : theme.colors.secondary }}
+              color={onPrimary}
+              style={{ backgroundColor: isCurrentUser ? primary : secondary }}
             />
             <View style={styles.headerInfo}>
               <Text style={styles.senderName} variant="titleMedium">
@@ -237,7 +261,7 @@ export const TeamMessageItem = memo(function TeamMessageItem({
             onPress={() => onOpenThread(message.id)}
           >
             <IconButton icon="reply-outline" size={18} style={styles.replyInThreadIcon} />
-            <Text style={styles.replyInThreadText}>Svara i tråd</Text>
+            <Text style={dynamicStyles.replyInThreadText}>Svara i tråd</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -245,6 +269,7 @@ export const TeamMessageItem = memo(function TeamMessageItem({
   );
 });
 
+// Statiska stilar utan temaberoenden
 const styles = StyleSheet.create({
   messageCard: {
     marginBottom: 8,
@@ -348,9 +373,5 @@ const styles = StyleSheet.create({
   replyInThreadIcon: {
     marginRight: 2,
     marginLeft: -4
-  },
-  replyInThreadText: {
-    fontSize: 12,
-    color: theme.colors.primary
   }
 }); 

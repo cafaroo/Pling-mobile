@@ -2,7 +2,7 @@ import React from 'react';
 import { View, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Card, Title, Paragraph, Button, Text, Icon } from 'react-native-paper';
 import { useTeam } from '@/application/team/hooks/useTeam';
-import { useAuth } from '@/application/auth/hooks/useAuth';
+import { useAuth } from '@context/AuthContext';
 import { Team } from '@/domain/team/entities/Team';
 import { useRouter } from 'expo-router';
 

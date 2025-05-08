@@ -3,8 +3,8 @@ import { View, StyleSheet, TextInput, TouchableOpacity, Keyboard, Alert, Text } 
 import { IconButton, useTheme } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { useAuth } from '@/application/auth/hooks/useAuth';
-import { useStorage } from '@/application/shared/hooks/useStorage';
+import { useAuth } from '@context/AuthContext';
+import { useStorage } from '@/lib/useStorage';
 import { MessageAttachmentData } from '@/domain/team/entities/TeamMessage';
 import { useCreateThreadReply } from '@/application/team/hooks/useCreateThreadReply';
 

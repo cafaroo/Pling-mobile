@@ -1,39 +1,18 @@
-import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient } from '@supabase/supabase-js';
-import { Database } from './database.types';
+/**
+ * FÖRÅLDRAD FIL - Använd @/lib/supabase istället
+ * Denna fil finns endast för bakåtkompatibilitet
+ */
 
-// Skapa en singel instans av Supabase-klienten
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
+// Re-exportera från den rätta platsen för att förhindra dublettinstanser
+import { supabase } from '@/lib/supabase';
 
-// Kontrollera att miljövariabler finns tillgängliga
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase URL or Anonymous Key is not defined in environment variables.');
-}
-
-// Skapa en singel instans av Supabase-klienten
-export const supabase = createClient<Database>(
-  supabaseUrl,
-  supabaseAnonKey,
-  {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-  }
-);
-
-// Exportera även som default för bakåtkompatibilitet
+// Exportera både som named export och default export för bakåtkompatibilitet
+export { supabase };
 export default supabase;
 
-// Exportera användbara typade selectors
-export const getTypedTable = <T extends keyof Database['public']['Tables']>(
-  table: T
-) => supabase.from(table);
+// Exportera även typade hjälpfunktioner
+export const getTypedTable = <T extends string>(table: T) => supabase.from(table);
+export const getTypedView = <T extends string>(view: T) => supabase.from(view);
 
-export const getTypedView = <T extends keyof Database['public']['Views']>(
-  view: T
-) => supabase.from(view); 
+// OBS: Denna fil är markerad för borttagning i framtiden.
+// Uppdatera dina importer att använda @/lib/supabase direkt istället. 

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ActivityType } from '@/domain/team/value-objects/ActivityType';
 import { GetTeamActivitiesUseCase, TeamActivityDTO } from '../useCases/getTeamActivities';
 import { CreateTeamActivityUseCase } from '../useCases/createTeamActivity';
-import { container } from '@/infrastructure/di/container';
+import { useInfrastructure } from '@/infrastructure/InfrastructureProvider';
 
 interface UseTeamActivitiesOptions {
   teamId: string;
@@ -31,13 +31,13 @@ export function useTeamActivities({
   enabled = true
 }: UseTeamActivitiesOptions) {
   const queryClient = useQueryClient();
-  const getTeamActivitiesUseCase = container.resolve(GetTeamActivitiesUseCase);
-  const createTeamActivityUseCase = container.resolve(CreateTeamActivityUseCase);
+  const { teamActivityRepository } = useInfrastructure();
   
   // Hämta aktiviteter med filtrering och paginering
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['teamActivities', teamId, userId, activityTypes, startDate, endDate, limit, offset, userIsTarget],
     queryFn: async () => {
+      const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
       const result = await getTeamActivitiesUseCase.execute({
         teamId,
         userId,
@@ -62,6 +62,7 @@ export function useTeamActivities({
   const { data: latestActivities, isLoading: isLoadingLatest } = useQuery({
     queryKey: ['teamActivitiesLatest', teamId],
     queryFn: async () => {
+      const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
       const result = await getTeamActivitiesUseCase.getLatestActivities(teamId, 5);
       
       if (result.isErr()) {
@@ -77,6 +78,7 @@ export function useTeamActivities({
   const { data: activityStats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['teamActivityStats', teamId],
     queryFn: async () => {
+      const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
       const result = await getTeamActivitiesUseCase.getActivityStats(teamId);
       
       if (result.isErr()) {
@@ -101,6 +103,7 @@ export function useTeamActivities({
       targetId?: string;
       metadata?: Record<string, any>;
     }) => {
+      const createTeamActivityUseCase = new CreateTeamActivityUseCase(teamActivityRepository);
       const result = await createTeamActivityUseCase.execute({
         teamId,
         performedBy,
@@ -129,6 +132,7 @@ export function useTeamActivities({
     eventName: string,
     eventPayload: Record<string, any>
   ) => {
+    const createTeamActivityUseCase = new CreateTeamActivityUseCase(teamActivityRepository);
     const result = await createTeamActivityUseCase.createFromDomainEvent(
       teamId,
       performedBy,

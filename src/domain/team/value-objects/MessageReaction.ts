@@ -1,4 +1,4 @@
-import { ValueObject } from '@/domain/core/ValueObject';
+import { ValueObject } from '@/shared/core/ValueObject';
 import { Result } from '@/domain/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 

@@ -1,10 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// Exportera den befintliga supabase-instansen istället för att skapa en ny
+export { supabase };
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabase-konfiguration saknas i miljövariabler');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey); 
+// Kommentar: Detta förhindrar skapandet av duplicerade GoTrueClient instanser
+// som kan orsaka problem vid autentisering och sessionshantering. 

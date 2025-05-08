@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/infrastructure/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { Team } from '@/domain/team/entities/Team';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 import { SupabaseTeamRepository } from '@/infrastructure/supabase/repositories/TeamRepository';
@@ -7,7 +7,7 @@ import { CreateTeamUseCase } from '../useCases/createTeam';
 import { InviteTeamMemberUseCase } from '../useCases/inviteTeamMember';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { EventBus } from '@/shared/core/EventBus';
-import { useUserRepository } from '@/application/user/hooks/useUserRepository';
+import { useUserDependencies } from '@/application/user/hooks/useUserDependencies';
 
 // Skapa beroenden
 const eventBus = new EventBus();
@@ -18,7 +18,7 @@ const teamRepository = new SupabaseTeamRepository(supabase, eventBus);
  */
 export function useTeam() {
   const queryClient = useQueryClient();
-  const userRepository = useUserRepository();
+  const { userRepository } = useUserDependencies();
 
   // Hämta team med ID
   const useTeamById = (teamId: string | undefined) => {

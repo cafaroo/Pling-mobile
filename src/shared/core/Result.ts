@@ -1,84 +1,67 @@
-export class Result<T, E = Error> {
-  public readonly isSuccess: boolean;
-  private readonly _value: T;
-  private readonly _error: E;
+export class Result<T, E = string> {
+  private constructor(
+    private readonly value: T | null,
+    private readonly error: E | null
+  ) {}
 
-  private constructor(isSuccess: boolean, value?: T, error?: E) {
-    this.isSuccess = isSuccess;
-    this._value = value as T;
-    this._error = error as E;
+  static ok<T>(value: T): Result<T> {
+    return new Result(value, null);
   }
 
-  public isOk(): boolean {
-    return this.isSuccess;
+  static err<E>(error: E): Result<never, E> {
+    return new Result(null, error);
   }
 
-  public isErr(): boolean {
-    return !this.isSuccess;
+  isOk(): this is Result<T, never> {
+    return this.error === null;
   }
 
-  public getValue(): T {
-    if (!this.isSuccess) {
-      throw new Error('Kan inte hämta värdet från ett Result som är Err');
+  isErr(): this is Result<never, E> {
+    return this.error !== null;
+  }
+
+  getValue(): T {
+    if (this.isOk()) {
+      return this.value!;
     }
-    return this._value;
+    throw new Error('Cannot get value from error result');
   }
 
-  public getError(): E {
-    if (this.isSuccess) {
-      throw new Error('Kan inte hämta felet från ett Result som är Ok');
+  getError(): E {
+    if (this.isErr()) {
+      return this.error!;
     }
-    return this._error;
+    throw new Error('Cannot get error from ok result');
   }
 
-  public static ok<U>(value: U): Result<U> {
-    return new Result<U>(true, value);
-  }
-
-  public static err<U, F>(error: F): Result<U, F> {
-    return new Result<U, F>(false, undefined, error);
-  }
-
-  public map<U>(fn: (value: T) => U): Result<U, E> {
-    if (this.isSuccess) {
-      return Result.ok(fn(this._value));
+  map<U>(fn: (value: T) => U): Result<U, E> {
+    if (this.isOk()) {
+      return Result.ok(fn(this.value!));
     }
-    return Result.err(this._error);
+    return Result.err(this.error!);
   }
 
-  public mapErr<F>(fn: (error: E) => F): Result<T, F> {
-    if (!this.isSuccess) {
-      return Result.err(fn(this._error));
+  mapError<F>(fn: (error: E) => F): Result<T, F> {
+    if (this.isErr()) {
+      return Result.err(fn(this.error!));
     }
-    return Result.ok(this._value);
+    return Result.ok(this.value!);
   }
 
-  public andThen<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
-    if (this.isSuccess) {
-      return fn(this._value);
+  andThen<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
+    if (this.isOk()) {
+      return fn(this.value!);
     }
-    return Result.err(this._error);
+    return Result.err(this.error!);
   }
 
-  public orElse<F>(fn: (error: E) => Result<T, F>): Result<T, F> {
-    if (!this.isSuccess) {
-      return fn(this._error);
+  orElse<F>(fn: (error: E) => Result<T, F>): Result<T, F> {
+    if (this.isErr()) {
+      return fn(this.error!);
     }
-    return Result.ok(this._value);
-  }
-
-  public unwrapOr(defaultValue: T): T {
-    return this.isSuccess ? this._value : defaultValue;
-  }
-
-  public unwrap(): T {
-    if (!this.isSuccess) {
-      throw new Error(`Försökte unwrap på ett Err-resultat: ${this._error}`);
-    }
-    return this._value;
+    return Result.ok(this.value!);
   }
 }
 
-// Exportera även funktionerna direkt för enklare användning
-export const ok = <T>(value: T): Result<T> => Result.ok(value);
-export const err = <T, E>(error: E): Result<T, E> => Result.err(error); 
+export const ok = Result.ok;
+export const err = Result.err; 

@@ -110,13 +110,80 @@ jest.mock('react-native-toast-message', () => ({
   hide: jest.fn(),
 }));
 
-// Mock för @react-native-async-storage/async-storage
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  setItem: jest.fn(),
+// Mock för AsyncStorage
+const mockAsyncStorage = {
   getItem: jest.fn(),
+  setItem: jest.fn(),
   removeItem: jest.fn(),
   clear: jest.fn(),
+  getAllKeys: jest.fn(),
+  multiGet: jest.fn(),
+  multiSet: jest.fn(),
+  multiRemove: jest.fn(),
+  mergeItem: jest.fn(),
+  multiMerge: jest.fn(),
+};
+
+jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+
+// Mock LoggingService
+const mockLogger = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+
+class MockLoggingService {
+  static getInstance() {
+    return mockLogger;
+  }
+}
+
+jest.mock('./src/infrastructure/logger/LoggingService', () => ({
+  LoggingService: MockLoggingService
 }));
+
+// Mock PerformanceMonitor
+const mockPerformance = {
+  measure: jest.fn().mockImplementation((_, __, fn) => fn()),
+};
+
+class MockPerformanceMonitor {
+  static getInstance() {
+    return mockPerformance;
+  }
+}
+
+jest.mock('./src/infrastructure/monitoring/PerformanceMonitor', () => ({
+  PerformanceMonitor: MockPerformanceMonitor
+}));
+
+// Mock CacheService
+const mockCacheService = {
+  get: jest.fn(),
+  set: jest.fn(),
+  remove: jest.fn(),
+  updateOptions: jest.fn(),
+};
+
+class MockCacheService {
+  constructor() {
+    return mockCacheService;
+  }
+}
+
+jest.mock('./src/infrastructure/cache/CacheService', () => ({
+  CacheService: MockCacheService
+}));
+
+// Exportera mockarna för användning i tester
+global.__mocks__ = {
+  mockAsyncStorage,
+  mockCacheService,
+  mockLogger,
+  mockPerformance,
+};
 
 // Mock för ThemeContext
 jest.mock('src/context/ThemeContext', () => ({

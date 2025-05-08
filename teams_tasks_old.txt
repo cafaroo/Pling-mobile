@@ -4,53 +4,98 @@
 
 Denna åtgärdsplan baseras på kodgranskningen i `teams_audit.txt` och innehåller konkreta uppgifter för att förbättra team-funktionaliteten i Pling-appen. Uppgifterna är organiserade efter prioritet och uppskattad tidsåtgång.
 
-## STATUSUPPDATERING (2024-04-30)
+## STATUSUPPDATERING (2024-05-18)
 
 ### Slutförda uppgifter:
-- ✅ Databasprestanda med index (P1-06, P1-07, P1-08)
-- ✅ Tillägg av nya kolumner i team_messages (P4-01, P4-02, P4-03)
-- ✅ Implementation av JSON-schema validering för team settings
-- ✅ Standardiserad felhantering i teamService (P1-09, P1-10, P1-11, P1-12, P1-13, P1-14)
-  - Implementerat TeamServiceResponse typ
-  - Skapat handleServiceError hjälpfunktion
-  - Uppdaterat alla teamService funktioner med ny felhantering
-- ✅ Korrigering av propnamnsfel i komponenter (P1-01 till P1-05)
-  - PendingApprovalCard: icon → Icon
-  - PendingMembershipCard: icon → Icon
-  - PendingInviteCard: icon → Icon
-  - TeamList: Ingen åtgärd krävdes (använder inte Button)
-  - Övriga komponenter: title → children i TeamSettings, InviteCodeModal och AddMemberModal
-- ✅ Uppdatering av queries för nya kolumner (P4-04)
-  - Uppdaterat databasstruktur med mentions (jsonb), attachments (text[]) och message_type (text)
-  - Uppdaterat SELECT, INSERT och realtime subscriptions i chat.tsx
-  - Lagt till stöd för olika meddelandetyper (text, image, file)
-  - Implementerat visning av mentions och attachments i chattgränssnittet
-- ✅ Uppdelning av team/index.tsx i mindre komponenter (P2-01 till P2-06)
-  - Skapat TeamHeader för navigering och teamval
-  - Skapat TeamActions för teamrelaterade åtgärder
-  - Skapat TeamMembers för medlemshantering och inställningar
-  - Skapat TeamLoadingState för laddningstillstånd
-  - Refaktoriserat team/index.tsx att använda nya komponenter
-  - Överfört state och logik till respektive komponent
-- ✅ Implementera React Query konsekvent (P2-07 till P2-10)
-  - Skapat useTeamQueries hook för att hantera alla team-relaterade queries
-  - Implementerat React Query i TeamScreen
-  - Skapat förbättrad hantering av laddningstillstånd med React Query
-  - Implementerat felhantering med React Query
-  - Skapat optimistiska uppdateringar för bättre användarupplevelse
-- ✅ Förbättra typhantering (P2-11 till P2-14)
-  - Refaktoriserat 'any'-typer i teamService
-  - Skapat centrala typ-exporter
-  - Förbättrat typning i TeamMemberList-komponenten
-  - Implementerat diskriminerande union-typer för tillstånd
-- ✅ Förbättra kodsökning i TeamMemberList (P3-01 till P3-02)
-  - Skapat gemensam MemberItem-komponent för att hantera medlemsvisning
-  - Refaktoriserat TeamMemberList, PendingApprovalCard, PendingMembershipCard, PendingInviteCard
+- ✅ TeamStatistics implementering
+  - Implementerat TeamStatistics värde-objekt för statistikberäkningar 
+  - Skapat TeamStatistics.test.ts för enhetstestning
+  - Implementerat getTeamStatistics.ts användarfall
+  - Skapat useTeamStatistics React Query hook
+  - Implementerat TeamStatisticsCard UI-komponent
+  - Integrerat TeamStatisticsCard i TeamDashboard
 
-### Nästa steg:
-1. Fortsätt konsolidera duplicerad kod i TeamMemberList (P3-03 till P3-04):
-   - Ta bort dubblerad kod i TeamMemberList
-   - Förbättra typning med diskriminerande unions
+### Tidigare slutförda uppgifter:
+- ✅ TeamActivity-integrering i TeamDashboard
+  - Implementerat TeamActivityList i TeamDashboard
+  - Skapat kategorifiltreringsfunktionalitet
+  - Lagt till navigering för att visa aktiviteter
+  - Skapat migrations/team_activities.sql för aktivitetstabellen
+
+- ✅ TeamActivity-entitet och stödklasser
+  - Implementerat TeamActivity.ts entitet
+  - Skapat ActivityType.ts värde-objekt med kategorier
+  - Implementerat TeamActivityRepository.ts interface
+  - Skapat SupabaseTeamActivityRepository.ts implementation
+  - Implementerat TeamActivityList.tsx UI-komponent
+  - Lagt till användningsfall och hooks för TeamActivity
+  - Skapat testfall för TeamActivity
+
+- ✅ Tidigare standardiserade domänlager
+  - Team-entitet med validering och händelser
+  - TeamMember value object
+  - TeamInvitation value object
+  - TeamRepository interface
+
+- ✅ Tidigare infrastruktur
+  - SupabaseTeamRepository implementering
+  - Row-level security
+  - SQL-migreringar för team-tabeller
+
+- ✅ Tidigare grundläggande UI
+  - TeamList, TeamCreate, TeamInvite komponenter
+  - TeamMemberList komponent med rollhantering
+
+## PÅGÅENDE UPPGIFTER
+
+### Teamgoals-funktionalitet
+- 🚧 TeamGoal entitet med validering och händelser
+- 🚧 TeamGoalRepository interface
+- 🚧 GoalStatus enum
+- 🚧 TeamGoal användarfall
+
+### UI-förbättringar
+- 🚧 Förbättra visualiseringar för teamstatistik
+- 🚧 Utveckla UI för teamkommunikation
+- 🚧 Optimera prestanda för team-dashboard
+
+## KOMMANDE UPPGIFTER
+
+1. Implementera TeamGoal-funktionalitet
+   - Skapa TeamGoal entitet
+   - Implementera GoalStatus enum och värde-objekt
+   - Skapa repository-gränssnitt för målhantering
+   - Utveckla grundläggande UI-komponenter för mål
+
+2. Utveckla TeamResources-funktionalitet
+   - Implementera TeamResource entitet
+   - Skapa TeamResourceRepository
+   - Utveckla fildelningsfunktionalitet
+   - Implementera behörighetshantering för resurser
+
+3. Förbättra teamkommunikation
+   - Implementera teammeddelanden
+   - Skapa chattfunktionalitet
+   - Utveckla notifieringssystem
+   - Integrera med push-notiser
+
+## NÄSTA STEG (PRIORITETSORDNING)
+
+1. ✅ Implementera SupabaseTeamActivityRepository
+2. ✅ Integrera TeamActivityList i TeamDashboard
+3. ✅ Utveckla TeamStatistics-funktion
+4. Påbörja TeamGoal-funktionalitet
+   - Skapa TeamGoal entitet
+   - Implementera GoalStatus enum och värde-objekt
+   - Skapa repository-gränssnitt för målhantering
+   - Utveckla grundläggande UI-komponenter för mål
+
+## TEKNISKA ANTECKNINGAR
+
+- Följ DDD-principer för nya domänobjekt
+- Använd Result-typen för felhantering
+- Implementera enhetstester för all ny funktionalitet
+- Uppdatera dokumentationen löpande
 
 ---
 
@@ -270,6 +315,38 @@ Denna åtgärdsplan baseras på kodgranskningen i `teams_audit.txt` och innehål
 
 **Total tidsuppskattning för UX/UI förbättringar: ~70 timmar** (20% slutfört)
 
+## PRIORITET 6: TEAM ACTIVITY IMPLEMENTATION (1-2 ARBETSDAGAR)
+
+### 6.1 TeamActivity UI-Integration
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P6-01 | Uppdatera TeamDashboard med TeamActivityList | 2 timmar | ✅ Klar | components/team/TeamDashboard.tsx |
+| P6-02 | Lägga till aktivitetskort i TeamDashboard | 1 timme | ✅ Klar | components/team/TeamDashboard.tsx |
+| P6-03 | Implementera filtrering av aktiviteter efter kategori | 2 timmar | ✅ Klar | components/team/TeamDashboard.tsx |
+| P6-04 | Implementera navigering för TeamActivityList | 1 timme | ✅ Klar | components/team/TeamDashboard.tsx |
+
+### 6.2 Databasmigrering för team_activities
+
+| Task ID | Beskrivning | Uppskattad tid | Status | Berörda filer |
+|---------|-------------|----------------|--------|---------------|
+| P6-05 | Skapa migrations/team_activities.sql | 3 timmar | ✅ Klar | migrations/team_activities.sql |
+| P6-06 | Implementera triggers för aktivitetsloggning | 2 timmar | ✅ Klar | migrations/team_activities.sql |
+| P6-07 | Skapa RLS-policies för team_activities | 1 timme | ✅ Klar | migrations/team_activities.sql |
+| P6-08 | Skapa databasindex för prestanda | 1 timme | ✅ Klar | migrations/team_activities.sql |
+| P6-09 | Köra migreringar i produktionsmiljön | 1 timme | 🚧 Planerad | - |
+
+**Totalt: ~15 timmar** (90% slutfört)
+
+### 6.3 Återstående arbete
+
+Prioritera nu följande uppgifter:
+
+1. Köra team_activities-migreringen i produktion
+2. Testa automatisk aktivitetsloggning med triggers
+3. Optimera TeamActivityList-komponentens prestanda
+4. Lägga till fler aktivitetstyper vid behov
+
 ## SAMMANFATTNING
 
 ### Total tidsuppskattning per prioritet
@@ -281,6 +358,7 @@ Denna åtgärdsplan baseras på kodgranskningen i `teams_audit.txt` och innehål
 | 3 | Omfattande förbättringar | ~46 timmar | 100% |
 | 4 | Långsiktiga förbättringar | ~45 timmar | ~25% |
 | 5 | UX/UI förbättringar | ~70 timmar | ~20% |
+| 6 | Team Activity Implementation | ~15 timmar | ~90% |
 
 **Total tidsuppskattning återstående: ~90 timmar (ca 11-14 arbetsdagar)**
 

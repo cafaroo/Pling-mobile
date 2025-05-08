@@ -3,7 +3,7 @@ const baseConfig = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['./jest.setup.js'],
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@react-native-async-storage/.*)'
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -20,7 +20,11 @@ const baseConfig = {
     '^@types/(.*)$': '<rootDir>/types/$1',
     '^@ui/(.*)$': '<rootDir>/src/ui/$1',
     '^@ui/components/(.*)$': '<rootDir>/src/ui/components/$1',
-    '^@ui/user/(.*)$': '<rootDir>/src/ui/user/$1'
+    '^@ui/user/(.*)$': '<rootDir>/src/ui/user/$1',
+    '^@react-native-async-storage/async-storage$': '<rootDir>/node_modules/@react-native-async-storage/async-storage/jest/async-storage-mock.js',
+    '^@/infrastructure/supabase/supabaseClient$': '<rootDir>/src/infrastructure/supabase/__mocks__/supabaseClient.ts',
+    '^@/infrastructure/events/eventBus$': '<rootDir>/src/infrastructure/events/__mocks__/eventBus.ts',
+    '^@/infrastructure/monitoring/PerformanceMonitor$': '<rootDir>/src/infrastructure/monitoring/__mocks__/PerformanceMonitor.ts'
   },
   testMatch: [
     '<rootDir>/src/domain/**/*.test.ts',
@@ -32,7 +36,10 @@ const baseConfig = {
     '<rootDir>/src/infrastructure/**/*.test.{ts,tsx,js,jsx}',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
+  },
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',

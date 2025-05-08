@@ -1,10 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
 import { Team, TeamRole } from '@/types/team';
-import { Users, Settings, UserPlus, Bell, Shield, MessageCircle, Target, BarChart } from 'lucide-react-native';
+import { Users, Settings, UserPlus, Bell, Shield, MessageCircle, Target, BarChart, Activity } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import TeamActivityList from './TeamActivityList';
+import TeamStatisticsCard from './TeamStatisticsCard';
+import { ActivityCategories } from '@/domain/team/value-objects/ActivityType';
 
 interface TeamDashboardProps {
   team: Team;
@@ -26,6 +29,8 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
   const { colors } = useTheme();
   const router = useRouter();
   const isOwnerOrAdmin = userRole === 'owner' || userRole === 'admin';
+  const [showActivities, setShowActivities] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<keyof typeof ActivityCategories | undefined>(undefined);
 
   // Beräkna antalet aktiva medlemmar
   const activeMembers = team.team_members?.filter(member => member.status === 'active').length || 0;
@@ -38,8 +43,13 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
     router.push(`/team/goals?teamId=${team.id}`);
   };
 
-  const handleAnalytics = () => {
-    router.push('/team/analytics');
+  const handleViewActivities = () => {
+    setShowActivities(true);
+  };
+
+  // Funktion för att filtrera aktiviteter efter kategori
+  const handleFilterActivities = (category: keyof typeof ActivityCategories) => {
+    setActivityFilter(prevFilter => prevFilter === category ? undefined : category);
   };
 
   const renderCard = (
@@ -76,75 +86,142 @@ export const TeamDashboard: React.FC<TeamDashboardProps> = ({
     );
   };
 
+  const renderFilterChips = () => {
+    const categories: Array<{ key: keyof typeof ActivityCategories; label: string }> = [
+      { key: 'MEMBER', label: 'Medlemmar' },
+      { key: 'INVITATION', label: 'Inbjudningar' },
+      { key: 'TEAM', label: 'Team' },
+      { key: 'GOAL', label: 'Mål' },
+      { key: 'COMMUNICATION', label: 'Kommunikation' }
+    ];
+
+    return (
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterContainer}
+      >
+        {categories.map(cat => (
+          <TouchableOpacity
+            key={cat.key}
+            style={[
+              styles.filterChip,
+              activityFilter === cat.key && { backgroundColor: colors.primary + '20' }
+            ]}
+            onPress={() => handleFilterActivities(cat.key)}
+          >
+            <Text 
+              style={[
+                styles.filterText, 
+                activityFilter === cat.key && { color: colors.primary }
+              ]}
+            >
+              {cat.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    );
+  };
+
+  if (showActivities) {
+    return (
+      <View style={styles.activityContainer}>
+        <View style={styles.activityHeader}>
+          <Text style={[styles.activityTitle, { color: colors.text.main }]}>Teamaktiviteter</Text>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => setShowActivities(false)}
+          >
+            <Text style={{ color: colors.primary }}>Tillbaka</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {renderFilterChips()}
+        
+        <TeamActivityList 
+          teamId={team.id} 
+          limit={20}
+          filterCategory={activityFilter}
+        />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      {/* Medlemskort */}
-      {renderCard(
-        <Users />,
-        'Medlemmar',
-        `${activeMembers} ${activeMembers === 1 ? 'aktiv medlem' : 'aktiva medlemmar'}`,
-        handleManageMembers
-      )}
+    <ScrollView style={styles.scrollContainer}>
+      {/* Statistikkort */}
+      <TeamStatisticsCard teamId={team.id} />
+      
+      <View style={styles.container}>
+        {/* Aktivitetskort */}
+        {renderCard(
+          <Activity />,
+          'Aktiviteter',
+          'Se senaste teamaktiviteter',
+          handleViewActivities,
+          true
+        )}
 
-      {/* Chatkort */}
-      {renderCard(
-        <MessageCircle />,
-        'Team Chat',
-        'Chatta med ditt team',
-        onManageChat,
-        true
-      )}
+        {/* Medlemskort */}
+        {renderCard(
+          <Users />,
+          'Medlemmar',
+          `${activeMembers} ${activeMembers === 1 ? 'aktiv medlem' : 'aktiva medlemmar'}`,
+          handleManageMembers
+        )}
 
-      {/* Team mål-kort */}
-      {renderCard(
-        <Target />,
-        'Teammål',
-        'Sätt och följ upp mål',
-        handleTeamGoals,
-        true
-      )}
+        {/* Chatkort */}
+        {renderCard(
+          <MessageCircle />,
+          'Team Chat',
+          'Chatta med ditt team',
+          onManageChat,
+          true
+        )}
 
-      {/* Analytics-kort */}
-      {renderCard(
-        <BarChart />,
-        'Analytics',
-        'Se teamets statistik',
-        handleAnalytics,
-        true
-      )}
+        {/* Team mål-kort */}
+        {renderCard(
+          <Target />,
+          'Teammål',
+          'Sätt och följ upp mål',
+          handleTeamGoals,
+          true
+        )}
 
-      {/* Inställningskort (endast för ägare/admin) */}
-      {isOwnerOrAdmin && renderCard(
-        <Settings />,
-        'Inställningar',
-        'Hantera teamets inställningar',
-        onManageSettings
-      )}
+        {/* Inställningskort (endast för ägare/admin) */}
+        {isOwnerOrAdmin && renderCard(
+          <Settings />,
+          'Inställningar',
+          'Hantera teamets inställningar',
+          onManageSettings
+        )}
 
-      {/* Inbjudningskort (endast för ägare/admin) */}
-      {isOwnerOrAdmin && renderCard(
-        <UserPlus />,
-        'Bjud in',
-        'Bjud in nya medlemmar',
-        onManageInvites,
-        true
-      )}
+        {/* Inbjudningskort (endast för ägare/admin) */}
+        {isOwnerOrAdmin && renderCard(
+          <UserPlus />,
+          'Bjud in',
+          'Bjud in nya medlemmar',
+          onManageInvites,
+          true
+        )}
 
-      {/* Notifikationskort */}
-      {renderCard(
-        <Bell />,
-        'Notifikationer',
-        'Hantera teamnotifikationer',
-        onManageNotifications
-      )}
+        {/* Notifikationskort */}
+        {renderCard(
+          <Bell />,
+          'Notifikationer',
+          'Hantera teamnotifikationer',
+          onManageNotifications
+        )}
 
-      {/* Rollkort */}
-      {renderCard(
-        <Shield />,
-        'Din roll',
-        getRoleDescription(userRole)
-      )}
-    </View>
+        {/* Rollkort */}
+        {renderCard(
+          <Shield />,
+          'Din roll',
+          getRoleDescription(userRole)
+        )}
+      </View>
+    </ScrollView>
   );
 };
 
@@ -162,10 +239,13 @@ const getRoleDescription = (role: TeamRole): string => {
 };
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flex: 1,
+  },
   container: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    justifyContent: 'space-between',
     padding: 16,
   },
   cardContainer: {
@@ -199,4 +279,38 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
   },
+  activityContainer: {
+    flex: 1,
+    padding: 0,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    paddingBottom: 8,
+  },
+  activityTitle: {
+    fontSize: 20,
+    fontFamily: 'Inter-SemiBold',
+  },
+  backButton: {
+    padding: 8,
+  },
+  filterContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    marginRight: 8,
+  },
+  filterText: {
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
+  }
 }); 

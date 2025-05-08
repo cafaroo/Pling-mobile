@@ -4,6 +4,9 @@ import { OptimizedUserRepository } from './supabase/repositories/OptimizedUserRe
 import { CacheService } from './cache/CacheService';
 import { LoggingService, LogLevel } from './logger/LoggingService';
 import { PerformanceMonitor } from './monitoring/PerformanceMonitor';
+import { SupabaseTeamActivityRepository } from './supabase/repositories/SupabaseTeamActivityRepository';
+import { TeamActivityRepository } from '@/domain/team/repositories/TeamActivityRepository';
+import { OptimizedTeamActivityRepository } from './supabase/repositories/OptimizedTeamActivityRepository';
 
 /**
  * Konfigurationsalternativ för infrastruktur
@@ -77,6 +80,7 @@ export class InfrastructureFactory {
   
   private userRepository?: OptimizedUserRepository;
   private cacheService?: CacheService;
+  private teamActivityRepository?: SupabaseTeamActivityRepository;
   
   private constructor(
     supabase: SupabaseClient,
@@ -180,6 +184,20 @@ export class InfrastructureFactory {
     }
     
     return this.userRepository;
+  }
+  
+  /**
+   * Hämta optimerad TeamActivityRepository
+   */
+  public getTeamActivityRepository(): TeamActivityRepository {
+    if (!this.teamActivityRepository) {
+      this.teamActivityRepository = new OptimizedTeamActivityRepository(
+        this.supabase,
+        this.eventBus
+      );
+    }
+    
+    return this.teamActivityRepository;
   }
   
   /**

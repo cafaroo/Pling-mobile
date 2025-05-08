@@ -1,123 +1,85 @@
 import { Result, ok, err } from '@/shared/core/Result';
 
-export type TeamVisibility = 'public' | 'private' | 'unlisted';
-export type JoinPolicy = 'open' | 'invite_only' | 'approval';
-
-export interface NotificationPreferences {
-  memberJoined: boolean;
-  memberLeft: boolean;
-  roleChanged: boolean;
-  activityCreated?: boolean;
-  activityCompleted?: boolean;
-  messageReceived?: boolean;
-}
-
 export interface TeamSettingsProps {
-  visibility: TeamVisibility;
-  joinPolicy: JoinPolicy;
-  memberLimit: number;
-  notificationPreferences: NotificationPreferences;
-  customFields: Record<string, unknown>;
+  isPrivate: boolean;
+  requiresApproval: boolean;
+  maxMembers?: number;
+  allowGuests: boolean;
+  notificationSettings: {
+    newMembers: boolean;
+    memberLeft: boolean;
+    roleChanges: boolean;
+    activityUpdates: boolean;
+  };
 }
 
 export class TeamSettings {
-  private constructor(private props: TeamSettingsProps) {}
+  private readonly props: TeamSettingsProps;
 
-  get visibility(): TeamVisibility {
-    return this.props.visibility;
+  private constructor(props: TeamSettingsProps) {
+    this.props = props;
   }
 
-  get joinPolicy(): JoinPolicy {
-    return this.props.joinPolicy;
-  }
-
-  get memberLimit(): number {
-    return this.props.memberLimit;
-  }
-
-  get notificationPreferences(): NotificationPreferences {
-    return { ...this.props.notificationPreferences };
-  }
-
-  get customFields(): Record<string, unknown> {
-    return { ...this.props.customFields };
-  }
-
-  public static create(props: TeamSettingsProps): Result<TeamSettings, string> {
-    try {
-      // Validera memberLimit
-      if (props.memberLimit < 1) {
-        return err('Medlemsgräns måste vara minst 1');
-      }
-
-      if (props.memberLimit > 1000) {
-        return err('Medlemsgräns får inte överstiga 1000');
-      }
-
-      // Validera visibility
-      if (!['public', 'private', 'unlisted'].includes(props.visibility)) {
-        return err('Ogiltig synlighetsinställning');
-      }
-
-      // Validera joinPolicy
-      if (!['open', 'invite_only', 'approval'].includes(props.joinPolicy)) {
-        return err('Ogiltig policy för anslutning');
-      }
-
-      // Standardvärden för notifieringspreferenser
-      const notificationPreferences = {
-        memberJoined: true,
+  public static create(props: Partial<TeamSettingsProps> = {}): Result<TeamSettings, string> {
+    const defaultSettings: TeamSettingsProps = {
+      isPrivate: false,
+      requiresApproval: false,
+      maxMembers: 50,
+      allowGuests: false,
+      notificationSettings: {
+        newMembers: true,
         memberLeft: true,
-        roleChanged: true,
-        activityCreated: props.notificationPreferences?.activityCreated ?? true,
-        activityCompleted: props.notificationPreferences?.activityCompleted ?? true,
-        messageReceived: props.notificationPreferences?.messageReceived ?? true,
-        ...props.notificationPreferences
-      };
-
-      return ok(new TeamSettings({
-        ...props,
-        notificationPreferences
-      }));
-    } catch (error) {
-      return err(`Kunde inte skapa teaminställningar: ${error.message}`);
-    }
-  }
-
-  // Uppdatera inställningar
-  public update(patch: Partial<TeamSettingsProps>): TeamSettings {
-    const updatedProps = {
-      visibility: patch.visibility || this.props.visibility,
-      joinPolicy: patch.joinPolicy || this.props.joinPolicy,
-      memberLimit: patch.memberLimit !== undefined ? patch.memberLimit : this.props.memberLimit,
-      notificationPreferences: {
-        ...this.props.notificationPreferences,
-        ...(patch.notificationPreferences || {})
-      },
-      customFields: {
-        ...this.props.customFields,
-        ...(patch.customFields || {})
+        roleChanges: true,
+        activityUpdates: true
       }
     };
 
-    // Validera och skapa nya inställningar
-    const result = TeamSettings.create(updatedProps);
-    if (result.isErr()) {
-      // Om uppdateringen är ogiltig, behåll de nuvarande inställningarna
-      console.error(`Ogiltiga inställningar: ${result.error}`);
-      return this;
+    if (props.maxMembers !== undefined && props.maxMembers < 2) {
+      return err('Minsta antal medlemmar måste vara 2');
     }
 
-    return result.getValue();
+    return ok(new TeamSettings({
+      ...defaultSettings,
+      ...props,
+      notificationSettings: {
+        ...defaultSettings.notificationSettings,
+        ...props.notificationSettings
+      }
+    }));
   }
 
-  public toJSON() {
-    return {
-      visibility: this.visibility,
-      joinPolicy: this.joinPolicy,
-      memberLimit: this.memberLimit,
-      notificationPreferences: this.notificationPreferences,
-      customFields: this.customFields
-    };
+  public get isPrivate(): boolean {
+    return this.props.isPrivate;
+  }
+
+  public get requiresApproval(): boolean {
+    return this.props.requiresApproval;
+  }
+
+  public get maxMembers(): number | undefined {
+    return this.props.maxMembers;
+  }
+
+  public get allowGuests(): boolean {
+    return this.props.allowGuests;
+  }
+
+  public get notificationSettings() {
+    return { ...this.props.notificationSettings };
+  }
+
+  public update(settings: Partial<TeamSettingsProps>): TeamSettings {
+    if (settings.maxMembers !== undefined && settings.maxMembers < 2) {
+      throw new Error('Minsta antal medlemmar måste vara 2');
+    }
+
+    return new TeamSettings({
+      ...this.props,
+      ...settings,
+      notificationSettings: {
+        ...this.props.notificationSettings,
+        ...(settings.notificationSettings || {})
+      }
+    });
   }
 } 

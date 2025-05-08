@@ -1,78 +1,71 @@
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 
 export interface UserProfileProps {
   firstName: string;
   lastName: string;
   displayName?: string;
-  avatarUrl?: string;
   bio?: string;
+  avatarUrl?: string;
   location?: string;
-  contact: {
-    email: string;
-    phone?: string;
-    alternativeEmail?: string;
+  birthDate?: Date;
+  interests?: string[];
+  socialLinks?: {
+    website?: string;
+    twitter?: string;
+    linkedin?: string;
+    github?: string;
   };
-  customFields?: Record<string, unknown>;
 }
 
 export class UserProfile {
-  private constructor(
-    private readonly props: {
-      firstName: string;
-      lastName: string;
-      displayName: string | null;
-      avatarUrl: string | null;
-      bio: string | null;
-      location: string | null;
-      contact: {
-        email: string;
-        phone: string | null;
-        alternativeEmail: string | null;
-      };
-      customFields: Record<string, unknown>;
-    }
-  ) {}
+  private readonly props: UserProfileProps;
 
-  public static create(props: UserProfileProps): Result<UserProfile> {
-    // Validera obligatoriska fält
-    if (!props.firstName?.trim()) {
-      return Result.err('Förnamn kan inte vara tomt');
+  private constructor(props: UserProfileProps) {
+    this.props = props;
+  }
+
+  public static create(props: UserProfileProps): Result<UserProfile, string> {
+    if (!props.firstName || props.firstName.trim().length < 1) {
+      return err('Förnamn är obligatoriskt');
     }
 
-    if (!props.lastName?.trim()) {
-      return Result.err('Efternamn kan inte vara tomt');
+    if (!props.lastName || props.lastName.trim().length < 1) {
+      return err('Efternamn är obligatoriskt');
     }
 
-    // Trimma textfält
-    const firstName = props.firstName.trim();
-    const lastName = props.lastName.trim();
-    const displayName = props.displayName?.trim() || null;
-    const avatarUrl = props.avatarUrl?.trim() || null;
-    const bio = props.bio?.trim() || null;
-    const location = props.location?.trim() || null;
+    if (props.displayName && props.displayName.trim().length < 2) {
+      return err('Visningsnamn måste vara minst 2 tecken');
+    }
 
-    // Hantera kontaktinformation
-    const contact = {
-      email: props.contact.email,
-      phone: props.contact.phone || null,
-      alternativeEmail: props.contact.alternativeEmail || null
-    };
+    if (props.bio && props.bio.length > 500) {
+      return err('Bio får inte vara längre än 500 tecken');
+    }
 
-    // Hantera anpassade fält
-    const customFields = props.customFields || {};
+    if (props.interests && props.interests.length > 10) {
+      return err('Max 10 intressen är tillåtna');
+    }
 
-    return Result.ok(
-      new UserProfile({
-        firstName,
-        lastName,
-        displayName,
-        avatarUrl,
-        bio,
-        location,
-        contact,
-        customFields
-      })
-    );
+    if (props.birthDate && props.birthDate > new Date()) {
+      return err('Födelsedatum kan inte vara i framtiden');
+    }
+
+    // Validera URL-format för sociala länkar
+    const urlPattern = /^https?:\/\/.+/;
+    if (props.socialLinks) {
+      for (const [platform, url] of Object.entries(props.socialLinks)) {
+        if (url && !urlPattern.test(url)) {
+          return err(`Ogiltig URL för ${platform}`);
+        }
+      }
+    }
+
+    return ok(new UserProfile({
+      ...props,
+      firstName: props.firstName.trim(),
+      lastName: props.lastName.trim(),
+      displayName: props.displayName?.trim(),
+      bio: props.bio?.trim()
+    }));
   }
 
   public get firstName(): string {
@@ -83,55 +76,42 @@ export class UserProfile {
     return this.props.lastName;
   }
 
-  public get displayName(): string | null {
+  public get displayName(): string | undefined {
     return this.props.displayName;
   }
 
-  public get avatarUrl(): string | null {
-    return this.props.avatarUrl;
+  public get fullName(): string {
+    return `${this.props.firstName} ${this.props.lastName}`;
   }
 
-  public get bio(): string | null {
+  public get bio(): string | undefined {
     return this.props.bio;
   }
 
-  public get location(): string | null {
+  public get avatarUrl(): string | undefined {
+    return this.props.avatarUrl;
+  }
+
+  public get location(): string | undefined {
     return this.props.location;
   }
 
-  public get contact(): {
-    email: string;
-    phone: string | null;
-    alternativeEmail: string | null;
-  } {
-    return { ...this.props.contact };
+  public get birthDate(): Date | undefined {
+    return this.props.birthDate;
   }
 
-  public get customFields(): Record<string, unknown> {
-    return { ...this.props.customFields };
+  public get interests(): string[] {
+    return this.props.interests || [];
   }
 
-  public get fullName(): string {
-    return `${this.firstName} ${this.lastName}`;
+  public get socialLinks() {
+    return { ...this.props.socialLinks };
   }
 
-  public update(patch: Partial<UserProfileProps>): Result<UserProfile> {
+  public update(profile: Partial<UserProfileProps>): Result<UserProfile, string> {
     return UserProfile.create({
-      firstName: patch.firstName ?? this.firstName,
-      lastName: patch.lastName ?? this.lastName,
-      displayName: patch.displayName ?? this.displayName ?? undefined,
-      avatarUrl: patch.avatarUrl ?? this.avatarUrl ?? undefined,
-      bio: patch.bio ?? this.bio ?? undefined,
-      location: patch.location ?? this.location ?? undefined,
-      contact: {
-        email: patch.contact?.email ?? this.contact.email,
-        phone: patch.contact?.phone ?? this.contact.phone ?? undefined,
-        alternativeEmail: patch.contact?.alternativeEmail ?? this.contact.alternativeEmail ?? undefined
-      },
-      customFields: {
-        ...this.customFields,
-        ...patch.customFields
-      }
+      ...this.props,
+      ...profile
     });
   }
 } 

@@ -1,12 +1,18 @@
-import { UniqueId } from '../domain/UniqueId';
+import { UniqueId } from './UniqueId';
 
-export abstract class Entity<T> {
+export interface EntityProps {
+  id: UniqueId;
+}
+
+export abstract class Entity<T extends EntityProps> {
   protected readonly props: T;
-  protected readonly id: UniqueId;
 
-  constructor(props: T, id?: UniqueId) {
+  get id(): UniqueId {
+    return this.props.id;
+  }
+
+  protected constructor(props: T) {
     this.props = props;
-    this.id = id || new UniqueId();
   }
 
   public equals(entity?: Entity<T>): boolean {
@@ -18,10 +24,10 @@ export abstract class Entity<T> {
       return true;
     }
 
-    return this.id.equals(entity.id);
-  }
+    if (!(entity instanceof Entity)) {
+      return false;
+    }
 
-  public getId(): UniqueId {
-    return this.id;
+    return this.id.equals(entity.id);
   }
 } 

@@ -1,67 +1,60 @@
-export class Result<T, E = string> {
-  private constructor(
-    private readonly value: T | null,
-    private readonly error: E | null
-  ) {}
+export type Result<T, E = string> = Ok<T, E> | Err<T, E>;
 
-  static ok<T>(value: T): Result<T> {
-    return new Result(value, null);
+export class Ok<T, E> {
+  readonly value: T;
+
+  constructor(value: T) {
+    this.value = value;
   }
 
-  static err<E>(error: E): Result<never, E> {
-    return new Result(null, error);
+  isOk(): this is Ok<T, E> {
+    return true;
   }
 
-  isOk(): this is Result<T, never> {
-    return this.error === null;
+  isErr(): this is Err<T, E> {
+    return false;
   }
 
-  isErr(): this is Result<never, E> {
-    return this.error !== null;
-  }
-
-  getValue(): T {
-    if (this.isOk()) {
-      return this.value!;
-    }
-    throw new Error('Cannot get value from error result');
-  }
-
-  getError(): E {
-    if (this.isErr()) {
-      return this.error!;
-    }
-    throw new Error('Cannot get error from ok result');
+  unwrapOr(defaultValue: T): T {
+    return this.value;
   }
 
   map<U>(fn: (value: T) => U): Result<U, E> {
-    if (this.isOk()) {
-      return Result.ok(fn(this.value!));
-    }
-    return Result.err(this.error!);
-  }
-
-  mapError<F>(fn: (error: E) => F): Result<T, F> {
-    if (this.isErr()) {
-      return Result.err(fn(this.error!));
-    }
-    return Result.ok(this.value!);
+    return ok(fn(this.value));
   }
 
   andThen<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
-    if (this.isOk()) {
-      return fn(this.value!);
-    }
-    return Result.err(this.error!);
-  }
-
-  orElse<F>(fn: (error: E) => Result<T, F>): Result<T, F> {
-    if (this.isErr()) {
-      return fn(this.error!);
-    }
-    return Result.ok(this.value!);
+    return fn(this.value);
   }
 }
 
-export const ok = Result.ok;
-export const err = Result.err; 
+export class Err<T, E> {
+  readonly error: E;
+
+  constructor(error: E) {
+    this.error = error;
+  }
+
+  isOk(): this is Ok<T, E> {
+    return false;
+  }
+
+  isErr(): this is Err<T, E> {
+    return true;
+  }
+
+  unwrapOr(defaultValue: T): T {
+    return defaultValue;
+  }
+
+  map<U>(fn: (value: T) => U): Result<U, E> {
+    return err(this.error);
+  }
+
+  andThen<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
+    return err(this.error);
+  }
+}
+
+export const ok = <T, E = string>(value: T): Result<T, E> => new Ok(value);
+export const err = <T, E = string>(error: E): Result<T, E> => new Err(error); 

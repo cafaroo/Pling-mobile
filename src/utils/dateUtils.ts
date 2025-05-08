@@ -5,18 +5,35 @@ import { StatisticsPeriod } from '@/domain/team/value-objects/TeamStatistics';
 /**
  * Formaterar ett datum baserat på statistikperiod
  */
-export function formatDate(date: Date, period: StatisticsPeriod): string {
+export function formatDate(
+  date: Date,
+  period: StatisticsPeriod,
+  includeTime: boolean = false
+): string {
+  if (!date) return '';
+  
+  const d = new Date(date);
+  
   switch (period) {
     case StatisticsPeriod.DAILY:
-      return format(date, 'HH:mm', { locale: sv });
+      return includeTime 
+        ? `${d.getDate()}/${d.getMonth() + 1} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+        : `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    
     case StatisticsPeriod.WEEKLY:
-      return format(date, 'EEE', { locale: sv });
+      return `${d.getDate()}/${d.getMonth() + 1}`;
+    
     case StatisticsPeriod.MONTHLY:
-      return format(date, 'd MMM', { locale: sv });
+      return `${d.getDate()}/${d.getMonth() + 1}`;
+    
     case StatisticsPeriod.YEARLY:
-      return format(date, 'MMM', { locale: sv });
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
+      return months[d.getMonth()];
+    
     default:
-      return format(date, 'yyyy-MM-dd', { locale: sv });
+      return includeTime 
+        ? `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+        : `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
   }
 }
 
@@ -65,4 +82,101 @@ export function formatRelativeTime(date: Date): string {
 
   const diffInYears = Math.floor(diffInDays / 365);
   return `${diffInYears} ${diffInYears === 1 ? 'år' : 'år'} sedan`;
+}
+
+export function getStartOfPeriod(date: Date, period: StatisticsPeriod): Date {
+  const result = new Date(date);
+  
+  switch (period) {
+    case StatisticsPeriod.DAILY:
+      result.setHours(0, 0, 0, 0);
+      break;
+      
+    case StatisticsPeriod.WEEKLY:
+      const day = result.getDay();
+      const diff = result.getDate() - day + (day === 0 ? -6 : 1); // Justera för veckan (måndag är första dagen)
+      result.setDate(diff);
+      result.setHours(0, 0, 0, 0);
+      break;
+      
+    case StatisticsPeriod.MONTHLY:
+      result.setDate(1);
+      result.setHours(0, 0, 0, 0);
+      break;
+      
+    case StatisticsPeriod.YEARLY:
+      result.setMonth(0, 1);
+      result.setHours(0, 0, 0, 0);
+      break;
+  }
+  
+  return result;
+}
+
+export function getEndOfPeriod(date: Date, period: StatisticsPeriod): Date {
+  const result = new Date(date);
+  
+  switch (period) {
+    case StatisticsPeriod.DAILY:
+      result.setHours(23, 59, 59, 999);
+      break;
+      
+    case StatisticsPeriod.WEEKLY:
+      const day = result.getDay();
+      const diff = result.getDate() + (day === 0 ? 0 : 7 - day); // Justera för veckan (söndag är sista dagen)
+      result.setDate(diff);
+      result.setHours(23, 59, 59, 999);
+      break;
+      
+    case StatisticsPeriod.MONTHLY:
+      // Sätt till sista dagen i månaden
+      result.setMonth(result.getMonth() + 1, 0);
+      result.setHours(23, 59, 59, 999);
+      break;
+      
+    case StatisticsPeriod.YEARLY:
+      result.setMonth(11, 31);
+      result.setHours(23, 59, 59, 999);
+      break;
+  }
+  
+  return result;
+}
+
+export function getDurationLabel(period: StatisticsPeriod): string {
+  switch (period) {
+    case StatisticsPeriod.DAILY:
+      return 'idag';
+    case StatisticsPeriod.WEEKLY:
+      return 'denna vecka';
+    case StatisticsPeriod.MONTHLY:
+      return 'denna månad';
+    case StatisticsPeriod.YEARLY:
+      return 'detta år';
+    default:
+      return '';
+  }
+}
+
+export function formatDateRange(
+  startDate: Date,
+  endDate: Date,
+  period: StatisticsPeriod
+): string {
+  switch (period) {
+    case StatisticsPeriod.DAILY:
+      return `${formatDate(startDate, StatisticsPeriod.DAILY, true)}`;
+      
+    case StatisticsPeriod.WEEKLY:
+      return `${formatDate(startDate, StatisticsPeriod.WEEKLY)} - ${formatDate(endDate, StatisticsPeriod.WEEKLY)}`;
+      
+    case StatisticsPeriod.MONTHLY:
+      return `${formatDate(startDate, StatisticsPeriod.MONTHLY)} - ${formatDate(endDate, StatisticsPeriod.MONTHLY)}`;
+      
+    case StatisticsPeriod.YEARLY:
+      return `${startDate.getFullYear()}`;
+      
+    default:
+      return `${formatDate(startDate, period)} - ${formatDate(endDate, period)}`;
+  }
 } 

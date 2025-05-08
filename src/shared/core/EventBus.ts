@@ -1,3 +1,5 @@
+import { DomainEvent } from './DomainEvent';
+
 type EventHandler = (event: any) => void | Promise<void>;
 
 export class EventBus {
@@ -44,4 +46,8 @@ export class EventBus {
  */
 export const getEventBus = (): EventBus => {
   return new EventBus(); // Detta kommer returnera den singleton-instans som finns tack vare konstruktorn
-}; 
+};
+
+export interface EventBus {
+  publish(event: DomainEvent): Promise<void>;
+} 

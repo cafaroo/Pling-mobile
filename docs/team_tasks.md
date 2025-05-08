@@ -35,6 +35,8 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
 - Förbättrad statistikberäkning med stöd för olika tidsperioder ✅
 - Robust felhantering i statistikberäkningar ✅
 - Aktivitetstrend-beräkningar med datumbaserad gruppering ✅
+- TeamMessage entity för team-kommunikation ✅
+- MessageAttachment, MessageMention och MessageReaction value objects ✅
 
 #### Infrastrukturlager
 - SupabaseTeamRepository implementation ✅
@@ -50,6 +52,11 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
 - Materialized view för daglig teamstatistik ✅
 - Automatisk uppdatering av statistik via triggers ✅
 - Optimerade index för snabb dataåtkomst ✅
+- TeamMemberRepository implementation med Supabase ✅
+- TeamStatisticsRepository implementation med Supabase ✅
+- TeamMessageRepository implementation med Supabase ✅
+- Migreringar för team-tabeller i PostgreSQL ✅
+- Realtidsuppdateringar för team-data ✅
 
 #### Applikationslager
 - CreateTeamUseCase för att skapa team ✅
@@ -69,6 +76,14 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
 - useTeamActivities hook för att hantera aktivitetsdata i UI ✅
 - GetTeamStatisticsUseCase för att hämta teamstatistik ✅
 - useTeamStatistics hook för att hantera statistikdata i UI ✅
+- Team-hooks: useTeam, useTeams, och useTeamCreation ✅
+- TeamMember-hooks: useTeamMembers, useTeamMember, och useTeamInvitation ✅
+- Permission-hooks: useTeamPermissions, useTeamRoles ✅
+- Activity-hooks: useTeamActivities, useTeamActivity ✅
+- Statistics-hooks: useTeamStatistics, useTeamStatisticsTrend ✅
+- Message-hooks: useTeamMessages för team-kommunikation ✅
+- CreateTeamMessageUseCase för team-kommunikation ✅
+- CreateThreadReplyUseCase för att skapa svar i trådar ✅
 
 #### UI-lager
 - TeamMemberList komponent för att visa och hantera medlemmar ✅
@@ -87,6 +102,18 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
 - Integrering av TeamActivityList i TeamDashboard med kategorifiltrering ✅
 - TeamStatisticsCard-komponent för visualisering av teamstatistik ✅
 - Integrering av TeamStatisticsCard i TeamDashboard ✅
+- TeamStatisticsDashboard-komponent med avancerad visualisering och jämförelse ✅
+- TeamDashboard med fliknavigering för olika team-aspekter ✅
+- ErrorBoundary-komponent för robust felhantering ✅
+- Förbättrade datumfunktioner för statistik-visualisering ✅
+- TeamChatContainer för team-kommunikation ✅
+- TeamMessageList för team-kommunikation ✅
+- TeamMessageItem för team-kommunikation ✅
+- MessageComposer för att skriva nya meddelanden ✅
+- MessageAttachmentView för bilagor i meddelanden ✅
+- MessageReactionsBar för reaktioner på meddelanden ✅
+- MessageEditor för redigering av meddelanden ✅
+- EmptyState för tomma tillstånd i UI ✅
 
 #### Testning
 - StandardDomainEventTestHelper för enhetlig testning av domänhändelser ✅
@@ -106,15 +133,25 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
 
 #### Infrastrukturlager
 - Optimera SQL-frågor för statistikberäkningar 🚧
-- Implementera caching för tunga dataoperationer 🚧
+- ✅ Implementera caching för tunga dataoperationer
+  - ✅ Tvånivåcaching med React Query och Supabase
+  - ✅ Optimistisk uppdatering för alla mutationer
+  - ✅ Konfigurerbar staleTime och cacheTime
+  - ✅ Automatisk revalidering för aktiva mål
+  - ✅ Selektiv cacheinvalidering
+  - ✅ Robust felhantering med Result-typer
+  - ✅ Prestandaövervakning och loggning
+  - ✅ Omfattande testsvit för cachning
+  - ✅ Optimerad React Query konfiguration
+  - ✅ Standardiserade cachenycklar
 
 #### Applikationslager
 - Integrera med activity-domänen 🚧
-- Förbättra statistikberäkningar för olika tidsperioder 🚧
+- ✅ Förbättra statistikberäkningar för olika tidsperioder
 - Implementera e2e-testers för händelseflöden genom alla lager 🚧
 
 #### UI-lager
-- Utveckla avancerade visualiseringskomponenter för team-statistik 🚧
+- ✅ Utveckla avancerade visualiseringskomponenter för team-statistik
 - Förbättra användargränssnittet för teamhantering 🚧
 - Utveckla teamkommunikationsgränssnitt 🚧
 - Integrera händelselyssnare i UI-komponenter 🚧
@@ -123,7 +160,7 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
 
 #### Domänlager
 - Team-mål och milstolpar 📋
-- Team-kommunikation och meddelanden 📋
+- Team-kommunikation och meddelanden 🚧
 - Team-resurser och delning 📋
 
 #### Applikationslager
@@ -170,7 +207,8 @@ src/
 │       │   ├─ createTeamActivity.ts ✅
 │       │   ├─ getTeamActivities.ts ✅
 │       │   ├─ getTeamStatistics.ts ✅
-│       │   └─ updateSettings.ts 📋
+│       │   ├─ createThreadReplyUseCase.ts ✅
+│       │   └─ updateSettings.ts ��
 │       ├─ hooks/
 │       │   ├─ useTeam.ts ✅
 │       │   ├─ useTeamActivities.ts ✅
@@ -443,7 +481,7 @@ describe('TeamRepository', () => {
 ### Sprint 4: Avancerade Funktioner 📋
 - 📋 Implementera team-resurser
 - 📋 Utveckla målhantering
-- 📋 Skapa team-kommunikation
+- 🚧 Skapa team-kommunikation
 - 📋 Implementera delningsfunktioner
 
 ## Nästa steg
@@ -455,8 +493,18 @@ describe('TeamRepository', () => {
 5. ✅ Implementera TeamActivity entitet och hantering
 6. ✅ Implementera SupabaseTeamActivityRepository
 7. ✅ Integrera TeamActivityList i TeamDashboard
-8. 🚧 Utveckla team-statistikfunktioner
-9. 🚧 Implementera team-mål och uppföljning
+8. ✅ Implementera caching-strategi
+   - ✅ Tvånivåcaching med React Query och Supabase
+   - ✅ Optimistisk uppdatering för mutationer
+   - ✅ Konfigurerbar cache-hantering
+   - ✅ Testsvit för caching
+9. ✅ Utveckla team-statistikfunktioner
+   - ✅ TeamStatisticsDashboard-komponent med avancerad visualisering
+   - ✅ Stöd för jämförelse mellan perioder
+   - ✅ Interaktiva grafer och datapresentation
+   - ✅ Responsiv layout och användarvänlighet
+10. 🚧 Implementera team-mål och uppföljning
+11. 🚧 Utveckla team-kommunikationsgränssnitt (Påbörjat med databasimplementation för trådning)
 
 ## Tekniska noteringar
 
@@ -477,14 +525,18 @@ describe('TeamRepository', () => {
 - Inbjudningsregler
 
 ### Prestanda
-- ✅ Implementera caching-strategi med:
-  - Tvånivåcaching med React Query och Supabase
-  - Optimistisk uppdatering för alla mutationer
-  - Konfigurerbar staleTime och cacheTime
-  - Automatisk revalidering för aktiva mål
-  - Selektiv cacheinvalidering
-- 🚧 Optimera databasfrågor
-- 🚧 Lazy loading av teamdata
+- ✅ Implementerat tvånivåcaching med React Query och Supabase
+  - ✅ Standardiserade cachenycklar genom teamStatisticsKeys
+  - ✅ Optimerad staleTime på 5 minuter för normal data
+  - ✅ Utökad cacheTime på 30 minuter för bättre prestanda
+  - ✅ Automatisk uppdatering var 30:e sekund för aktiva mål
+  - ✅ Optimistisk uppdatering för alla mutationer
+  - ✅ Robust felhantering med automatisk återställning
+  - ✅ Selektiv revalidering baserat på användningsfall
+  - ✅ Effektiv cacheinvalidering för relaterad data
+  - ✅ Omfattande testsvit för cachning-funktionalitet
+  - ✅ Prestandaövervakning och loggning integrerat
+  - ✅ Konfigurerbara cache-inställningar per användningsfall
 
 ### Säkerhet
 - Rollbaserade behörigheter (Implementerat)
@@ -492,20 +544,29 @@ describe('TeamRepository', () => {
 - Användarverifiering (Implementerat)
 
 ### Testning av domänhändelser
-- Standardiserade testmönster med DomainEventTestHelper ✅
-- Integrationstest mellan repository och EventBus ✅
-- Dokumenterade teststrategier för olika lager ✅
+- ✅ Standardiserade testmönster med DomainEventTestHelper
+- ✅ Integrationstest mellan repository och EventBus
+- ✅ Dokumenterade teststrategier för olika lager
+- ✅ Omfattande testsvit för caching-funktionalitet
+  - ✅ Tester för cache-träffar och missar
+  - ✅ Tester för optimistiska uppdateringar
+  - ✅ Tester för cacheinvalidering
+  - ✅ Tester för felhantering
+  - ✅ Tester för olika tidsperioder
 
 ### Caching och prestanda
 - ✅ Implementerat tvånivåcaching med React Query och Supabase
-  - Standardiserade cachenycklar genom teamGoalsKeys
-  - Optimerad staleTime på 5 minuter för normal data
-  - Utökad cacheTime på 30 minuter för bättre prestanda
-  - Automatisk uppdatering var 30:e sekund för aktiva mål
-  - Optimistisk uppdatering för alla mutationer
-  - Robust felhantering med automatisk återställning
-  - Selektiv revalidering baserat på användningsfall
-  - Effektiv cacheinvalidering för relaterad data
+  - ✅ Standardiserade cachenycklar genom teamStatisticsKeys
+  - ✅ Optimerad staleTime på 5 minuter för normal data
+  - ✅ Utökad cacheTime på 30 minuter för bättre prestanda
+  - ✅ Automatisk uppdatering var 30:e sekund för aktiva mål
+  - ✅ Optimistisk uppdatering för alla mutationer
+  - ✅ Robust felhantering med automatisk återställning
+  - ✅ Selektiv revalidering baserat på användningsfall
+  - ✅ Effektiv cacheinvalidering för relaterad data
+  - ✅ Omfattande testsvit för cachning-funktionalitet
+  - ✅ Prestandaövervakning och loggning integrerat
+  - ✅ Konfigurerbara cache-inställningar per användningsfall
 
 ### Databasoptimering
 - ✅ Skapade index för vanliga sökningar:
@@ -536,13 +597,16 @@ Legender:
    - ✅ Skapa databasstruktur för statistik
    - ✅ Implementera repository och hooks
    - ✅ Utveckla visualiseringskomponenter för statistik
-   - ✅ Skapa tester för statistikberäkningar
+   - ✅ Skapa testers för statistikberäkningar
+   - ✅ Implementera TeamStatisticsDashboard med period-jämförelse
+   - ✅ Integrera TeamDashboard med fliknavigering
 
-2. 📋 Implementera team-kommunikation
-   - Designa meddelandestruktur
-   - Skapa TeamMessage entitet
-   - Utveckla realtidskommunikation med Supabase
-   - Implementera chattgränssnitt
+2. 🚧 Implementera team-kommunikation (Påbörjat med databasimplementation för trådning)
+   - Designa meddelandestruktur ✅
+   - Skapa TeamMessage entitet ✅
+   - Implementerat CreateThreadReplyUseCase ✅
+   - Utveckla realtidskommunikation med Supabase 🚧
+   - Implementera chattgränssnitt 🚧
 
 3. 🚧 Optimera prestanda
    - Förbättra databasfrågor med materialized views
@@ -550,145 +614,91 @@ Legender:
    - Optimera realtidsuppdateringar
    - Förbättra cacheinvalidering för specifika scenarier
 
+4. 🚧 Implementera team-mål
+   - Utveckla komplett TeamGoal-entitet
+   - Skapa gränssnitt för målhantering
+   - Implementera måluppföljning och framstegstracking
+   - Integrera mål med statistik och aktiviteter
+   - Implementera påminnelser och notifieringar
+
 ### Tekniska noteringar
 
-#### TeamStatistics Implementation
-- ✅ Implementerat TeamStatistics värde-objekt med:
+#### TeamStatisticsDashboard Implementation
+- ✅ Implementerat TeamStatisticsDashboard med:
+  - Stöd för jämförelse mellan olika tidsperioder
+  - Grafisk visualisering av trender
+  - Målstatistik per status
+  - Aktivitetsfördelning per kategori
+  - Förändringsindikatorer för nyckeltal
+  - Interaktiva period-väljare
+  - Responsiv design anpassad för mobila enheter
+- ✅ Integrerat med React Query för effektiv datahämtning:
+  - Automatisk cache-hantering
+  - Optimistiska uppdateringar
   - Stöd för olika tidsperioder
-  - Beräkning av målstatistik och trender
-  - Validering av statistikdata
-  - Effektiv cachehantering
-- ✅ Skapat databasstruktur med:
-  - Optimerade index för snabba sökningar
-  - RLS-policyer för säker dataåtkomst
-  - Automatisk uppdatering av timestamps
-  - JSON-stöd för flexibel datalagring
-- ✅ Utvecklat repository-lager med:
-  - Full CRUD-funktionalitet
-  - Stöd för trendanalys
-  - Effektiv datahämtning
-  - Felhantering med Result-typer
-- ✅ Implementerat React Query hooks med:
-  - Optimerad caching-strategi
-  - Automatisk revalidering
-  - Prefetching av relaterad data
-  - Typade returvärden
+  - Felhantering med ErrorBoundary
 
-#### Visualiseringskomponenter
-- ✅ Implementerat TeamStatisticsCard med:
-  - Responsiv layout med flexbox
-  - Material Design komponenter
-  - Interaktiv periodväljare
-  - Realtidsuppdateringar
-- ✅ Utvecklat grafer och indikatorer:
-  - Linjediagram för aktivitetstrend
-  - Framstegsindikator för måluppfyllelse
-  - Statistikkort för nyckeltal
-  - Anpassad färgpalett från temat
-- ✅ Skapat container-komponent:
-  - Hantering av laddningstillstånd
-  - Felhantering med användarvänliga meddelanden
-  - Automatisk prefetching av data
-  - Optimerad prestanda med React Query
+#### TeamDashboard Implementation
+- ✅ Skapat TeamDashboard med fliknavigering:
+  - Översiktsflik med sammanfattad information
+  - Statistikflik med TeamStatisticsDashboard
+  - Aktivitetsflik med TeamActivityList
+  - Medlemsflik med TeamMemberList
+- ✅ Robusta och återanvändbara komponenter:
+  - Header med team-metadata
+  - Kortkomponenter för olika datatyper
+  - Integrering med befintliga komponenter
 
-#### Testning och kvalitetssäkring
-- ✅ Implementerat omfattande testsvit:
-  - Enhetstester för TeamStatistics:
-    - Beräkningslogik för olika perioder
-    - Hantering av målstatus och framsteg
-    - Aktivitetstrendberäkningar
-    - Validering av statistikdata
-  - Integrationstester för repository:
-    - CRUD-operationer mot databasen
-    - Felhantering och återhämtning
-    - Datakonvertering och mappning
-    - Cacheinvalidering
-  - Komponenttester för visualisering:
-    - Rendering av statistikkomponenter
-    - Interaktiv periodväljare
-    - Responsiv layout
-    - Formatering och presentation
-  - Prestandatester:
-    - Optimerad datahämtning
-    - Effektiv cacheanvändning
-    - Minneshantering
-    - Renderingsprestanda
+#### Nästa implementation: Teamkommunikation
 
-#### Nästa steg
-1. Implementera team-kommunikation:
-   - Designa meddelandestruktur
-   - Skapa TeamMessage entitet
-   - Utveckla realtidskommunikation
-   - Implementera chattgränssnitt
-
-2. Optimera prestanda:
-   - Implementera virtualisering för långa listor
-   - Optimera databasfrågor med materialized views
-   - Förbättra cacheinvalidering
-   - Implementera lazy loading
-
-### Tekniska detaljer
-
-#### Teststrategier
-- Enhetstester:
-  - Jest som testramverk
-  - Isolerade tester för domänlogik
-  - Mockning av externa beroenden
-  - Omfattande testfall för edge cases
-- Integrationstester:
-  - Testning mot Supabase
-  - End-to-end dataflöden
-  - Verifiering av RLS-policyer
-  - Prestandamätningar
-- Komponenttester:
-  - React Native Testing Library
-  - Interaktionssimuleringar
-  - Tillgänglighetstester
-  - Snapshot-tester för UI
-
-#### Prestandaoptimering
-- Databasoptimering:
-  - Materialized views för statistik
-  - Optimerade index
-  - Effektiv cacheinvalidering
-- Frontend-optimering:
-  - Lazy loading av komponenter
-  - Virtualisering av listor
-  - Optimerad rendering
-  - Minnesprofiling
-
-## Nästa implementation: TeamStatistics
-
-För att implementera TeamStatistics-funktionaliteten behöver vi:
+För att implementera team-kommunikationsfunktionen behöver vi:
 
 ### Domänmodell
 ```typescript
-interface TeamStatisticsProps {
+interface TeamMessageProps {
+  id: UniqueId;
   teamId: UniqueId;
-  period: StatisticsPeriod;
-  activityCount: number;
-  completedGoals: number;
-  activeGoals: number;
-  memberParticipation: number;
-  averageGoalProgress: number;
+  senderId: UniqueId;
+  content: string;
+  attachments?: Attachment[];
+  mentions?: Mention[];
+  reactions?: Reaction[];
+  createdAt: Date;
 }
 
-enum StatisticsPeriod {
-  DAILY = 'daily',
-  WEEKLY = 'weekly',
-  MONTHLY = 'monthly',
-  YEARLY = 'yearly'
+interface Attachment {
+  type: 'image' | 'file' | 'link';
+  url: string;
+  name?: string;
+  size?: number;
+  mimeType?: string;
+}
+
+interface Mention {
+  userId: UniqueId;
+  index: number;
+  length: number;
+}
+
+interface Reaction {
+  emoji: string;
+  userIds: UniqueId[];
 }
 ```
 
 ### Planerade komponenter
-- TeamStatisticsCard
-- TeamStatisticsChart
-- TeamMemberParticipation
-- TeamGoalProgress
-- TeamActivitySummary
+- TeamChat
+- TeamChatMessageList
+- TeamChatComposer
+- TeamChatMessage
+- TeamChatAttachment
+- TeamChatReactions
+- TeamChatMentions
+- TeamChatNotifications
 
 ### Databasändringar
-- Optimera queries för statistikberäkningar
-- Skapa materialized views för prestandaförbättring
-- Implementera caching-strategi
+- Ny team_messages-tabell för meddelandelagring
+- Ny team_message_reactions-tabell för reaktioner
+- Ny team_message_mentions-tabell för omnämnanden
+- Real-time subscriptions för livechatfunktionalitet
+- Notifikationsintegrering för omnämnanden och viktiga meddelanden

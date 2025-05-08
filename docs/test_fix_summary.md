@@ -55,7 +55,7 @@
 5. ✅ Standardiserade mockningsmönster för vanliga beroenden (Supabase, UniqueId, EventBus)
 6. ✅ Konsekvent teststruktur för React Query hooks med validering, fel och cacheing
 7. ✅ Strukturerade, återanvändbara mockar för komplexa UI-komponenter
-8. ✅ Robust felhantering i tester med hjälp av error-helpers.ts funktioner för tydligare fel
+8. ✅ Robust felhantering i testers med hjälp av error-helpers.ts funktioner för tydligare fel
 9. ✅ Förbättrad testning av integrationspunkter mellan olika lager
 
 ## Nästa steg:
@@ -82,4 +82,65 @@ Följande problem återstår att åtgärda:
 3. ✅ Förbättra felhantering och error reporting i befintliga tester (implementerat med error-helpers.ts)
 4. 🚧 Utöka testningen för team-domänen baserat på mönstren från användardomänen
 
-Genom ovanstående förbättringar har vi skapat en robust testmiljö för användardomänen som kan användas som mall för andra domäner i applikationen. Vi har eliminerat alla skippade testers och förbättrat dokumentationen för hur tester ska skrivas i framtiden. De nya testverktygen och integrationstesterna möjliggör en mer omfattande testning av samspelet mellan olika lager i arkitekturen. 
+Genom ovanstående förbättringar har vi skapat en robust testmiljö för användardomänen som kan användas som mall för andra domäner i applikationen. Vi har eliminerat alla skippade testers och förbättrat dokumentationen för hur tester ska skrivas i framtiden. De nya testverktygen och integrationstesterna möjliggör en mer omfattande testning av samspelet mellan olika lager i arkitekturen.
+
+# Sammanfattning av Testfixar
+
+## User-Team Integration
+
+### Problem som löstes (2024-05-XX)
+
+Följande problem identifierades och löstes i integrationen mellan User och Team domänerna:
+
+1. **Inkonsekvens i basklasser**
+   - Entity och AggregateRoot hade olika förväntan på hur props och id skulle hanteras
+   - Lösning: Standardiserade props-hantering genom att införa `EntityProps` och `AggregateRootProps` interfaces
+
+2. **Problem med domänhändelser**
+   - Domänhändelser skapades inte korrekt, vilket orsakade testfel
+   - Lösning: Standardiserade domänhändelseklasser med korrekt struktur och payload
+
+3. **Felhantering i ValueObjects**
+   - TeamMember värdesobjektet kunde inte skapas korrekt
+   - Lösning: Förbättrade create-metoden och lade till explicit felhantering
+
+4. **Asynkrona operationer i User**
+   - User.create() behövde uppdateras för att hantera asynkrona operationer korrekt
+   - Lösning: Konverterade User.create() till en asynkron metod och uppdaterade alla anrop
+
+5. **Inkonsekvens i medlemshantering**
+   - Team.addMember(), updateMemberRole() och removeMember() var inkonsekventa i sin hantering
+   - Lösning: Standardiserade dessa metoder med förbättrad felhantering och mer robusta kontroller
+
+6. **Felaktiga jämförelser av UniqueIds**
+   - Jämförelser använder str.toString() === str.toString() istället för equals()
+   - Lösning: Uppdaterade alla jämförelser för att använda UniqueId.equals()
+
+7. **Problem med TeamSettings**
+   - Inkonsekvens i TeamSettings-strukturen
+   - Lösning: Standardiserade TeamSettings och fixade uppdateringslogik
+
+### Dokumentation
+
+En ny dokumentationsfil har skapats, `docs/user-team-integration-guide.md`, som beskriver:
+- Domänmodellen
+- Integration mellan User och Team
+- Domänhändelser
+- Viktiga klasser och komponenter
+- Tester
+- Vanliga problem och lösningar
+
+### Fördelar
+
+- Alla integrationstester mellan User och Team passerar nu
+- Mer robusta domänmodeller och händelser
+- Förbättrad koddesign med korrekt tillämpning av DDD-principer
+- Bättre felhantering och återhämtning
+- Mer självförklarande och lättunderhållen kod
+
+### Nästa steg
+
+1. Ta bort debug-loggning
+2. Förbättra felhantering med mer specifika feltyper
+3. Expandera testsviten för edge cases
+4. Överväga att introducera domänservices för komplexare operationer mellan domäner 

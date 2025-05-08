@@ -6,6 +6,7 @@ import { TeamInvitation } from '../value-objects/TeamInvitation';
 import { TeamSettings } from './TeamSettings';
 import { TeamRole } from '../value-objects/TeamRole';
 import { TeamPermission } from '../value-objects/TeamPermission';
+import { MemberJoined, MemberLeft, TeamMemberRoleChanged, TeamCreated, TeamUpdated } from '../events/TeamEvents';
 
 export interface TeamProps {
   id: UniqueId;
@@ -34,10 +35,6 @@ export type TeamUpdateDTO = {
 export class Team extends AggregateRoot<TeamProps> {
   private constructor(props: TeamProps) {
     super(props);
-  }
-
-  get id(): UniqueId {
-    return this.props.id;
   }
 
   get name(): string {
@@ -86,24 +83,33 @@ export class Team extends AggregateRoot<TeamProps> {
       }
 
       // Skapa teamet
-      const teamSettings = TeamSettings.create({
-        visibility: 'private',
-        joinPolicy: 'invite_only',
-        memberLimit: 50,
-        notificationPreferences: {
-          memberJoined: true,
+      const teamSettingsResult = TeamSettings.create({
+        isPrivate: true,
+        requiresApproval: true,
+        maxMembers: 50,
+        allowGuests: false,
+        notificationSettings: {
+          newMembers: true,
           memberLeft: true,
-          roleChanged: true
-        },
-        customFields: {}
-      }).getValue();
+          roleChanges: true,
+          activityUpdates: true
+        }
+      });
+
+      if (teamSettingsResult.isErr()) {
+        return err(`Kunde inte skapa teaminställningar: ${teamSettingsResult.error}`);
+      }
 
       // Skapa ägarens medlemskap med owner-roll
-      const ownerMember = TeamMember.create({
+      const ownerMemberResult = TeamMember.create({
         userId: ownerId,
         role: TeamRole.OWNER,
         joinedAt: new Date()
-      }).getValue();
+      });
+
+      if (ownerMemberResult.isErr()) {
+        return err(`Kunde inte skapa ägarmedlemskap: ${ownerMemberResult.error}`);
+      }
 
       const now = new Date();
 
@@ -112,27 +118,23 @@ export class Team extends AggregateRoot<TeamProps> {
         name: props.name.trim(),
         description: props.description?.trim(),
         ownerId,
-        members: [ownerMember],
+        members: [ownerMemberResult.value],
         invitations: [],
-        settings: teamSettings,
+        settings: teamSettingsResult.value,
         createdAt: now,
         updatedAt: now
       });
 
       // Lägg till domänhändelse
-      team.addDomainEvent({
-        name: 'TeamCreated',
-        payload: {
-          teamId: id.toString(),
-          ownerId: ownerId.toString(),
-          name: props.name,
-          timestamp: now
-        }
-      });
+      team.addDomainEvent(new TeamCreated(
+        id,
+        ownerId,
+        props.name.trim()
+      ));
 
       return ok(team);
     } catch (error) {
-      return err(`Kunde inte skapa team: ${error.message}`);
+      return err(`Kunde inte skapa team: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -153,30 +155,36 @@ export class Team extends AggregateRoot<TeamProps> {
       }
 
       if (updateDTO.settings) {
-        this.props.settings = this.props.settings.update(updateDTO.settings);
+        try {
+          this.props.settings = this.props.settings.update(updateDTO.settings);
+        } catch (error) {
+          return err(`Kunde inte uppdatera inställningar: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
 
       this.props.updatedAt = new Date();
 
       // Lägg till domänhändelse
-      this.addDomainEvent({
-        name: 'TeamUpdated',
-        payload: {
-          teamId: this.id.toString(),
-          name: this.name,
-          timestamp: new Date()
-        }
-      });
+      this.addDomainEvent(new TeamUpdated(
+        this.id,
+        this.name
+      ));
 
       return ok(undefined);
     } catch (error) {
-      return err(`Kunde inte uppdatera team: ${error.message}`);
+      return err(`Kunde inte uppdatera team: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   // Lägg till medlem
   public addMember(member: TeamMember): Result<void, string> {
     try {
+      console.log('addMember', {
+        members: this.props.members.map(m => ({ userId: m.userId.toString(), role: m.role })),
+        newMember: { userId: member.userId.toString(), role: member.role },
+        settings: this.props.settings
+      });
+
       // Kontrollera om användaren redan är medlem
       const existingMember = this.props.members.find(m => 
         m.userId.toString() === member.userId.toString()
@@ -186,8 +194,8 @@ export class Team extends AggregateRoot<TeamProps> {
         return err('Användaren är redan medlem i teamet');
       }
 
-      // Kontrollera medlemsgräns
-      if (this.props.members.length >= this.props.settings.memberLimit) {
+      // Kontrollera medlemsgräns om den finns definierad
+      if (this.props.settings.maxMembers && this.props.members.length >= this.props.settings.maxMembers) {
         return err('Teamet har nått sin medlemsgräns');
       }
 
@@ -196,19 +204,16 @@ export class Team extends AggregateRoot<TeamProps> {
       this.props.updatedAt = new Date();
 
       // Lägg till domänhändelse
-      this.addDomainEvent({
-        name: 'MemberJoined',
-        payload: {
-          teamId: this.id.toString(),
-          userId: member.userId.toString(),
-          role: member.role,
-          timestamp: new Date()
-        }
-      });
+      this.addDomainEvent(new MemberJoined(
+        this.id,
+        member.userId,
+        member.role
+      ));
 
       return ok(undefined);
     } catch (error) {
-      return err(`Kunde inte lägga till medlem: ${error.message}`);
+      console.error('Error i addMember:', error);
+      return err(`Kunde inte lägga till medlem: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -216,14 +221,14 @@ export class Team extends AggregateRoot<TeamProps> {
   public removeMember(userId: UniqueId): Result<void, string> {
     try {
       // Kontrollera om användaren är ägare
-      if (userId.toString() === this.props.ownerId.toString()) {
+      if (this.props.ownerId && userId.equals(this.props.ownerId)) {
         return err('Ägaren kan inte tas bort från teamet');
       }
 
       // Hitta och ta bort medlemmen
       const initialLength = this.props.members.length;
       this.props.members = this.props.members.filter(m => 
-        m.userId.toString() !== userId.toString()
+        !m.userId.equals(userId)
       );
 
       if (this.props.members.length === initialLength) {
@@ -233,67 +238,63 @@ export class Team extends AggregateRoot<TeamProps> {
       this.props.updatedAt = new Date();
 
       // Lägg till domänhändelse
-      this.addDomainEvent({
-        name: 'MemberLeft',
-        payload: {
-          teamId: this.id.toString(),
-          userId: userId.toString(),
-          timestamp: new Date()
-        }
-      });
+      this.addDomainEvent(new MemberLeft(
+        this.id,
+        userId
+      ));
 
       return ok(undefined);
     } catch (error) {
-      return err(`Kunde inte ta bort medlem: ${error.message}`);
+      return err(`Kunde inte ta bort medlem: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   // Uppdatera medlemsroll
   public updateMemberRole(userId: UniqueId, newRole: TeamRole): Result<void, string> {
     try {
-      // Hitta medlemmen
-      const member = this.props.members.find(m => 
-        m.userId.toString() === userId.toString()
-      );
-
-      if (!member) {
-        return err('Användaren är inte medlem i teamet');
-      }
-
       // Kontrollera om användaren är ägare
-      if (userId.toString() === this.props.ownerId.toString() && newRole !== TeamRole.OWNER) {
+      if (this.props.ownerId && userId.equals(this.props.ownerId) && newRole !== TeamRole.OWNER) {
         return err('Ägarrollen kan inte ändras');
       }
 
-      // Uppdatera rollen
-      const updatedMember = TeamMember.create({
+      // Hitta medlemmen
+      const memberIndex = this.props.members.findIndex(m => 
+        m.userId.equals(userId)
+      );
+
+      if (memberIndex === -1) {
+        return err('Användaren är inte medlem i teamet');
+      }
+
+      const member = this.props.members[memberIndex];
+      const oldRole = member.role;
+
+      // Skapa ny medlem med uppdaterad roll
+      const memberResult = TeamMember.create({
         userId: member.userId,
         role: newRole,
         joinedAt: member.joinedAt
-      }).getValue();
+      });
+
+      if (memberResult.isErr()) {
+        return err(`Kunde inte uppdatera medlem: ${memberResult.error}`);
+      }
 
       // Ersätt medlemmen i listan
-      const index = this.props.members.findIndex(m => 
-        m.userId.toString() === userId.toString()
-      );
-
-      this.props.members[index] = updatedMember;
+      this.props.members[memberIndex] = memberResult.value;
       this.props.updatedAt = new Date();
 
       // Lägg till domänhändelse
-      this.addDomainEvent({
-        name: 'RoleChanged',
-        payload: {
-          teamId: this.id.toString(),
-          userId: userId.toString(),
-          role: newRole,
-          timestamp: new Date()
-        }
-      });
+      this.addDomainEvent(new TeamMemberRoleChanged(
+        this.id,
+        userId,
+        oldRole,
+        newRole
+      ));
 
       return ok(undefined);
     } catch (error) {
-      return err(`Kunde inte uppdatera medlemsroll: ${error.message}`);
+      return err(`Kunde inte uppdatera medlemsroll: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

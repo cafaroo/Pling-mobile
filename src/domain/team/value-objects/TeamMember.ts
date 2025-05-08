@@ -1,15 +1,18 @@
-import { Result, ok, err } from '@/shared/core/Result';
-import { UniqueId } from '@/shared/core/UniqueId';
+import { ValueObject } from '../../../shared/core/ValueObject';
+import { UniqueId } from '../../../shared/core/UniqueId';
+import { Result, ok, err } from '../../../shared/core/Result';
 import { TeamRole } from './TeamRole';
 
-export interface TeamMemberProps {
+interface TeamMemberProps {
   userId: UniqueId;
   role: TeamRole;
   joinedAt: Date;
 }
 
-export class TeamMember {
-  private constructor(private readonly props: TeamMemberProps) {}
+export class TeamMember extends ValueObject<TeamMemberProps> {
+  private constructor(props: TeamMemberProps) {
+    super(props);
+  }
 
   get userId(): UniqueId {
     return this.props.userId;
@@ -23,35 +26,44 @@ export class TeamMember {
     return new Date(this.props.joinedAt);
   }
 
-  public static create(props: TeamMemberProps): Result<TeamMember, string> {
+  public static create(props: {
+    userId: string | UniqueId;
+    role: TeamRole;
+    joinedAt: Date;
+  }): Result<TeamMember, string> {
     try {
-      // Validera userId
-      if (!props.userId) {
-        return err('UserId måste anges');
-      }
+      const userId = props.userId instanceof UniqueId
+        ? props.userId
+        : new UniqueId(props.userId);
 
-      // Validera role
-      if (!Object.values(TeamRole).includes(props.role)) {
-        return err(`Ogiltig roll: ${props.role}`);
-      }
-
-      // Validera joinedAt
-      if (!(props.joinedAt instanceof Date) || isNaN(props.joinedAt.getTime())) {
-        return err('Ogiltigt anslutningsdatum');
-      }
-
-      return ok(new TeamMember(props));
+      return ok(new TeamMember({
+        userId,
+        role: props.role,
+        joinedAt: props.joinedAt
+      }));
     } catch (error) {
       return err(`Kunde inte skapa teammedlem: ${error.message}`);
     }
   }
 
   public equals(other: TeamMember): boolean {
-    return this.props.userId.toString() === other.props.userId.toString();
+    return this.props.userId.equals(other.props.userId);
   }
 
-  public hasRole(role: TeamRole): boolean {
-    return this.props.role === role;
+  public canInviteMembers(): boolean {
+    return [TeamRole.OWNER, TeamRole.ADMIN].includes(this.props.role);
+  }
+
+  public canRemoveMembers(): boolean {
+    return [TeamRole.OWNER, TeamRole.ADMIN].includes(this.props.role);
+  }
+
+  public canEditTeam(): boolean {
+    return this.props.role === TeamRole.OWNER;
+  }
+
+  public canManageRoles(): boolean {
+    return this.props.role === TeamRole.OWNER;
   }
 
   public toJSON() {

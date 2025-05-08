@@ -1,4 +1,4 @@
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { Language } from '../value-objects/Language';
 
 export type Theme = 'light' | 'dark' | 'system';
@@ -6,88 +6,71 @@ export type NotificationFrequency = 'instant' | 'daily' | 'weekly' | 'never';
 export type ProfileVisibility = 'public' | 'private' | 'friends';
 
 export interface UserSettingsProps {
-  theme?: Theme;
-  language?: string;
-  notifications?: {
-    enabled: boolean;
-    frequency: NotificationFrequency;
-    emailEnabled: boolean;
-    pushEnabled: boolean;
+  language: string;
+  theme: 'light' | 'dark' | 'system';
+  notifications: {
+    email: boolean;
+    push: boolean;
+    inApp: boolean;
   };
-  privacy?: {
-    profileVisibility: ProfileVisibility;
-    showOnlineStatus: boolean;
-    showLastSeen: boolean;
+  privacy: {
+    showProfile: boolean;
+    showActivity: boolean;
+    showTeams: boolean;
   };
 }
 
 export class UserSettings {
-  private static readonly DEFAULT_SETTINGS: Required<UserSettingsProps> = {
-    theme: 'light',
-    language: 'sv',
-    notifications: {
-      enabled: true,
-      frequency: 'daily',
-      emailEnabled: true,
-      pushEnabled: true,
-    },
-    privacy: {
-      profileVisibility: 'public',
-      showOnlineStatus: true,
-      showLastSeen: true,
-    }
-  };
+  private readonly props: UserSettingsProps;
 
-  private constructor(private readonly props: Required<UserSettingsProps>) {}
+  private constructor(props: UserSettingsProps) {
+    this.props = props;
+  }
 
-  public static create(settings: UserSettingsProps): Result<UserSettings> {
-    const mergedSettings = {
-      ...UserSettings.DEFAULT_SETTINGS,
-      ...settings
+  public static create(props: Partial<UserSettingsProps> = {}): Result<UserSettings, string> {
+    const defaultSettings: UserSettingsProps = {
+      language: 'sv',
+      theme: 'system',
+      notifications: {
+        email: true,
+        push: true,
+        inApp: true
+      },
+      privacy: {
+        showProfile: true,
+        showActivity: true,
+        showTeams: true
+      }
     };
 
-    // Validera tema
-    if (!UserSettings.isValidTheme(mergedSettings.theme)) {
-      return Result.err('Ogiltigt tema');
+    if (props.language && !['sv', 'en'].includes(props.language)) {
+      return err('Ogiltigt språk');
     }
 
-    // Validera språk
-    const languageResult = Language.create(mergedSettings.language);
-    if (languageResult.isErr()) {
-      return Result.err('Ogiltigt språk');
+    if (props.theme && !['light', 'dark', 'system'].includes(props.theme)) {
+      return err('Ogiltigt tema');
     }
 
-    // Validera notifikationsfrekvens
-    if (!UserSettings.isValidNotificationFrequency(mergedSettings.notifications.frequency)) {
-      return Result.err('Ogiltig notifikationsfrekvens');
-    }
-
-    // Validera profilsynlighet
-    if (!UserSettings.isValidProfileVisibility(mergedSettings.privacy.profileVisibility)) {
-      return Result.err('Ogiltig profilsynlighet');
-    }
-
-    return Result.ok(new UserSettings(mergedSettings));
-  }
-
-  private static isValidTheme(theme: string): theme is Theme {
-    return ['light', 'dark', 'system'].includes(theme);
-  }
-
-  private static isValidNotificationFrequency(frequency: string): frequency is NotificationFrequency {
-    return ['instant', 'daily', 'weekly', 'never'].includes(frequency);
-  }
-
-  private static isValidProfileVisibility(visibility: string): visibility is ProfileVisibility {
-    return ['public', 'private', 'friends'].includes(visibility);
-  }
-
-  public get theme(): Theme {
-    return this.props.theme;
+    return ok(new UserSettings({
+      ...defaultSettings,
+      ...props,
+      notifications: {
+        ...defaultSettings.notifications,
+        ...(props.notifications || {})
+      },
+      privacy: {
+        ...defaultSettings.privacy,
+        ...(props.privacy || {})
+      }
+    }));
   }
 
   public get language(): string {
     return this.props.language;
+  }
+
+  public get theme(): 'light' | 'dark' | 'system' {
+    return this.props.theme;
   }
 
   public get notifications() {
@@ -98,37 +81,26 @@ export class UserSettings {
     return { ...this.props.privacy };
   }
 
-  public updateTheme(theme: Theme): Result<UserSettings> {
-    return UserSettings.create({
-      ...this.props,
-      theme
-    });
-  }
+  public update(settings: Partial<UserSettingsProps>): Result<UserSettings, string> {
+    if (settings.language && !['sv', 'en'].includes(settings.language)) {
+      return err('Ogiltigt språk');
+    }
 
-  public updateLanguage(language: string): Result<UserSettings> {
-    return UserSettings.create({
-      ...this.props,
-      language
-    });
-  }
+    if (settings.theme && !['light', 'dark', 'system'].includes(settings.theme)) {
+      return err('Ogiltigt tema');
+    }
 
-  public updateNotifications(notifications: Partial<typeof UserSettings.DEFAULT_SETTINGS.notifications>): Result<UserSettings> {
-    return UserSettings.create({
+    return ok(new UserSettings({
       ...this.props,
+      ...settings,
       notifications: {
         ...this.props.notifications,
-        ...notifications
-      }
-    });
-  }
-
-  public updatePrivacy(privacy: Partial<typeof UserSettings.DEFAULT_SETTINGS.privacy>): Result<UserSettings> {
-    return UserSettings.create({
-      ...this.props,
+        ...(settings.notifications || {})
+      },
       privacy: {
         ...this.props.privacy,
-        ...privacy
+        ...(settings.privacy || {})
       }
-    });
+    }));
   }
 } 

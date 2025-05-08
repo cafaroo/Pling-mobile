@@ -1,25 +1,77 @@
-import { Team } from '../entities/Team';
-import { TeamMember } from '../entities/TeamMember';
-import { TeamInvitation } from '../entities/TeamInvitation';
 import { Result } from '@/shared/core/Result';
-import { UniqueId } from '@/shared/domain/UniqueId';
+import { Team } from '../entities/Team';
+import { UniqueId } from '@/shared/core/UniqueId';
+import { TeamMember } from '../value-objects/TeamMember';
+import { TeamInvitation } from '../value-objects/TeamInvitation';
 
 export interface TeamRepository {
-  findById(id: UniqueId): Promise<Team | null>;
-  findByOwnerId(ownerId: UniqueId): Promise<Team[]>;
-  findByMemberId(userId: UniqueId): Promise<Team[]>;
-  save(team: Team): Promise<void>;
-  delete(id: UniqueId): Promise<void>;
-  
-  // Medlemshantering
-  addMember(teamId: UniqueId, member: TeamMember): Promise<Result<void, Error>>;
-  updateMemberRole(teamId: UniqueId, userId: UniqueId, role: string): Promise<Result<void, Error>>;
-  removeMember(teamId: UniqueId, userId: UniqueId): Promise<Result<void, Error>>;
-  
-  // Inbjudningshantering
-  createInvitation(invitation: TeamInvitation): Promise<Result<void, Error>>;
-  findInvitationById(id: UniqueId): Promise<TeamInvitation | null>;
-  findInvitationsByTeamId(teamId: UniqueId): Promise<TeamInvitation[]>;
-  acceptInvitation(id: UniqueId): Promise<Result<void, Error>>;
-  deleteInvitation(id: UniqueId): Promise<void>;
+  /**
+   * Hämta team med specifikt ID
+   */
+  findById(id: UniqueId): Promise<Result<Team, string>>;
+
+  /**
+   * Hämta alla team för en användare
+   */
+  findByUserId(userId: UniqueId): Promise<Result<Team[], string>>;
+
+  /**
+   * Spara ett team (skapa eller uppdatera)
+   */
+  save(team: Team): Promise<Result<void, string>>;
+
+  /**
+   * Ta bort ett team
+   */
+  delete(id: UniqueId): Promise<Result<void, string>>;
+
+  /**
+   * Hämta teammedlemmar
+   */
+  getMembers(teamId: UniqueId): Promise<Result<TeamMember[], string>>;
+
+  /**
+   * Lägg till medlem i team
+   */
+  addMember(teamId: UniqueId, member: TeamMember): Promise<Result<void, string>>;
+
+  /**
+   * Ta bort medlem från team
+   */
+  removeMember(teamId: UniqueId, userId: UniqueId): Promise<Result<void, string>>;
+
+  /**
+   * Uppdatera medlemsuppgifter (som roll)
+   */
+  updateMember(teamId: UniqueId, member: TeamMember): Promise<Result<void, string>>;
+
+  /**
+   * Hämta aktiva inbjudningar för ett team
+   */
+  getInvitations(teamId: UniqueId): Promise<Result<TeamInvitation[], string>>;
+
+  /**
+   * Skapa inbjudan till team
+   */
+  createInvitation(invitation: TeamInvitation): Promise<Result<void, string>>;
+
+  /**
+   * Uppdatera inbjudans status
+   */
+  updateInvitation(invitation: TeamInvitation): Promise<Result<void, string>>;
+
+  /**
+   * Ta bort inbjudan
+   */
+  deleteInvitation(id: UniqueId): Promise<Result<void, string>>;
+
+  /**
+   * Hämta team som matchar sökterm
+   */
+  search(query: string, limit?: number): Promise<Result<Team[], string>>;
+
+  /**
+   * Kontrollera om användare är medlem i team
+   */
+  isMember(teamId: UniqueId, userId: UniqueId): Promise<Result<boolean, string>>;
 } 

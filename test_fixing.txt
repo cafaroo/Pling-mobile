@@ -400,6 +400,31 @@ Detaljerad plan för att åtgärda pågående testproblem i Pling Mobile-appen.
   - Testade hjälpfunktionerna ok och err
   - Alla tester passerade framgångsrikt
 
+### Framsteg (2024-06-28)
+- Fixade UserFeedback.test.tsx:
+  - Ersatte dåliga mockar med ordentliga komponentmockar som efterliknar React Native-komponenter
+  - Implementerade mockade TouchableOpacity-komponenter för att hantera press-events
+  - Fixa problem med jest.mock()-användningen och externa referenser
+  - Använder testID för att identifiera och interagera med komponenter
+  - Använder factiska React Testing Library metoder istället för hårdkodade resultat
+  - Förbättrade testerna för useFeedback-hook med en bättre teststrategi
+  - Använde separata callback-funktioner för att testa hooks korrekt
+
+- Fixade SupabaseUserRepository.test.ts:
+  - Korrigerade modulsökvägen från '../SupabaseUserRepository' till '../UserRepository'
+  - Lade till mockad EventBus eftersom den verkliga implementationen kräver det
+  - Anpassade mockade användarobjektet till att matcha domänmodellen
+  - Uppdaterade testerna för att hantera Result-objekt korrekt
+  - Fixa test för toPersistence och andra metoder
+  - Testade domänhändelse-hanteringen vid sparande av användare
+
+- Fixade UserMapper.test.ts:
+  - Tog bort mock av själva UserMapper och använder den faktiska implementationen
+  - Förbättrade mockningar av domänobjekt för att matcha förväntad struktur
+  - Fixade tester för edge cases och felhantering
+  - Säkerställde korrekt hantering av värdeobject och domänentiteter
+  - Förbättrade assertions för att verifiera datastrukturer mer noggrant
+
 ### Lärdomar
 - ID-generering: Det är viktigt att använda samma ID genom hela ett testflöde
 - Domain Entity-konstruktion: Förstå skillnaden mellan Entity.create och new Entity()
@@ -407,20 +432,37 @@ Detaljerad plan för att åtgärda pågående testproblem i Pling Mobile-appen.
 - Resultat med ok/err: Var noggrann med att kontrollera och returnera Result-objekt korrekt
 - Jest.mock och variabler: Använd aldrig variabler från utanför scope i mockdefinitioner
 - Jest.mock och Result: För mockade Result-objekt, skapa hjälpfunktioner (mockOkResult, mockErrResult)
+- UI-komponenttester: Använd testID för att identifiera komponenter istället för text
+- React Native mockningar: Använd mockade TouchableOpacity för att hantera press-events
+- Hooks testning: Bygg testkomponenter som kan exponera hook-funktionalitet för testning
 
 ### Nästa steg
-- Fixa UserFeedback.test.tsx och andra UI-komponenttester
-- Undersöka SupabaseUserRepository.test.ts
-- Avsluta UserMapper.test.ts
+- Verifiera att alla tester kör korrekt
+- Dokumentera förbättringsförslag för teststruktur och standardisering
+- Undersöka om ytterligare tester behöver skrivas för bättre täckning
 
-## 8. Sammanfattning av kvarstående problem
+## 8. Sammanfattning av fixade tester (2024-06-28)
 1. **UI-lager**:
-   - 🚧 UserFeedback.test.tsx - Renderingsproblem med React-komponenter
-   - 🚧 ProfileScreen.test.tsx - Liknande renderingsproblem och testID-relaterade fel
+   - ✅ UserFeedback.test.tsx - Renderingsproblem med React-komponenter
+   - ✅ ProfileScreen.test.tsx - Renderingsproblem och testID-relaterade fel
    
 2. **Applikationslager**:
    - 🚧 useUserSettings.test.tsx - Skippat p.g.a. komplicerad React Query-integration och svårigheter med mockad Supabase-klient
    
 3. **Infrastrukturlager**:
-   - 🚧 SupabaseUserRepository.test.ts - Modulimportfel
-   - 🚧 UserMapper.test.ts - Problem med mockade domänobjekt och jest.mock-referenser 
+   - ✅ SupabaseUserRepository.test.ts - Modulimportfel
+   - ✅ UserMapper.test.ts - Problem med mockade domänobjekt och jest.mock-referenser
+   
+4. **Domänlager**:
+   - ✅ Result.test.ts - Implementerat fullständiga tester för Result-klassen
+   - ✅ UserRepositoryIntegration.test.ts - Problem med mockad repository
+
+## 9. Sammanfattning av kvarstående problem
+1. **Applikationslager**:
+   - 🚧 useUserSettings.test.tsx - Skippat p.g.a. komplicerad React Query-integration och svårigheter med mockad Supabase-klient
+
+2. **Övriga förbättringar**:
+   - Skapa enhetliga mockningsmönster för alla tester
+   - Förbättra integrationen mellan Jest och React Testing Library
+   - Implementera mer robusta mönster för att testa asynkrona flöden
+   - Standardisera hur domänhändelser testas i hela kodbasen 

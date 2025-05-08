@@ -135,22 +135,62 @@ jest.mock('src/context/ThemeContext', () => ({
 }), { virtual: true });
 
 // Mock för Supabase
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getUser: jest.fn(),
-      signOut: jest.fn(),
-      onAuthStateChange: jest.fn(),
-    },
-    from: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    update: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    single: jest.fn(),
-  }
-}));
+const mockSupabaseClient = {
+  auth: {
+    getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    signInWithPassword: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    signUp: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    signOut: jest.fn().mockResolvedValue({ error: null }),
+    onAuthStateChange: jest.fn().mockImplementation(() => {
+      return { data: { subscription: { unsubscribe: jest.fn() } } };
+    })
+  },
+  from: jest.fn().mockReturnThis(),
+  select: jest.fn().mockReturnThis(),
+  insert: jest.fn().mockReturnThis(),
+  update: jest.fn().mockReturnThis(),
+  delete: jest.fn().mockReturnThis(),
+  upsert: jest.fn().mockReturnThis(),
+  eq: jest.fn().mockReturnThis(),
+  single: jest.fn().mockResolvedValue({ data: null, error: null }),
+  maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+  in: jest.fn().mockReturnThis(),
+  order: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis()
+};
+
+// Mocka supabase för alla möjliga sökvägar
+const mockSupabase = {
+  supabase: mockSupabaseClient,
+  createClient: jest.fn().mockReturnValue(mockSupabaseClient)
+};
+
+// Fönsätt att använda olika varianter av sökvägar för att säkerställa att alla mockas korrekt
+jest.mock('src/infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
+jest.mock('src/infrastructure/supabase/index', () => mockSupabase, { virtual: true });
+jest.mock('@/infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
+jest.mock('@/infrastructure/supabase/index', () => mockSupabase, { virtual: true });
+jest.mock('../infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
+jest.mock('../infrastructure/supabase/index', () => mockSupabase, { virtual: true });
+jest.mock('../../infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
+jest.mock('../../infrastructure/supabase/index', () => mockSupabase, { virtual: true });
+
+// Lägg även till en mock för src/infrastructure/supabase/hooks/useSupabase.ts
+jest.mock('src/infrastructure/supabase/hooks/useSupabase.ts', () => ({
+  useSupabase: jest.fn().mockReturnValue({
+    supabase: mockSupabaseClient
+  })
+}), { virtual: true });
+jest.mock('src/infrastructure/supabase/hooks/useSupabase', () => ({
+  useSupabase: jest.fn().mockReturnValue({
+    supabase: mockSupabaseClient
+  })
+}), { virtual: true });
+jest.mock('@/infrastructure/supabase/hooks/useSupabase', () => ({
+  useSupabase: jest.fn().mockReturnValue({
+    supabase: mockSupabaseClient
+  })
+}), { virtual: true });
 
 // Mock för expo-image
 jest.mock('expo-image', () => ({

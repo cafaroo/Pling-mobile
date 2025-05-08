@@ -8,7 +8,7 @@ import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 import { TeamError } from '@/domain/team/errors/TeamError';
 import { TeamRole } from '@/domain/team/value-objects/TeamRole';
 
-interface CreateTeamDTO {
+export interface CreateTeamDTO {
   name: string;
   description?: string;
   ownerId: string;
@@ -77,4 +77,46 @@ export const createTeam = ({ teamRepo }: Dependencies) => {
       });
     }
   };
-}; 
+};
+
+export class CreateTeamUseCase {
+  constructor(private teamRepository: TeamRepository) {}
+
+  async execute(dto: CreateTeamDTO): Promise<Result<string, string>> {
+    try {
+      // Validera indata
+      if (!dto.name) {
+        return err('Teamnamn är obligatoriskt');
+      }
+
+      if (!dto.ownerId) {
+        return err('Ägar-ID är obligatoriskt');
+      }
+
+      // Skapa team-entitet
+      const ownerId = new UniqueId(dto.ownerId);
+      const teamResult = Team.create({
+        name: dto.name,
+        description: dto.description,
+        ownerId
+      });
+
+      if (teamResult.isErr()) {
+        return err(teamResult.error);
+      }
+
+      const team = teamResult.getValue();
+
+      // Spara team
+      const saveResult = await this.teamRepository.save(team);
+      if (saveResult.isErr()) {
+        return err(`Kunde inte spara team: ${saveResult.error}`);
+      }
+
+      // Returnera team-ID
+      return ok(team.id.toString());
+    } catch (error) {
+      return err(`Ett fel uppstod vid skapande av team: ${error.message}`);
+    }
+  }
+} 

@@ -1,13 +1,202 @@
 import { ValueObject } from '@/shared/domain/ValueObject';
+import { TeamRole } from './TeamRole';
 
-export enum PermissionCategory {
-  TEAM_MANAGEMENT = 'team_management',
-  MEMBER_MANAGEMENT = 'member_management',
-  CONTENT_MANAGEMENT = 'content_management',
-  STATISTICS = 'statistics',
-  COMMUNICATION = 'communication',
-  GOALS = 'goals',
-  ADMIN = 'admin'
+export enum TeamPermission {
+  // Grundläggande behörigheter
+  VIEW_TEAM = 'view_team',
+  EDIT_TEAM = 'edit_team',
+  DELETE_TEAM = 'delete_team',
+  
+  // Medlemshantering
+  INVITE_MEMBERS = 'invite_members',
+  REMOVE_MEMBERS = 'remove_members',
+  MANAGE_ROLES = 'manage_roles',
+  
+  // Aktiviteter
+  CREATE_ACTIVITIES = 'create_activities',
+  EDIT_ACTIVITIES = 'edit_activities',
+  DELETE_ACTIVITIES = 'delete_activities',
+  JOIN_ACTIVITIES = 'join_activities',
+  
+  // Kommunikation
+  SEND_MESSAGES = 'send_messages',
+  MODERATE_MESSAGES = 'moderate_messages',
+  
+  // Resurshantering
+  UPLOAD_FILES = 'upload_files',
+  MANAGE_FILES = 'manage_files',
+  
+  // Målhantering
+  CREATE_GOALS = 'create_goals',
+  EDIT_GOALS = 'edit_goals',
+  DELETE_GOALS = 'delete_goals'
+}
+
+export type PermissionCategory = 'basic' | 'members' | 'activities' | 'communication' | 'resources' | 'goals';
+
+export interface PermissionDefinition {
+  permission: TeamPermission;
+  category: PermissionCategory;
+  label: string;
+  description: string;
+}
+
+export const TeamPermissionDetails: Record<TeamPermission, PermissionDefinition> = {
+  // Grundläggande behörigheter
+  [TeamPermission.VIEW_TEAM]: {
+    permission: TeamPermission.VIEW_TEAM,
+    category: 'basic',
+    label: 'Se team',
+    description: 'Kan visa teamet och grundläggande information'
+  },
+  [TeamPermission.EDIT_TEAM]: {
+    permission: TeamPermission.EDIT_TEAM,
+    category: 'basic',
+    label: 'Redigera team',
+    description: 'Kan ändra teamets namn, beskrivning och inställningar'
+  },
+  [TeamPermission.DELETE_TEAM]: {
+    permission: TeamPermission.DELETE_TEAM,
+    category: 'basic',
+    label: 'Ta bort team',
+    description: 'Kan ta bort teamet permanent'
+  },
+  
+  // Medlemshantering
+  [TeamPermission.INVITE_MEMBERS]: {
+    permission: TeamPermission.INVITE_MEMBERS,
+    category: 'members',
+    label: 'Bjud in medlemmar',
+    description: 'Kan bjuda in nya medlemmar till teamet'
+  },
+  [TeamPermission.REMOVE_MEMBERS]: {
+    permission: TeamPermission.REMOVE_MEMBERS,
+    category: 'members',
+    label: 'Ta bort medlemmar',
+    description: 'Kan ta bort medlemmar från teamet'
+  },
+  [TeamPermission.MANAGE_ROLES]: {
+    permission: TeamPermission.MANAGE_ROLES,
+    category: 'members',
+    label: 'Hantera roller',
+    description: 'Kan ändra medlemmars roller och behörigheter'
+  },
+  
+  // Aktiviteter
+  [TeamPermission.CREATE_ACTIVITIES]: {
+    permission: TeamPermission.CREATE_ACTIVITIES,
+    category: 'activities',
+    label: 'Skapa aktiviteter',
+    description: 'Kan skapa nya aktiviteter i teamet'
+  },
+  [TeamPermission.EDIT_ACTIVITIES]: {
+    permission: TeamPermission.EDIT_ACTIVITIES,
+    category: 'activities',
+    label: 'Redigera aktiviteter',
+    description: 'Kan ändra existerande aktiviteter'
+  },
+  [TeamPermission.DELETE_ACTIVITIES]: {
+    permission: TeamPermission.DELETE_ACTIVITIES,
+    category: 'activities',
+    label: 'Ta bort aktiviteter',
+    description: 'Kan ta bort aktiviteter från teamet'
+  },
+  [TeamPermission.JOIN_ACTIVITIES]: {
+    permission: TeamPermission.JOIN_ACTIVITIES,
+    category: 'activities',
+    label: 'Delta i aktiviteter',
+    description: 'Kan delta i teamets aktiviteter'
+  },
+  
+  // Kommunikation
+  [TeamPermission.SEND_MESSAGES]: {
+    permission: TeamPermission.SEND_MESSAGES,
+    category: 'communication',
+    label: 'Skicka meddelanden',
+    description: 'Kan skicka meddelanden i teamchatten'
+  },
+  [TeamPermission.MODERATE_MESSAGES]: {
+    permission: TeamPermission.MODERATE_MESSAGES,
+    category: 'communication',
+    label: 'Moderera meddelanden',
+    description: 'Kan redigera och ta bort andras meddelanden'
+  },
+  
+  // Resurshantering
+  [TeamPermission.UPLOAD_FILES]: {
+    permission: TeamPermission.UPLOAD_FILES,
+    category: 'resources',
+    label: 'Ladda upp filer',
+    description: 'Kan ladda upp filer till teamets resursbibliotek'
+  },
+  [TeamPermission.MANAGE_FILES]: {
+    permission: TeamPermission.MANAGE_FILES,
+    category: 'resources',
+    label: 'Hantera filer',
+    description: 'Kan organisera, redigera och ta bort filer'
+  },
+  
+  // Målhantering
+  [TeamPermission.CREATE_GOALS]: {
+    permission: TeamPermission.CREATE_GOALS,
+    category: 'goals',
+    label: 'Skapa mål',
+    description: 'Kan skapa nya mål för teamet'
+  },
+  [TeamPermission.EDIT_GOALS]: {
+    permission: TeamPermission.EDIT_GOALS,
+    category: 'goals',
+    label: 'Redigera mål',
+    description: 'Kan ändra existerande mål'
+  },
+  [TeamPermission.DELETE_GOALS]: {
+    permission: TeamPermission.DELETE_GOALS,
+    category: 'goals',
+    label: 'Ta bort mål',
+    description: 'Kan ta bort teamets mål'
+  }
+};
+
+export const DefaultRolePermissions = {
+  [TeamRole.OWNER]: Object.values(TeamPermission),
+  [TeamRole.ADMIN]: [
+    TeamPermission.VIEW_TEAM,
+    TeamPermission.EDIT_TEAM,
+    TeamPermission.INVITE_MEMBERS,
+    TeamPermission.REMOVE_MEMBERS,
+    TeamPermission.MANAGE_ROLES,
+    TeamPermission.CREATE_ACTIVITIES,
+    TeamPermission.EDIT_ACTIVITIES,
+    TeamPermission.DELETE_ACTIVITIES,
+    TeamPermission.JOIN_ACTIVITIES,
+    TeamPermission.SEND_MESSAGES,
+    TeamPermission.MODERATE_MESSAGES,
+    TeamPermission.UPLOAD_FILES,
+    TeamPermission.MANAGE_FILES,
+    TeamPermission.CREATE_GOALS,
+    TeamPermission.EDIT_GOALS,
+    TeamPermission.DELETE_GOALS
+  ],
+  [TeamRole.MEMBER]: [
+    TeamPermission.VIEW_TEAM,
+    TeamPermission.JOIN_ACTIVITIES,
+    TeamPermission.SEND_MESSAGES,
+    TeamPermission.UPLOAD_FILES
+  ]
+};
+
+export function getPermissionsByCategory(category: PermissionCategory): PermissionDefinition[] {
+  return Object.values(TeamPermissionDetails).filter(
+    permission => permission.category === category
+  );
+}
+
+export function getPermissionLabel(permission: TeamPermission): string {
+  return TeamPermissionDetails[permission]?.label || permission;
+}
+
+export function getPermissionDescription(permission: TeamPermission): string {
+  return TeamPermissionDetails[permission]?.description || '';
 }
 
 /**

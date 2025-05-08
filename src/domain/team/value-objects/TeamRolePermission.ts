@@ -1,171 +1,110 @@
-import { ValueObject } from '@/shared/domain/ValueObject';
-import { TeamPermission } from './TeamPermission';
+import { Result, ok, err } from '@/shared/core/Result';
 import { TeamRole } from './TeamRole';
+import { TeamPermission } from './TeamPermission';
 
-/**
- * Value object för rollbaserade behörigheter i team-domänen
- */
-export class TeamRolePermission extends ValueObject<{
-  role: string;
-  permissions: string[];
-}> {
-  private _roleDisplay: string;
-  private _description: string;
+export interface TeamRolePermissionProps {
+  role: TeamRole;
+  permissions: TeamPermission[];
+}
 
-  private constructor(
-    role: string,
-    permissions: string[],
-    roleDisplay: string,
-    description: string
-  ) {
-    super({ role, permissions });
-    this._roleDisplay = roleDisplay;
-    this._description = description;
-  }
+export class TeamRolePermission {
+  private constructor(private readonly props: TeamRolePermissionProps) {}
 
-  get role(): string {
+  get role(): TeamRole {
     return this.props.role;
   }
 
-  get permissions(): string[] {
-    return this.props.permissions;
+  get permissions(): TeamPermission[] {
+    return [...this.props.permissions];
   }
 
-  get permissionObjects(): TeamPermission[] {
-    return this.permissions.map(permName => TeamPermission.create(permName));
+  hasPermission(permission: TeamPermission): boolean {
+    return this.props.permissions.includes(permission);
   }
 
-  get displayName(): string {
-    return this._roleDisplay;
-  }
-
-  get description(): string {
-    return this._description;
-  }
-
-  /**
-   * Kontrollera om denna roll har en specifik behörighet
-   */
-  public hasPermission(permission: string | TeamPermission): boolean {
-    const permissionName = typeof permission === 'string' 
-      ? permission 
-      : permission.name;
-    
-    return this.permissions.includes(permissionName);
-  }
-
-  /**
-   * Skapa en rollbehörighet
-   */
-  public static create(
-    role: string,
-    permissions: string[],
-    displayName?: string,
-    description?: string
-  ): TeamRolePermission {
-    if (!TeamRole.isValidRole(role)) {
-      throw new Error(`Ogiltig teamroll: ${role}`);
-    }
-
-    // Validera alla behörigheter
-    permissions.forEach(permName => {
-      try {
-        TeamPermission.create(permName);
-      } catch (error) {
-        throw new Error(`Ogiltig behörighet för roll: ${permName}`);
+  static create(props: TeamRolePermissionProps): Result<TeamRolePermission, string> {
+    try {
+      // Validera roll
+      if (!Object.values(TeamRole).includes(props.role)) {
+        return err(`Ogiltig roll: ${props.role}`);
       }
-    });
 
-    const roleDisplayNames: Record<string, string> = {
-      [TeamRole.OWNER]: 'Ägare',
-      [TeamRole.ADMIN]: 'Administratör',
-      [TeamRole.MEMBER]: 'Medlem',
+      // Validera behörigheter
+      const uniquePermissions = [...new Set(props.permissions)];
+      const invalidPermissions = uniquePermissions.filter(
+        permission => !Object.values(TeamPermission).includes(permission)
+      );
+
+      if (invalidPermissions.length > 0) {
+        return err(`Ogiltiga behörigheter: ${invalidPermissions.join(', ')}`);
+      }
+
+      return ok(new TeamRolePermission({
+        role: props.role,
+        permissions: uniquePermissions
+      }));
+    } catch (error) {
+      return err(`Kunde inte skapa rollbehörighet: ${error.message}`);
+    }
+  }
+
+  addPermission(permission: TeamPermission): Result<TeamRolePermission, string> {
+    try {
+      if (!Object.values(TeamPermission).includes(permission)) {
+        return err(`Ogiltig behörighet: ${permission}`);
+      }
+
+      if (this.hasPermission(permission)) {
+        return ok(this); // Behörigheten finns redan
+      }
+
+      return TeamRolePermission.create({
+        role: this.props.role,
+        permissions: [...this.props.permissions, permission]
+      });
+    } catch (error) {
+      return err(`Kunde inte lägga till behörighet: ${error.message}`);
+    }
+  }
+
+  removePermission(permission: TeamPermission): Result<TeamRolePermission, string> {
+    try {
+      if (!this.hasPermission(permission)) {
+        return ok(this); // Behörigheten finns inte
+      }
+
+      return TeamRolePermission.create({
+        role: this.props.role,
+        permissions: this.props.permissions.filter(p => p !== permission)
+      });
+    } catch (error) {
+      return err(`Kunde inte ta bort behörighet: ${error.message}`);
+    }
+  }
+
+  setPermissions(permissions: TeamPermission[]): Result<TeamRolePermission, string> {
+    try {
+      return TeamRolePermission.create({
+        role: this.props.role,
+        permissions
+      });
+    } catch (error) {
+      return err(`Kunde inte sätta behörigheter: ${error.message}`);
+    }
+  }
+
+  static fromRole(role: TeamRole): Result<TeamRolePermission, string> {
+    // Använd standardbehörigheter för roller
+    const { DefaultRolePermissions } = require('./TeamPermission');
+    
+    const permissions = DefaultRolePermissions[role] || [];
+    return TeamRolePermission.create({ role, permissions });
+  }
+
+  toJSON() {
+    return {
+      role: this.props.role,
+      permissions: this.props.permissions
     };
-
-    const roleDescriptions: Record<string, string> = {
-      [TeamRole.OWNER]: 'Fullständig kontroll över teamet med alla behörigheter',
-      [TeamRole.ADMIN]: 'Administrativa rättigheter för att hantera teamet',
-      [TeamRole.MEMBER]: 'Standardbehörigheter för en teammedlem',
-    };
-
-    return new TeamRolePermission(
-      role,
-      permissions,
-      displayName || roleDisplayNames[role] || role,
-      description || roleDescriptions[role] || ''
-    );
-  }
-
-  /**
-   * Få alla standardroller med deras behörigheter
-   */
-  public static getDefaultRoles(): TeamRolePermission[] {
-    return [
-      this.getOwnerRole(),
-      this.getAdminRole(),
-      this.getMemberRole()
-    ];
-  }
-
-  /**
-   * Få roller ordnade efter prioritet (högre behörigheter först)
-   */
-  public static getRolesByPriority(): TeamRolePermission[] {
-    const roles = this.getDefaultRoles();
-    
-    // Sortera roller efter antal behörigheter (högre först)
-    return roles.sort((a, b) => b.permissions.length - a.permissions.length);
-  }
-
-  /**
-   * Ägarroll med alla behörigheter
-   */
-  public static getOwnerRole(): TeamRolePermission {
-    // Ägare har alla behörigheter
-    const allPermissions = TeamPermission.createAll().map(p => p.name);
-    
-    return this.create(TeamRole.OWNER, allPermissions);
-  }
-
-  /**
-   * Administratörsroll med många behörigheter
-   */
-  public static getAdminRole(): TeamRolePermission {
-    // Administratörer har många behörigheter, men inte alla
-    const adminPermissions = [
-      TeamPermission.UPDATE_TEAM_SETTINGS,
-      TeamPermission.INVITE_MEMBERS,
-      TeamPermission.REMOVE_MEMBERS,
-      TeamPermission.MANAGE_ROLES,
-      TeamPermission.APPROVE_MEMBERS,
-      TeamPermission.MANAGE_CONTENT,
-      TeamPermission.CREATE_POSTS,
-      TeamPermission.DELETE_POSTS,
-      TeamPermission.VIEW_STATISTICS,
-      TeamPermission.EXPORT_DATA,
-      TeamPermission.SEND_MESSAGES,
-      TeamPermission.MANAGE_CHANNELS,
-      TeamPermission.CREATE_GOALS,
-      TeamPermission.ASSIGN_GOALS,
-      TeamPermission.COMPLETE_GOALS
-    ];
-    
-    return this.create(TeamRole.ADMIN, adminPermissions);
-  }
-
-  /**
-   * Standardmedlemsroll med grundläggande behörigheter
-   */
-  public static getMemberRole(): TeamRolePermission {
-    // Medlemmar har begränsade behörigheter
-    const memberPermissions = [
-      TeamPermission.CREATE_POSTS,
-      TeamPermission.VIEW_STATISTICS,
-      TeamPermission.SEND_MESSAGES,
-      TeamPermission.CREATE_GOALS,
-      TeamPermission.COMPLETE_GOALS
-    ];
-    
-    return this.create(TeamRole.MEMBER, memberPermissions);
   }
 } 

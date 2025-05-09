@@ -3,7 +3,7 @@ import { EventBus } from '@/shared/core/EventBus';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { OptimizedTeamActivityRepository } from '../OptimizedTeamActivityRepository';
 import { StatisticsPeriod } from '@/domain/team/value-objects/TeamStatistics';
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 
 // Definiera OperationType för testerna
 const OperationType = {
@@ -55,7 +55,7 @@ describe('OptimizedTeamActivityRepository', () => {
   describe('getStatistics', () => {
     it('ska returnera cachad data om tillgänglig', async () => {
       // Arrange
-      const cachedResult = Result.ok(mockStats);
+      const cachedResult = ok(mockStats);
       global.__mocks__.mockCacheService.get.mockResolvedValue(cachedResult);
 
       // Act
@@ -91,7 +91,7 @@ describe('OptimizedTeamActivityRepository', () => {
       // Assert
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.getValue()).toEqual(expect.objectContaining({
+        expect(result.value).toEqual(expect.objectContaining({
           teamId,
           period: StatisticsPeriod.WEEKLY,
           activityCount: 10,
@@ -127,7 +127,7 @@ describe('OptimizedTeamActivityRepository', () => {
       // Assert
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError()).toContain('Kunde inte hämta teamstatistik');
+        expect(result.error).toContain('Kunde inte hämta teamstatistik');
       }
       expect(global.__mocks__.mockCacheService.set).not.toHaveBeenCalled();
       expect(global.__mocks__.mockLogger.error).toHaveBeenCalledWith(

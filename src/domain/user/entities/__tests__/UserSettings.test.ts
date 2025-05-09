@@ -8,19 +8,18 @@ describe('UserSettings', () => {
       
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const settings = result.getValue();
-        expect(settings.theme).toBe('light');
+        const settings = result.value;
+        expect(settings.theme).toBe('system');
         expect(settings.language).toBe('sv');
         expect(settings.notifications).toEqual({
-          enabled: true,
-          frequency: 'daily',
-          emailEnabled: true,
-          pushEnabled: true
+          email: true,
+          push: true,
+          inApp: true
         });
         expect(settings.privacy).toEqual({
-          profileVisibility: 'public',
-          showOnlineStatus: true,
-          showLastSeen: true
+          showProfile: true,
+          showActivity: true,
+          showTeams: true
         });
       }
     });
@@ -30,15 +29,14 @@ describe('UserSettings', () => {
         theme: 'dark',
         language: 'en',
         notifications: {
-          enabled: false,
-          frequency: 'weekly',
-          emailEnabled: false,
-          pushEnabled: false
+          email: false,
+          push: false,
+          inApp: false
         },
         privacy: {
-          profileVisibility: 'private',
-          showOnlineStatus: false,
-          showLastSeen: false
+          showProfile: false,
+          showActivity: false,
+          showTeams: false
         }
       };
 
@@ -46,29 +44,28 @@ describe('UserSettings', () => {
       
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const settings = result.getValue();
+        const settings = result.value;
         expect(settings.theme).toBe('dark');
         expect(settings.language).toBe('en');
         expect(settings.notifications).toEqual({
-          enabled: false,
-          frequency: 'weekly',
-          emailEnabled: false,
-          pushEnabled: false
+          email: false,
+          push: false,
+          inApp: false
         });
         expect(settings.privacy).toEqual({
-          profileVisibility: 'private',
-          showOnlineStatus: false,
-          showLastSeen: false
+          showProfile: false,
+          showActivity: false,
+          showTeams: false
         });
       }
     });
 
     it('ska validera tema', () => {
-      const result = UserSettings.create({ theme: 'invalid' });
+      const result = UserSettings.create({ theme: 'invalid' as any });
       
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError()).toBe('Ogiltigt tema');
+        expect(result.error).toBe('Ogiltigt tema');
       }
     });
 
@@ -77,99 +74,107 @@ describe('UserSettings', () => {
       
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError()).toBe('Ogiltigt språk');
-      }
-    });
-
-    it('ska validera notifikationsfrekvens', () => {
-      const result = UserSettings.create({
-        notifications: { frequency: 'invalid' }
-      });
-      
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.getError()).toBe('Ogiltig notifikationsfrekvens');
-      }
-    });
-
-    it('ska validera profilsynlighet', () => {
-      const result = UserSettings.create({
-        privacy: { profileVisibility: 'invalid' }
-      });
-      
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.getError()).toBe('Ogiltig profilsynlighet');
+        expect(result.error).toBe('Ogiltigt språk');
       }
     });
   });
 
-  describe('updateTheme', () => {
+  describe('update', () => {
+    it('ska uppdatera inställningar', () => {
+      const settings = UserSettings.create({});
+      expect(settings.isOk()).toBe(true);
+      
+      if (settings.isOk()) {
+        const newSettings = {
+          theme: 'dark',
+          language: 'en',
+          notifications: {
+            email: false,
+            push: false,
+            inApp: false
+          },
+          privacy: {
+            showProfile: false,
+            showActivity: false,
+            showTeams: false
+          }
+        };
+        
+        const result = settings.value.update(newSettings);
+        
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          const updatedSettings = result.value;
+          expect(updatedSettings.theme).toBe('dark');
+          expect(updatedSettings.language).toBe('en');
+          expect(updatedSettings.notifications.email).toBe(false);
+          expect(updatedSettings.privacy.showProfile).toBe(false);
+        }
+      }
+    });
+
     it('ska uppdatera tema', () => {
       const settings = UserSettings.create({});
       expect(settings.isOk()).toBe(true);
+      
       if (settings.isOk()) {
-        const result = settings.getValue().updateTheme('dark');
+        const result = settings.value.update({ theme: 'dark' });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().theme).toBe('dark');
+          expect(result.value.theme).toBe('dark');
         }
       }
     });
-  });
 
-  describe('updateLanguage', () => {
     it('ska uppdatera språk', () => {
       const settings = UserSettings.create({});
       expect(settings.isOk()).toBe(true);
+      
       if (settings.isOk()) {
-        const result = settings.getValue().updateLanguage('en');
+        const result = settings.value.update({ language: 'en' });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().language).toBe('en');
+          expect(result.value.language).toBe('en');
         }
       }
     });
-  });
 
-  describe('updateNotifications', () => {
     it('ska uppdatera notifikationsinställningar', () => {
       const settings = UserSettings.create({});
       expect(settings.isOk()).toBe(true);
+      
       if (settings.isOk()) {
         const newNotifications = {
-          enabled: false,
-          frequency: 'weekly',
-          emailEnabled: false,
-          pushEnabled: false
+          email: false,
+          push: false,
+          inApp: false
         };
         
-        const result = settings.getValue().updateNotifications(newNotifications);
+        const result = settings.value.update({ notifications: newNotifications });
         
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().notifications).toEqual(newNotifications);
+          expect(result.value.notifications).toEqual(newNotifications);
         }
       }
     });
-  });
 
-  describe('updatePrivacy', () => {
     it('ska uppdatera sekretessinställningar', () => {
       const settings = UserSettings.create({});
       expect(settings.isOk()).toBe(true);
+      
       if (settings.isOk()) {
         const newPrivacy = {
-          profileVisibility: 'private',
-          showOnlineStatus: false,
-          showLastSeen: false
+          showProfile: false,
+          showActivity: false,
+          showTeams: false
         };
         
-        const result = settings.getValue().updatePrivacy(newPrivacy);
+        const result = settings.value.update({ privacy: newPrivacy });
         
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().privacy).toEqual(newPrivacy);
+          expect(result.value.privacy).toEqual(newPrivacy);
         }
       }
     });

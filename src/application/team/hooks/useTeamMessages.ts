@@ -121,10 +121,10 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
       );
       
       if (result.isErr()) {
-        throw new Error(result.unwrapErr());
+        throw new Error(result.error);
       }
       
-      const messages = result.unwrap();
+      const messages = result.value;
       const mappedMessages = messages.map(mapTeamMessageToData);
       
       const nextCursor = mappedMessages.length < limit ? 
@@ -149,10 +149,10 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
     );
     
     if (result.isErr()) {
-      throw new Error(result.unwrapErr());
+      throw new Error(result.error);
     }
     
-    const messages = result.unwrap();
+    const messages = result.value;
     const mappedMessages = messages.map(mapTeamMessageToData);
     
     const nextCursor = mappedMessages.length < limit ? 
@@ -209,9 +209,9 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
     mutationFn: async (payload: CreateTeamMessageUseCasePayload) => {
       const result = await createTeamMessageUseCase.execute(payload);
       if (result.isErr()) {
-        throw new Error(result.unwrapErr());
+        throw new Error(result.error);
       }
-      return mapTeamMessageToData(result.unwrap());
+      return mapTeamMessageToData(result.value);
     },
     onSuccess: (newMessage) => {
       // Uppdatera cache med nytt meddelande
@@ -256,10 +256,10 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
       const result = await teamMessageRepository.findById(messageIdObj);
       
       if (result.isErr()) {
-        throw new Error(result.unwrapErr());
+        throw new Error(result.error);
       }
       
-      const message = result.unwrap();
+      const message = result.value;
       
       if (message.senderId.toString() !== user?.id) {
         throw new Error('Du kan inte redigera någon annans meddelande');
@@ -267,15 +267,15 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
       
       const editResult = message.editContent(content);
       if (editResult.isErr()) {
-        throw new Error(editResult.unwrapErr());
+        throw new Error(editResult.error);
       }
       
       const saveResult = await teamMessageRepository.update(message);
       if (saveResult.isErr()) {
-        throw new Error(saveResult.unwrapErr());
+        throw new Error(saveResult.error);
       }
       
-      return mapTeamMessageToData(saveResult.unwrap());
+      return mapTeamMessageToData(saveResult.value);
     },
     onSuccess: (updatedMessage) => {
       // Uppdatera meddelandet i cache
@@ -308,10 +308,10 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
       const result = await teamMessageRepository.findById(messageIdObj);
       
       if (result.isErr()) {
-        throw new Error(result.unwrapErr());
+        throw new Error(result.error);
       }
       
-      const message = result.unwrap();
+      const message = result.value;
       
       // Kontrollera behörighet
       if (message.senderId.toString() !== user?.id) {
@@ -320,12 +320,12 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
       
       const deleteResult = message.markAsDeleted();
       if (deleteResult.isErr()) {
-        throw new Error(deleteResult.unwrapErr());
+        throw new Error(deleteResult.error);
       }
       
       const saveResult = await teamMessageRepository.update(message);
       if (saveResult.isErr()) {
-        throw new Error(saveResult.unwrapErr());
+        throw new Error(saveResult.error);
       }
       
       return messageId;
@@ -372,10 +372,10 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
       const result = await teamMessageRepository.findById(messageIdObj);
       
       if (result.isErr()) {
-        throw new Error(result.unwrapErr());
+        throw new Error(result.error);
       }
       
-      const message = result.unwrap();
+      const message = result.value;
       const userId = user?.id;
       
       if (!userId) {
@@ -397,15 +397,15 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
       }
       
       if (actionResult.isErr()) {
-        throw new Error(actionResult.unwrapErr());
+        throw new Error(actionResult.error);
       }
       
       const saveResult = await teamMessageRepository.update(message);
       if (saveResult.isErr()) {
-        throw new Error(saveResult.unwrapErr());
+        throw new Error(saveResult.error);
       }
       
-      return mapTeamMessageToData(saveResult.unwrap());
+      return mapTeamMessageToData(saveResult.value);
     },
     onSuccess: (updatedMessage) => {
       // Uppdatera meddelandet i cache
@@ -441,10 +441,10 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
       
       const result = await teamMessageRepository.markAllAsRead(teamIdObj, userId);
       if (result.isErr()) {
-        throw new Error(result.unwrapErr());
+        throw new Error(result.error);
       }
       
-      return true;
+      return result.value;
     }
   });
   
@@ -463,10 +463,10 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
       
       const result = await teamMessageRepository.getUnreadCount(teamIdObj, userId);
       if (result.isErr()) {
-        throw new Error(result.unwrapErr());
+        throw new Error(result.error);
       }
       
-      return result.unwrap();
+      return result.value;
     },
     enabled: !!teamId && !!user?.id,
     staleTime: 1000 * 30 // 30 sekunder
@@ -497,7 +497,7 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
           teamMessageRepository.findById(messageId)
             .then(result => {
               if (result.isOk()) {
-                const newMessage = mapTeamMessageToData(result.unwrap());
+                const newMessage = mapTeamMessageToData(result.value);
                 
                 // Uppdatera cache med det nya meddelandet
                 queryClient.setQueryData(queryKey, (oldData: any) => {
@@ -549,7 +549,7 @@ export function useTeamMessages(teamId: string, options: UseTeamMessagesOptions 
           teamMessageRepository.findById(messageId)
             .then(result => {
               if (result.isOk()) {
-                const updatedMessage = mapTeamMessageToData(result.unwrap());
+                const updatedMessage = mapTeamMessageToData(result.value);
                 
                 // Uppdatera meddelandet i cache
                 queryClient.setQueryData(queryKey, (oldData: any) => {

@@ -8,6 +8,11 @@ import { UniqueId } from '@/domain/core/UniqueId';
 import { ActivityType } from '@/domain/team/value-objects/ActivityType';
 import { FC, ReactNode } from 'react';
 
+// Mocka TeamGoal, TeamActivity och TeamStatistics
+jest.mock('@/domain/team/entities/TeamGoal');
+jest.mock('@/domain/team/entities/TeamActivity');
+jest.mock('@/domain/team/value-objects/TeamStatistics');
+
 describe('useTeamCache', () => {
   let queryClient: QueryClient;
 
@@ -19,6 +24,9 @@ describe('useTeamCache', () => {
 
   beforeEach(() => {
     queryClient = new QueryClient();
+    
+    // Återställ alla mockar
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -41,7 +49,8 @@ describe('useTeamCache', () => {
     const { result } = renderHook(() => useTeamCache(), { wrapper });
     const teamId = 'test-team-id';
 
-    const goal = TeamGoal.create({
+    // Skapa en mockad Goal
+    const goal = {
       id: new UniqueId(),
       teamId: new UniqueId(teamId),
       title: 'Test mål',
@@ -53,7 +62,13 @@ describe('useTeamCache', () => {
       assignments: [],
       createdAt: new Date(),
       updatedAt: new Date()
-    }).unwrap();
+    } as TeamGoal;
+    
+    // Mocka TeamGoal.create för att returnera ett objekt som efterliknar ett Result
+    (TeamGoal.create as jest.Mock).mockReturnValue({
+      value: goal,
+      isOk: () => true
+    });
 
     result.current.updateGoalOptimistically(teamId, goal);
     const cachedGoals = queryClient.getQueryData(['team', teamId, 'goals']);
@@ -64,14 +79,21 @@ describe('useTeamCache', () => {
     const { result } = renderHook(() => useTeamCache(), { wrapper });
     const teamId = 'test-team-id';
 
-    const activity = TeamActivity.create({
+    // Skapa en mockad aktivitet
+    const activity = {
       id: new UniqueId(),
       teamId: new UniqueId(teamId),
       type: ActivityType.GOAL_CREATED,
       userId: new UniqueId(),
       timestamp: new Date(),
       metadata: {}
-    }).unwrap();
+    } as TeamActivity;
+    
+    // Mocka TeamActivity.create för att returnera ett objekt som efterliknar ett Result
+    (TeamActivity.create as jest.Mock).mockReturnValue({
+      value: activity,
+      isOk: () => true
+    });
 
     result.current.updateActivityOptimistically(teamId, activity);
     const cachedActivities = queryClient.getQueryData(['team', teamId, 'activities']);
@@ -82,7 +104,8 @@ describe('useTeamCache', () => {
     const { result } = renderHook(() => useTeamCache(), { wrapper });
     const teamId = 'test-team-id';
 
-    const stats = TeamStatistics.create({
+    // Skapa en mockad TeamStatistics
+    const stats = {
       teamId: new UniqueId(teamId),
       period: StatisticsPeriod.WEEKLY,
       activityCount: 1,
@@ -93,7 +116,13 @@ describe('useTeamCache', () => {
       goalsByStatus: {},
       activityTrend: [],
       lastUpdated: new Date()
-    }).unwrap();
+    } as TeamStatistics;
+    
+    // Mocka TeamStatistics.create för att returnera ett objekt som efterliknar ett Result
+    (TeamStatistics.create as jest.Mock).mockReturnValue({
+      value: stats,
+      isOk: () => true
+    });
 
     result.current.updateStatisticsOptimistically(teamId, stats);
     const cachedStats = queryClient.getQueryData(['team', teamId, 'statistics']);

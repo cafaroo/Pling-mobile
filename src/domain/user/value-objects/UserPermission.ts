@@ -255,21 +255,21 @@ export class UserPermission extends ValueObject<string> {
   }
   
   /**
-   * Skapar behörigheter för alla systembehörigheter
+   * Returnerar alla möjliga behörigheter som objekt
    */
   public static createAll(): UserPermission[] {
     return Object.values(PermissionName).map(
-      name => this.create(name).getValue()
+      name => this.create(name).value
     );
   }
   
   /**
-   * Skapar behörigheter för en specifik kategori
+   * Returnerar alla behörigheter för en specifik kategori
    */
   public static createForCategory(category: PermissionCategory): UserPermission[] {
-    return Object.entries(PERMISSION_CATEGORIES)
-      .filter(([_, cat]) => cat === category)
-      .map(([name]) => this.create(name as PermissionName).getValue());
+    return this.createAll().filter(
+      permission => permission.category === category
+    );
   }
   
   /**
@@ -321,35 +321,39 @@ export class UserPermission extends ValueObject<string> {
   }
   
   /**
-   * Returnerar alla behörigheter som denna behörighet inkluderar
+   * Returnerar behörigheter som inkluderas av denna behörighet
    */
   public get includedPermissions(): UserPermission[] {
-    const directlyIncluded = PERMISSION_INCLUDES[this.name as PermissionName] || [];
+    const directIncludes = PERMISSION_INCLUDES[this.name as PermissionName] || [];
     
-    // Skapa en set för att undvika dubbletter
+    // Om det inte finns några inkluderade behörigheter, returnera tom array
+    if (directIncludes.length === 0) {
+      return [];
+    }
+    
     const includedSet = new Set<string>();
     
-    // Lägg till direkt inkluderade behörigheter
-    directlyIncluded.forEach(permName => includedSet.add(permName));
-    
-    // Expandera rekursivt för att få alla transitivt inkluderade behörigheter
+    // Rekursiv funktion för att expandera behörigheter
     const expandPermissions = (permissions: PermissionName[]) => {
-      permissions.forEach(permName => {
-        const nestedPerms = PERMISSION_INCLUDES[permName] || [];
-        nestedPerms.forEach(nestedPerm => {
-          if (!includedSet.has(nestedPerm)) {
-            includedSet.add(nestedPerm);
-            expandPermissions([nestedPerm]);
+      permissions.forEach(perm => {
+        if (!includedSet.has(perm)) {
+          includedSet.add(perm);
+          
+          // Expandera rekursivt
+          const subIncludes = PERMISSION_INCLUDES[perm] || [];
+          if (subIncludes.length > 0) {
+            expandPermissions(subIncludes);
           }
-        });
+        }
       });
     };
     
-    expandPermissions(directlyIncluded);
+    // Starta den rekursiva expansionen
+    expandPermissions(directIncludes);
     
     // Konvertera tillbaka till behörighetsobjekt
     return Array.from(includedSet).map(
-      permName => UserPermission.create(permName).getValue()
+      permName => UserPermission.create(permName).value
     );
   }
   
@@ -410,7 +414,7 @@ export class UserPermission extends ValueObject<string> {
       // Rekursiv kontroll för hierarkiska behörigheter
       for (const includedPermName of includes) {
         try {
-          const includedPerm = UserPermission.create(includedPermName).getValue();
+          const includedPerm = UserPermission.create(includedPermName).value;
           if (includedPerm.includesPermission(permissionName)) {
             return true;
           }

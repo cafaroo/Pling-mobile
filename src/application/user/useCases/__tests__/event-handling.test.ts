@@ -117,12 +117,12 @@ class MockUserRepository implements UserRepository {
   
   async getProfile(userId: string): Promise<UserProfile | null> {
     const user = await this.findById(userId);
-    return user.isOk() ? user.getValue().profile : null;
+    return user.isOk() ? user.value.profile : null;
   }
   
   async getSettings(userId: string): Promise<UserSettings | null> {
     const user = await this.findById(userId);
-    return user.isOk() ? user.getValue().settings : null;
+    return user.isOk() ? user.value.settings : null;
   }
   
   // Testhjälpare
@@ -602,6 +602,7 @@ describe('ApplikationslagretEventHandling', () => {
       // Simulera ändringar i notifikationsinställningar
       await eventBus.publish(new UserNotificationSettingsChanged(
         existingUser,
+        { email: true, push: true },
         oldSettings,
         newSettings
       ));
@@ -654,12 +655,16 @@ describe('ApplikationslagretEventHandling', () => {
       };
       await eventBus.publish(new UserSettingsUpdated(createdUser, updatedSettings));
       
+      // 4. Inaktivera användaren och publicera UserDeactivated
+      await eventBus.publish(new UserDeactivated(createdUser, 'test_deactivation'));
+      
       // Kontrollera att alla händelser publicerades i rätt ordning
       const events = eventBus.getEvents();
-      expect(events.length).toBe(3);
+      expect(events.length).toBe(4);
       expect(events[0]).toBeInstanceOf(UserCreated);
       expect(events[1]).toBeInstanceOf(UserProfileUpdated);
       expect(events[2]).toBeInstanceOf(UserSettingsUpdated);
+      expect(events[3]).toBeInstanceOf(UserDeactivated);
     });
     
     it('ska hantera en komplex konto- och säkerhetssekvens', async () => {

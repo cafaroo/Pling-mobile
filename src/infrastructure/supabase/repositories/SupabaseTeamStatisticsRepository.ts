@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Result } from '@/domain/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { TeamStatistics, StatisticsPeriod } from '@/domain/team/value-objects/TeamStatistics';
 import { TeamStatisticsRepository } from '@/domain/team/repositories/TeamStatisticsRepository';
@@ -32,7 +32,7 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
       if (activitiesError) throw activitiesError;
 
       // Konvertera data till domänmodeller
-      const teamGoals = goals.map(goal => TeamGoal.create({
+      const teamGoalsResults = goals.map(goal => TeamGoal.create({
         id: new UniqueId(goal.id),
         teamId: new UniqueId(goal.team_id),
         title: goal.title,
@@ -44,16 +44,24 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
         createdBy: new UniqueId(goal.created_by),
         createdAt: new Date(goal.created_at),
         updatedAt: new Date(goal.updated_at)
-      }).unwrap());
+      }));
+      
+      const teamGoals = teamGoalsResults
+        .filter(result => result.isOk())
+        .map(result => result.value);
 
-      const teamActivities = activities.map(activity => TeamActivity.create({
+      const teamActivitiesResults = activities.map(activity => TeamActivity.create({
         id: new UniqueId(activity.id),
         teamId: new UniqueId(activity.team_id),
         type: activity.type,
         userId: new UniqueId(activity.user_id),
         timestamp: new Date(activity.created_at),
         metadata: activity.metadata
-      }).unwrap());
+      }));
+      
+      const teamActivities = teamActivitiesResults
+        .filter(result => result.isOk())
+        .map(result => result.value);
 
       // Beräkna statistik
       return TeamStatistics.calculateFromGoals(
@@ -63,7 +71,7 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
         period
       );
     } catch (error) {
-      return Result.err(`Kunde inte hämta teamstatistik: ${error.message}`);
+      return err(`Kunde inte hämta teamstatistik: ${error.message}`);
     }
   }
 
@@ -76,18 +84,22 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
         teamIds.map(teamId => this.getStatistics(teamId, period))
       );
 
-      const errors = results.filter(result => result.isFailure());
+      const errors = results.filter(result => result.isErr());
       if (errors.length > 0) {
-        return Result.err(
+        return err(
           `Kunde inte hämta statistik för alla team: ${errors
             .map(e => e.error)
             .join(', ')}`
         );
       }
 
-      return Result.ok(results.map(result => result.unwrap()));
+      const validStats = results
+        .filter(result => result.isOk())
+        .map(result => result.value);
+        
+      return ok(validStats);
     } catch (error) {
-      return Result.err(`Kunde inte hämta teamstatistik: ${error.message}`);
+      return err(`Kunde inte hämta teamstatistik: ${error.message}`);
     }
   }
 
@@ -111,9 +123,9 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
         });
 
       if (error) throw error;
-      return Result.ok(void 0);
+      return ok(undefined);
     } catch (error) {
-      return Result.err(`Kunde inte spara teamstatistik: ${error.message}`);
+      return err(`Kunde inte spara teamstatistik: ${error.message}`);
     }
   }
 
@@ -129,9 +141,9 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
         .eq('period', period);
 
       if (error) throw error;
-      return Result.ok(void 0);
+      return ok(undefined);
     } catch (error) {
-      return Result.err(`Kunde inte radera teamstatistik: ${error.message}`);
+      return err(`Kunde inte radera teamstatistik: ${error.message}`);
     }
   }
 
@@ -153,24 +165,24 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
 
       if (error) throw error;
 
-      return Result.ok(
-        data.map(stats => 
-          new TeamStatistics({
-            teamId: new UniqueId(stats.team_id),
-            period: stats.period,
-            activityCount: stats.activity_count,
-            completedGoals: stats.completed_goals,
-            activeGoals: stats.active_goals,
-            memberParticipation: stats.member_participation,
-            averageGoalProgress: stats.average_goal_progress,
-            goalsByStatus: stats.goals_by_status,
-            activityTrend: stats.activity_trend,
-            lastUpdated: new Date(stats.last_updated)
-          })
-        )
+      const stats = data.map(stats => 
+        new TeamStatistics({
+          teamId: new UniqueId(stats.team_id),
+          period: stats.period,
+          activityCount: stats.activity_count,
+          completedGoals: stats.completed_goals,
+          activeGoals: stats.active_goals,
+          memberParticipation: stats.member_participation,
+          averageGoalProgress: stats.average_goal_progress,
+          goalsByStatus: stats.goals_by_status,
+          activityTrend: stats.activity_trend,
+          lastUpdated: new Date(stats.last_updated)
+        })
       );
+        
+      return ok(stats);
     } catch (error) {
-      return Result.err(`Kunde inte hämta statistiktrend: ${error.message}`);
+      return err(`Kunde inte hämta statistiktrend: ${error.message}`);
     }
   }
 

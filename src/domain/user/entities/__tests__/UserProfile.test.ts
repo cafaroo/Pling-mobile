@@ -1,4 +1,5 @@
 import { UserProfile } from '../UserProfile';
+import '@testing-library/jest-dom';
 
 describe('UserProfile', () => {
   const validProfileProps = {
@@ -8,15 +9,12 @@ describe('UserProfile', () => {
     avatarUrl: 'https://example.com/avatar.jpg',
     bio: 'Test bio',
     location: 'Stockholm',
-    contact: {
-      email: 'test@example.com',
-      phone: '+46701234567',
-      alternativeEmail: 'alt@example.com'
+    socialLinks: {
+      website: 'https://example.com',
+      twitter: 'https://twitter.com/test',
+      linkedin: 'https://linkedin.com/in/test'
     },
-    customFields: {
-      company: 'Test AB',
-      department: 'IT'
-    }
+    interests: ['coding', 'testing']
   };
 
   describe('create', () => {
@@ -25,44 +23,34 @@ describe('UserProfile', () => {
       
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const profile = result.getValue();
+        const profile = result.value;
         expect(profile.firstName).toBe('Test');
         expect(profile.lastName).toBe('User');
         expect(profile.displayName).toBe('TestUser');
         expect(profile.avatarUrl).toBe('https://example.com/avatar.jpg');
         expect(profile.bio).toBe('Test bio');
         expect(profile.location).toBe('Stockholm');
-        expect(profile.contact.email).toBe('test@example.com');
-        expect(profile.contact.phone).toBe('+46701234567');
-        expect(profile.customFields).toEqual({
-          company: 'Test AB',
-          department: 'IT'
-        });
+        expect(profile.socialLinks.website).toBe('https://example.com');
+        expect(profile.interests).toEqual(['coding', 'testing']);
       }
     });
 
     it('ska skapa en giltig profil med endast obligatoriska fält', () => {
       const result = UserProfile.create({
         firstName: 'Test',
-        lastName: 'User',
-        contact: {
-          email: 'test@example.com'
-        }
+        lastName: 'User'
       });
       
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const profile = result.getValue();
+        const profile = result.value;
         expect(profile.firstName).toBe('Test');
         expect(profile.lastName).toBe('User');
-        expect(profile.displayName).toBeNull();
-        expect(profile.avatarUrl).toBeNull();
-        expect(profile.bio).toBeNull();
-        expect(profile.location).toBeNull();
-        expect(profile.contact.email).toBe('test@example.com');
-        expect(profile.contact.phone).toBeNull();
-        expect(profile.contact.alternativeEmail).toBeNull();
-        expect(profile.customFields).toEqual({});
+        expect(profile.displayName).toBeUndefined();
+        expect(profile.avatarUrl).toBeUndefined();
+        expect(profile.bio).toBeUndefined();
+        expect(profile.location).toBeUndefined();
+        expect(profile.interests).toEqual([]);
       }
     });
 
@@ -74,7 +62,7 @@ describe('UserProfile', () => {
       
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError()).toBe('Förnamn kan inte vara tomt');
+        expect(result.error).toBe('Förnamn är obligatoriskt');
       }
     });
 
@@ -86,7 +74,7 @@ describe('UserProfile', () => {
       
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError()).toBe('Efternamn kan inte vara tomt');
+        expect(result.error).toBe('Efternamn är obligatoriskt');
       }
     });
 
@@ -101,11 +89,49 @@ describe('UserProfile', () => {
       
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const profile = result.getValue();
+        const profile = result.value;
         expect(profile.firstName).toBe('Test');
         expect(profile.lastName).toBe('User');
         expect(profile.displayName).toBe('TestUser');
         expect(profile.bio).toBe('Test bio');
+      }
+    });
+
+    it('ska validera URL-format för sociala länkar', () => {
+      const result = UserProfile.create({
+        ...validProfileProps,
+        socialLinks: {
+          website: 'invalid-url'
+        }
+      });
+      
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error).toContain('Ogiltig URL');
+      }
+    });
+  });
+
+  describe('update', () => {
+    it('ska uppdatera profilen med nya värden', () => {
+      const originalProfile = UserProfile.create(validProfileProps);
+      expect(originalProfile.isOk()).toBe(true);
+      
+      if (originalProfile.isOk()) {
+        const updateResult = originalProfile.value.update({
+          bio: 'Updated bio',
+          location: 'Göteborg'
+        });
+        
+        expect(updateResult.isOk()).toBe(true);
+        if (updateResult.isOk()) {
+          const updatedProfile = updateResult.value;
+          expect(updatedProfile.bio).toBe('Updated bio');
+          expect(updatedProfile.location).toBe('Göteborg');
+          // Originalvärdena ska fortfarande finnas kvar
+          expect(updatedProfile.firstName).toBe('Test');
+          expect(updatedProfile.lastName).toBe('User');
+        }
       }
     });
   });

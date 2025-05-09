@@ -1,4 +1,4 @@
-import { Result, ok, err } from '@/domain/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { EventBus } from '@/infrastructure/events/EventBus';
 import { TeamMessage, CreateTeamMessageProps, MessageAttachmentData, MessageMentionData } from '@/domain/team/entities/TeamMessage';
@@ -236,7 +236,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       // Filtrera bort meddelanden som inte kunde mappas
       const messages = messagesResults
         .filter(result => result.isOk())
-        .map(result => result.unwrap());
+        .map(result => result.value);
 
       return ok(messages);
     } catch (error) {
@@ -357,7 +357,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       // Filtrera bort meddelanden som inte kunde mappas
       const messages = messagesResults
         .filter(result => result.isOk())
-        .map(result => result.unwrap());
+        .map(result => result.value);
 
       return ok(messages);
     } catch (error) {
@@ -495,7 +495,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       // Filtrera bort meddelanden som inte kunde mappas
       const messages = messagesResults
         .filter(result => result.isOk())
-        .map(result => result.unwrap());
+        .map(result => result.value);
 
       return ok(messages);
     } catch (error) {
@@ -704,9 +704,9 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
       for (const msgData of messagesData) {
         const entityResult = await this.mapToEntity(msgData as MessageDataFromDb);
         if (entityResult.isOk()) {
-          entities.push(entityResult.unwrap());
+          entities.push(entityResult.value);
         } else {
-          console.warn(`Kunde inte mappa meddelande ${msgData.id} i tråd: ${entityResult.unwrapErr()}`);
+          console.warn(`Kunde inte mappa meddelande ${msgData.id} i tråd: ${entityResult.error}`);
         }
       }
       return ok(entities);
@@ -726,7 +726,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
           size: att.size,
           mimeType: att.mime_type
         })
-      ).map(r => r.unwrapOr(null)).filter(vo => vo !== null) as MessageAttachment[];
+      ).map(r => r.isOk() ? r.value : null).filter(vo => vo !== null) as MessageAttachment[];
 
       const mentionVOs = (data.mentions || []).map(men => 
         MessageMention.create({
@@ -734,7 +734,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
           index: men.index,
           length: men.length
         })
-      ).map(r => r.unwrapOr(null)).filter(vo => vo !== null) as MessageMention[];
+      ).map(r => r.isOk() ? r.value : null).filter(vo => vo !== null) as MessageMention[];
       
       const reactionsGroupedByEmoji: Record<string, UniqueId[]> = {};
       if (data.reactions && Array.isArray(data.reactions)) {
@@ -748,7 +748,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
 
       const reactionVOs = Object.entries(reactionsGroupedByEmoji).map(([emoji, userIds]) => 
         MessageReaction.create({ emoji, userIds })
-      ).map(r => r.unwrapOr(null)).filter(vo => vo !== null) as MessageReaction[];
+      ).map(r => r.isOk() ? r.value : null).filter(vo => vo !== null) as MessageReaction[];
 
       const entityProps: TeamMessageProps = {
         id: new UniqueId(data.id),
@@ -767,7 +767,7 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
         lastReplyAt: data.last_reply_at ? new Date(data.last_reply_at) : null,
       };
 
-      const messageEntity = TeamMessage.create({
+      const messageResult = TeamMessage.create({
         id: entityProps.id.toString(),
         teamId: entityProps.teamId.toString(),
         senderId: entityProps.senderId.toString(),
@@ -775,7 +775,13 @@ export class SupabaseTeamMessageRepository implements TeamMessageRepository {
         attachments: entityProps.attachments.map(a => a.toData()),
         mentions: entityProps.mentions.map(m => ({ userId: m.userId.toString(), index: m.index, length: m.length })),
         parentId: entityProps.parentId?.toString(),
-      }).unwrap();
+      });
+      
+      if (messageResult.isErr()) {
+        return err(`Kunde inte skapa TeamMessage: ${messageResult.error}`);
+      }
+      
+      const messageEntity = messageResult.value;
       
       (messageEntity as any).props.reactions = reactionVOs;
       (messageEntity as any).props.isEdited = entityProps.isEdited;

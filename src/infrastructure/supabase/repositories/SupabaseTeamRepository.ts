@@ -15,166 +15,257 @@ export class SupabaseTeamRepository implements TeamRepository {
     private readonly eventBus?: EventBus
   ) {}
 
-  async findById(id: UniqueId): Promise<Team | null> {
-    const { data, error } = await this.supabase
-      .from('v2_teams')
-      .select(`
-        *,
-        members:v2_team_members(
-          user_id,
-          role,
-          joined_at
-        )
-      `)
-      .eq('id', id)
-      .single();
+  async findById(id: UniqueId): Promise<Result<Team, string>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('v2_teams')
+        .select(`
+          *,
+          members:v2_team_members(
+            user_id,
+            role,
+            joined_at
+          )
+        `)
+        .eq('id', id)
+        .single();
 
-    if (error) throw new DatabaseError(error.message);
-    return data ? TeamMapper.toDomain(data) : null;
+      if (error) return err(error.message);
+      return data ? ok(TeamMapper.toDomain(data)) : err(`Team med ID ${id.toString()} hittades inte`);
+    } catch (error) {
+      return err(`Fel vid hämtning av team: ${error.message}`);
+    }
   }
 
-  async findByOwnerId(ownerId: UniqueId): Promise<Team[]> {
-    const { data, error } = await this.supabase
-      .from('v2_teams')
-      .select(`
-        *,
-        members:v2_team_members(
-          user_id,
-          role,
-          joined_at
-        )
-      `)
-      .eq('owner_id', ownerId);
+  async findByUserId(userId: UniqueId): Promise<Result<Team[], string>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('v2_teams')
+        .select(`
+          *,
+          members:v2_team_members(
+            user_id,
+            role,
+            joined_at
+          )
+        `)
+        .eq('v2_team_members.user_id', userId);
 
-    if (error) throw new DatabaseError(error.message);
-    return data ? data.map(TeamMapper.toDomain) : [];
+      if (error) return err(error.message);
+      return ok(data ? data.map(TeamMapper.toDomain) : []);
+    } catch (error) {
+      return err(`Fel vid hämtning av användarens team: ${error.message}`);
+    }
   }
 
-  async findByMemberId(userId: UniqueId): Promise<Team[]> {
-    const { data, error } = await this.supabase
-      .from('v2_teams')
-      .select(`
-        *,
-        members:v2_team_members(
-          user_id,
-          role,
-          joined_at
-        )
-      `)
-      .eq('v2_team_members.user_id', userId);
+  async findByOwnerId(ownerId: UniqueId): Promise<Result<Team[], string>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('v2_teams')
+        .select(`
+          *,
+          members:v2_team_members(
+            user_id,
+            role,
+            joined_at
+          )
+        `)
+        .eq('owner_id', ownerId);
 
-    if (error) throw new DatabaseError(error.message);
-    return data ? data.map(TeamMapper.toDomain) : [];
+      if (error) return err(error.message);
+      return ok(data ? data.map(TeamMapper.toDomain) : []);
+    } catch (error) {
+      return err(`Fel vid hämtning av ägarens team: ${error.message}`);
+    }
   }
 
-  async save(team: Team): Promise<void> {
-    const { error: teamError } = await this.supabase
-      .from('v2_teams')
-      .upsert(TeamMapper.toPersistence(team));
+  async save(team: Team): Promise<Result<void, string>> {
+    try {
+      const { error: teamError } = await this.supabase
+        .from('v2_teams')
+        .upsert(TeamMapper.toPersistence(team));
 
-    if (teamError) throw new DatabaseError(teamError.message);
+      if (teamError) return err(teamError.message);
 
-    // Uppdatera medlemmar
-    const { members } = TeamMapper.toPersistence(team);
-    const { error: membersError } = await this.supabase
-      .from('v2_team_members')
-      .upsert(members);
+      // Uppdatera medlemmar
+      const { members } = TeamMapper.toPersistence(team);
+      const { error: membersError } = await this.supabase
+        .from('v2_team_members')
+        .upsert(members);
 
-    if (membersError) throw new DatabaseError(membersError.message);
+      if (membersError) return err(membersError.message);
+      
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid sparande av team: ${error.message}`);
+    }
   }
 
-  async delete(id: UniqueId): Promise<void> {
-    const { error } = await this.supabase
-      .from('v2_teams')
-      .delete()
-      .eq('id', id);
+  async delete(id: UniqueId): Promise<Result<void, string>> {
+    try {
+      const { error } = await this.supabase
+        .from('v2_teams')
+        .delete()
+        .eq('id', id);
 
-    if (error) throw new DatabaseError(error.message);
+      if (error) return err(error.message);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid borttagning av team: ${error.message}`);
+    }
   }
 
-  async addMember(teamId: UniqueId, member: TeamMember): Promise<Result<void, Error>> {
-    const { error } = await this.supabase
-      .from('v2_team_members')
-      .insert({
-        team_id: teamId,
-        user_id: member.userId,
-        role: member.role
-      });
+  async getMembers(teamId: UniqueId): Promise<Result<TeamMember[], string>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('v2_team_members')
+        .select('*')
+        .eq('team_id', teamId);
 
-    if (error) return err(new DatabaseError(error.message));
-    return ok(undefined);
+      if (error) return err(error.message);
+      return ok(data ? data.map(TeamMapper.memberToDomain) : []);
+    } catch (error) {
+      return err(`Fel vid hämtning av teammedlemmar: ${error.message}`);
+    }
   }
 
-  async updateMemberRole(
-    teamId: UniqueId,
-    userId: UniqueId,
-    role: string
-  ): Promise<Result<void, Error>> {
-    const { error } = await this.supabase
-      .from('v2_team_members')
-      .update({ role })
-      .match({ team_id: teamId, user_id: userId });
+  async addMember(teamId: UniqueId, member: TeamMember): Promise<Result<void, string>> {
+    try {
+      const { error } = await this.supabase
+        .from('v2_team_members')
+        .insert({
+          team_id: teamId,
+          user_id: member.userId,
+          role: member.role
+        });
 
-    if (error) return err(new DatabaseError(error.message));
-    return ok(undefined);
+      if (error) return err(error.message);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid tillägg av teammedlem: ${error.message}`);
+    }
   }
 
-  async removeMember(teamId: UniqueId, userId: UniqueId): Promise<Result<void, Error>> {
-    const { error } = await this.supabase
-      .from('v2_team_members')
-      .delete()
-      .match({ team_id: teamId, user_id: userId });
+  async updateMember(teamId: UniqueId, member: TeamMember): Promise<Result<void, string>> {
+    try {
+      const { error } = await this.supabase
+        .from('v2_team_members')
+        .update({ role: member.role })
+        .match({ team_id: teamId, user_id: member.userId });
 
-    if (error) return err(new DatabaseError(error.message));
-    return ok(undefined);
+      if (error) return err(error.message);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid uppdatering av teammedlem: ${error.message}`);
+    }
   }
 
-  async createInvitation(invitation: TeamInvitation): Promise<Result<void, Error>> {
-    const { error } = await this.supabase
-      .from('v2_team_invitations')
-      .insert(TeamMapper.invitationToPersistence(invitation));
+  async removeMember(teamId: UniqueId, userId: UniqueId): Promise<Result<void, string>> {
+    try {
+      const { error } = await this.supabase
+        .from('v2_team_members')
+        .delete()
+        .match({ team_id: teamId, user_id: userId });
 
-    if (error) return err(new DatabaseError(error.message));
-    return ok(undefined);
+      if (error) return err(error.message);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid borttagning av teammedlem: ${error.message}`);
+    }
   }
 
-  async findInvitationById(id: UniqueId): Promise<TeamInvitation | null> {
-    const { data, error } = await this.supabase
-      .from('v2_team_invitations')
-      .select('*')
-      .eq('id', id)
-      .single();
+  async getInvitations(teamId: UniqueId): Promise<Result<TeamInvitation[], string>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('v2_team_invitations')
+        .select('*')
+        .eq('team_id', teamId);
 
-    if (error) throw new DatabaseError(error.message);
-    return data ? TeamMapper.invitationToDomain(data) : null;
+      if (error) return err(error.message);
+      return ok(data ? data.map(TeamMapper.invitationToDomain) : []);
+    } catch (error) {
+      return err(`Fel vid hämtning av inbjudningar: ${error.message}`);
+    }
   }
 
-  async findInvitationsByTeamId(teamId: UniqueId): Promise<TeamInvitation[]> {
-    const { data, error } = await this.supabase
-      .from('v2_team_invitations')
-      .select('*')
-      .eq('team_id', teamId);
+  async createInvitation(invitation: TeamInvitation): Promise<Result<void, string>> {
+    try {
+      const { error } = await this.supabase
+        .from('v2_team_invitations')
+        .insert(TeamMapper.invitationToPersistence(invitation));
 
-    if (error) throw new DatabaseError(error.message);
-    return data ? data.map(TeamMapper.invitationToDomain) : [];
+      if (error) return err(error.message);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid skapande av inbjudan: ${error.message}`);
+    }
   }
 
-  async acceptInvitation(id: UniqueId): Promise<Result<void, Error>> {
-    const { error } = await this.supabase
-      .from('v2_team_invitations')
-      .update({ accepted_at: new Date().toISOString() })
-      .eq('id', id);
+  async updateInvitation(invitation: TeamInvitation): Promise<Result<void, string>> {
+    try {
+      const { error } = await this.supabase
+        .from('v2_team_invitations')
+        .update(TeamMapper.invitationToPersistence(invitation))
+        .eq('id', invitation.id);
 
-    if (error) return err(new DatabaseError(error.message));
-    return ok(undefined);
+      if (error) return err(error.message);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid uppdatering av inbjudan: ${error.message}`);
+    }
   }
 
-  async deleteInvitation(id: UniqueId): Promise<void> {
-    const { error } = await this.supabase
-      .from('v2_team_invitations')
-      .delete()
-      .eq('id', id);
+  async deleteInvitation(id: UniqueId): Promise<Result<void, string>> {
+    try {
+      const { error } = await this.supabase
+        .from('v2_team_invitations')
+        .delete()
+        .eq('id', id);
 
-    if (error) throw new DatabaseError(error.message);
+      if (error) return err(error.message);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid borttagning av inbjudan: ${error.message}`);
+    }
+  }
+
+  async search(query: string, limit: number = 10): Promise<Result<Team[], string>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('v2_teams')
+        .select(`
+          *,
+          members:v2_team_members(
+            user_id,
+            role,
+            joined_at
+          )
+        `)
+        .ilike('name', `%${query}%`)
+        .limit(limit);
+
+      if (error) return err(error.message);
+      return ok(data ? data.map(TeamMapper.toDomain) : []);
+    } catch (error) {
+      return err(`Fel vid sökning av team: ${error.message}`);
+    }
+  }
+
+  async isMember(teamId: UniqueId, userId: UniqueId): Promise<Result<boolean, string>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('v2_team_members')
+        .select('*')
+        .match({ team_id: teamId, user_id: userId })
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        return err(error.message);
+      }
+      
+      return ok(!!data);
+    } catch (error) {
+      return err(`Fel vid kontroll av medlemskap: ${error.message}`);
+    }
   }
 } 

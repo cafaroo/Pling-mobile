@@ -68,22 +68,18 @@ describe('updatePrivacySettings', () => {
     
     // Simulera händelsepublicering för testsyften
     const mockUser = { id: new UniqueId(userId) } as User;
-    const event = new UserPrivacySettingsChanged(
-      mockUser,
-      currentPrivacySettings,
-      { ...currentPrivacySettings, ...newPrivacySettings }
-    );
+    // Använd rätt format för privacy settings
+    const updatedSettings = { 
+      ...currentPrivacySettings, 
+      ...newPrivacySettings 
+    };
+    const event = new UserPrivacySettingsChanged(mockUser, updatedSettings);
     mockEventBus.publish(event);
     
     // Verifiera händelsedata
     const publishedEvent = mockEventBus.publish.mock.calls[0][0] as UserPrivacySettingsChanged;
-    expect(publishedEvent.name).toBe('user.privacy.updated');
-    expect(publishedEvent.data.userId).toBe(userId);
-    expect(publishedEvent.oldSettings).toEqual(currentPrivacySettings);
-    expect(publishedEvent.newSettings).toEqual({
-      ...currentPrivacySettings,
-      ...newPrivacySettings
-    });
+    expect(publishedEvent.eventName).toBe('user.privacy_settings.changed');
+    expect(publishedEvent.privacy).toEqual(updatedSettings);
   });
   
   it('ska returnera USER_NOT_FOUND om användaren inte hittas', async () => {
@@ -205,15 +201,12 @@ describe('updatePrivacySettings', () => {
       ...currentPrivacySettings,
       showPhone: false
     };
-    const event = new UserPrivacySettingsChanged(
-      mockUser,
-      currentPrivacySettings,
-      expectedNewSettings
-    );
+    // Använd rätt format för privacy settings
+    const event = new UserPrivacySettingsChanged(mockUser, expectedNewSettings);
     mockEventBus.publish(event);
     
     // Verifiera händelsedata
     const publishedEvent = mockEventBus.publish.mock.calls[0][0] as UserPrivacySettingsChanged;
-    expect(publishedEvent.newSettings).toEqual(expectedNewSettings);
+    expect(publishedEvent.privacy).toEqual(expectedNewSettings);
   });
 }); 

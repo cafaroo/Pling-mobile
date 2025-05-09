@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { Team } from '@/types';
-import { Button } from '@/components/ui/Button';
-import TextInput from '@/components/ui/TextInput';
+import { Team } from 'types/team';
+import { Button } from '@components/ui/Button';
+import TextInput from '@components/ui/TextInput';
 import { UserPlus, Copy, Check } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 

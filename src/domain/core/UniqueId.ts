@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Result } from './Result';
+import { Result, ok, err } from '@/shared/core/Result';
 
 export class UniqueId {
   private readonly id: string;
@@ -10,9 +10,9 @@ export class UniqueId {
 
   static create(id?: string): Result<UniqueId, string> {
     if (id && !UniqueId.isValidUUID(id)) {
-      return Result.err('Ogiltigt UUID format');
+      return err('Ogiltigt UUID format');
     }
-    return Result.ok(new UniqueId(id));
+    return ok(new UniqueId(id));
   }
 
   private static isValidUUID(id: string): boolean {

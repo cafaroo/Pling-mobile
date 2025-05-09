@@ -1,9 +1,9 @@
 import React from 'react';
 import { FlatList, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { Team } from '@/types/team';
-import { TeamCard } from '@/components/ui/TeamCard';
-import { UserGroup } from 'lucide-react-native';
+import { Team } from '../../types/team';
+import { TeamCard } from '../ui/TeamCard';
+import { Users } from 'lucide-react-native';
 
 /**
  * Props för TeamList-komponenten
@@ -76,7 +76,7 @@ export const TeamList: React.FC<TeamListProps> = ({
   if (teams.length === 0 && !isLoading) {
     return (
       <View style={styles.emptyContainer} testID="empty-state">
-        <UserGroup size={48} color={colors.text.light} />
+        <Users size={48} color={colors.text.light} />
         <Text style={[styles.emptyText, { color: colors.text.main }]}>
           Inga team hittades
         </Text>

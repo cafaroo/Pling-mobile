@@ -1,4 +1,4 @@
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { User } from '@/domain/user/entities/User';
 import { UserProfile } from '@/domain/user/entities/UserProfile';
@@ -17,28 +17,27 @@ export interface CreateUserInput {
     avatarUrl?: string;
     bio?: string;
     location?: string;
-    contact: {
-      email: string;
-      phone?: string;
-      alternativeEmail?: string;
+    socialLinks?: {
+      website?: string;
+      twitter?: string;
+      linkedin?: string;
+      github?: string;
     };
-    customFields?: Record<string, unknown>;
+    interests?: string[];
   };
   settings: {
     theme: 'light' | 'dark' | 'system';
-    language: 'sv' | 'en' | 'no' | 'dk';
+    language: 'sv' | 'en';
     notifications: {
       email: boolean;
       push: boolean;
-      sms: boolean;
-      frequency: 'immediately' | 'daily' | 'weekly';
+      inApp: boolean;
     };
     privacy: {
-      profileVisibility: 'public' | 'team' | 'private';
-      showEmail: boolean;
-      showPhone: boolean;
+      showProfile: boolean;
+      showActivity: boolean;
+      showTeams: boolean;
     };
-    appSettings?: Record<string, unknown>;
   };
   teamIds?: string[];
   roleIds?: string[];
@@ -54,14 +53,14 @@ export const createUser = (deps: CreateUserDeps) =>
     // Kontrollera om användaren redan finns
     const existingUserResult = await deps.userRepo.findByEmail(input.email);
     if (existingUserResult.isOk()) {
-      return Result.err('En användare med denna e-postadress finns redan');
+      return err('En användare med denna e-postadress finns redan');
     }
 
     // Validera telefonnummer om det finns
-    if (input.profile.contact.phone) {
-      const phoneResult = PhoneNumber.create(input.profile.contact.phone);
+    if (input.phone) {
+      const phoneResult = PhoneNumber.create(input.phone);
       if (phoneResult.isErr()) {
-        return Result.err('Ogiltigt telefonnummer');
+        return err('Ogiltigt telefonnummer');
       }
     }
 
@@ -73,8 +72,8 @@ export const createUser = (deps: CreateUserDeps) =>
       avatarUrl: input.profile.avatarUrl,
       bio: input.profile.bio,
       location: input.profile.location,
-      contact: input.profile.contact,
-      customFields: input.profile.customFields
+      socialLinks: input.profile.socialLinks,
+      interests: input.profile.interests
     });
 
     if (profileResult.isErr()) {
@@ -86,15 +85,14 @@ export const createUser = (deps: CreateUserDeps) =>
       theme: input.settings.theme,
       language: input.settings.language,
       notifications: {
-        enabled: input.settings.notifications.email || input.settings.notifications.push,
-        frequency: input.settings.notifications.frequency,
-        emailEnabled: input.settings.notifications.email,
-        pushEnabled: input.settings.notifications.push
+        email: input.settings.notifications.email,
+        push: input.settings.notifications.push,
+        inApp: input.settings.notifications.inApp
       },
       privacy: {
-        profileVisibility: input.settings.privacy.profileVisibility,
-        showOnlineStatus: true,
-        showLastSeen: true
+        showProfile: input.settings.privacy.showProfile,
+        showActivity: input.settings.privacy.showActivity,
+        showTeams: input.settings.privacy.showTeams
       }
     });
 
@@ -103,11 +101,12 @@ export const createUser = (deps: CreateUserDeps) =>
     }
 
     // Skapa användare
-    const userResult = User.create({
+    const userResult = await User.create({
       email: input.email,
       name: `${input.profile.firstName} ${input.profile.lastName}`,
-      settings: settingsResult.getValue(),
-      teamIds: []
+      settings: settingsResult.value,
+      profile: profileResult.value,
+      teamIds: input.teamIds || []
     });
 
     if (userResult.isErr()) {
@@ -115,13 +114,13 @@ export const createUser = (deps: CreateUserDeps) =>
     }
 
     // Spara användaren
-    const saveResult = await deps.userRepo.save(userResult.getValue());
+    const saveResult = await deps.userRepo.save(userResult.value);
     if (saveResult.isErr()) {
-      return Result.err(`Kunde inte skapa användaren: ${saveResult.getError()}`);
+      return err(`Kunde inte skapa användaren: ${saveResult.error}`);
     }
 
     // Publicera händelse
-    await deps.eventBus.publish(new UserCreated(userResult.getValue()));
+    await deps.eventBus.publish(new UserCreated(userResult.value));
 
-    return Result.ok(undefined);
+    return ok(undefined);
   }; 

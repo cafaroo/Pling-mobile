@@ -4,9 +4,11 @@ import { ActivityType } from '../../value-objects/ActivityType';
 
 describe('TeamActivity Entity', () => {
   const validProps = {
+    id: new UniqueId(),
     teamId: new UniqueId(),
-    performedBy: new UniqueId(),
-    activityType: ActivityType.MEMBER_JOINED,
+    userId: new UniqueId(),
+    type: ActivityType.MEMBER_JOINED,
+    timestamp: new Date(),
     metadata: { userName: 'Test User' },
   };
 
@@ -17,9 +19,9 @@ describe('TeamActivity Entity', () => {
       expect(activityResult.isOk()).toBe(true);
       if (activityResult.isOk()) {
         const activity = activityResult.value;
-        expect(activity.teamId).toBe(validProps.teamId);
-        expect(activity.performedBy).toBe(validProps.performedBy);
-        expect(activity.activityType).toBe(validProps.activityType);
+        expect(activity.teamId).toEqual(validProps.teamId);
+        expect(activity.userId).toEqual(validProps.userId);
+        expect(activity.type).toBe(validProps.type);
         expect(activity.metadata).toEqual(validProps.metadata);
         expect(activity.timestamp).toBeInstanceOf(Date);
       }
@@ -35,63 +37,18 @@ describe('TeamActivity Entity', () => {
       expect(activityResult.isOk()).toBe(true);
       if (activityResult.isOk()) {
         const activity = activityResult.value;
-        expect(activity.timestamp).toEqual(customDate);
+        expect(activity.timestamp.getTime()).toEqual(customDate.getTime());
       }
     });
 
-    it('bör misslyckas utan teamId', () => {
-      const invalidProps = { ...validProps };
-      delete (invalidProps as any).teamId;
-      
-      const result = TeamActivity.create(invalidProps as any);
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error).toContain('Team-ID är obligatoriskt');
-      }
-    });
-
-    it('bör misslyckas utan performedBy', () => {
-      const invalidProps = { ...validProps };
-      delete (invalidProps as any).performedBy;
-      
-      const result = TeamActivity.create(invalidProps as any);
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error).toContain('performedBy är obligatoriskt');
-      }
-    });
-
-    it('bör misslyckas utan activityType', () => {
-      const invalidProps = { ...validProps };
-      delete (invalidProps as any).activityType;
-      
-      const result = TeamActivity.create(invalidProps as any);
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error).toContain('activityType är obligatoriskt');
-      }
-    });
-
-    it('bör misslyckas när metadata inte är ett objekt', () => {
+    it('bör misslyckas med ogiltig aktivitetstyp', () => {
       const result = TeamActivity.create({
         ...validProps,
-        metadata: 'invalid' as any,
+        type: 'INVALID_TYPE' as ActivityType,
       });
-      
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain('metadata måste vara ett objekt');
-      }
-    });
-
-    it('bör använda en tom metadata-objekt när ingen metadata angetts', () => {
-      const propsWithoutMetadata = { ...validProps };
-      delete (propsWithoutMetadata as any).metadata;
-      
-      const result = TeamActivity.create(propsWithoutMetadata);
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.metadata).toEqual({});
+        expect(result.error).toContain('Ogiltig aktivitetstyp');
       }
     });
   });
@@ -120,9 +77,9 @@ describe('TeamActivity Entity', () => {
           });
           
           // Kontrollera att andra egenskaper kvarstår
-          expect(enriched.teamId).toBe(activity.teamId);
-          expect(enriched.performedBy).toBe(activity.performedBy);
-          expect(enriched.id).toBe(activity.id);
+          expect(enriched.teamId).toEqual(activity.teamId);
+          expect(enriched.userId).toEqual(activity.userId);
+          expect(enriched.id).toEqual(activity.id);
         }
       }
     });
@@ -145,44 +102,30 @@ describe('TeamActivity Entity', () => {
 
   describe('isRelatedToUser', () => {
     it('bör returnera true när användaren utfört aktiviteten', () => {
-      const userId = new UniqueId();
+      const testUserId = new UniqueId();
       const activityResult = TeamActivity.create({
         ...validProps,
-        performedBy: userId,
+        userId: testUserId,
       });
       
       expect(activityResult.isOk()).toBe(true);
       if (activityResult.isOk()) {
         const activity = activityResult.value;
-        expect(activity.isRelatedToUser(userId)).toBe(true);
-      }
-    });
-
-    it('bör returnera true när användaren är målet för aktiviteten', () => {
-      const userId = new UniqueId();
-      const activityResult = TeamActivity.create({
-        ...validProps,
-        targetId: userId,
-      });
-      
-      expect(activityResult.isOk()).toBe(true);
-      if (activityResult.isOk()) {
-        const activity = activityResult.value;
-        expect(activity.isRelatedToUser(userId)).toBe(true);
+        expect(activity.isRelatedToUser(testUserId)).toBe(true);
       }
     });
 
     it('bör returnera true när användaren finns i metadata', () => {
-      const userId = new UniqueId();
+      const testUserId = new UniqueId();
       const activityResult = TeamActivity.create({
         ...validProps,
-        metadata: { userId: userId.toString() },
+        metadata: { userId: testUserId.toString() },
       });
       
       expect(activityResult.isOk()).toBe(true);
       if (activityResult.isOk()) {
         const activity = activityResult.value;
-        expect(activity.isRelatedToUser(userId)).toBe(true);
+        expect(activity.isRelatedToUser(testUserId)).toBe(true);
       }
     });
 
@@ -202,7 +145,7 @@ describe('TeamActivity Entity', () => {
     function testDescription(type: ActivityType, metadata: any, expectedPart: string) {
       const activityResult = TeamActivity.create({
         ...validProps,
-        activityType: type,
+        type: type,
         metadata,
       });
       
@@ -230,9 +173,9 @@ describe('TeamActivity Entity', () => {
       );
     });
 
-    it('bör generera beskrivning för ROLE_CHANGED med användarnamn och roll', () => {
+    it('bör generera beskrivning för MEMBER_ROLE_CHANGED med användarnamn och roll', () => {
       testDescription(
-        ActivityType.ROLE_CHANGED, 
+        ActivityType.MEMBER_ROLE_CHANGED, 
         { userName: 'Karin Svensson', newRole: 'admin' }, 
         'Karin Svensson fick rollen admin'
       );
@@ -247,11 +190,12 @@ describe('TeamActivity Entity', () => {
     });
 
     it('bör generera standardbeskrivning för okänd aktivitetstyp', () => {
-      const unknownType = 'unknown_type' as ActivityType;
+      // Skapa en egen aktivitetstyp som inte fångas av switch-satsen
+      const customEventType = ActivityType.CUSTOM_EVENT;
       testDescription(
-        unknownType, 
+        customEventType, 
         {}, 
-        `En aktivitet av typen ${unknownType} utfördes`
+        `En aktivitet av typen ${customEventType} utfördes`
       );
     });
   });

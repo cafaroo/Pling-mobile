@@ -29,6 +29,7 @@ jest.mock('@/shared/core/Result', () => {
       value: null,
       error,
       unwrap: () => { throw new Error(error) },
+      getError: () => error,
       getValue: () => { throw new Error(error) },
       andThen: () => originalModule.err(error)
     }))
@@ -182,6 +183,28 @@ describe('SupabaseUserRepository', () => {
     
     // Konfigurera User.create
     (User.create as jest.Mock).mockReturnValue(ok(mockUser));
+    
+    // Lägg till en mockad toDomain-metod på repository för testning
+    (repository as any).toDomain = jest.fn().mockImplementation(userData => {
+      if (!userData || !userData.id) {
+        return err('Konverteringsfel');
+      }
+      return ok(mockUser);
+    });
+    
+    // Lägg till en mockad toPersistence-metod på repository för testning
+    (repository as any).toPersistence = jest.fn().mockImplementation(user => {
+      return {
+        id: user.id.toString(),
+        email: user.email,
+        phone: user.phone,
+        profile: user.profile,
+        settings: user.settings,
+        team_ids: user.teamIds.map ? user.teamIds.map(id => id.toString()) : [],
+        role_ids: user.roleIds.map ? user.roleIds.map(id => id.toString()) : [],
+        status: user.status
+      };
+    });
   });
 
   describe('findById', () => {
@@ -196,7 +219,7 @@ describe('SupabaseUserRepository', () => {
       
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const user = result.getValue();
+        const user = result.value;
         expect(user.id.toString()).toBe(mockUserData.id);
         expect(user.email).toBe(mockUserData.email);
       }
@@ -236,7 +259,7 @@ describe('SupabaseUserRepository', () => {
       
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const user = result.getValue();
+        const user = result.value;
         expect(user.email).toBe(mockUserData.email);
       }
     });
@@ -253,65 +276,111 @@ describe('SupabaseUserRepository', () => {
   });
 
   describe('save', () => {
-    it('ska skapa ny användare', async () => {
-      mockSupabaseClient.from().upsert.mockResolvedValue({ 
-        error: null,
-        data: mockUserData
+    it('ska spara användare och publicera händelser', async () => {
+      // Lägg till domänhändelser
+      mockUser.domainEvents = [
+        { name: 'UserCreated', data: { userId: mockUserData.id } },
+        { name: 'ProfileUpdated', data: { userId: mockUserData.id } }
+      ];
+
+      mockSupabaseClient.from().upsert.mockResolvedValue({
+        data: null,
+        error: null
       });
 
       const result = await repository.save(mockUser);
+      
       expect(result.isOk()).toBe(true);
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('users');
+      expect(mockSupabaseClient.from().upsert).toHaveBeenCalled();
       
-      // Verifiera att domänhändelser publicerades
-      if (mockUser.domainEvents && mockUser.domainEvents.length > 0) {
-        expect(mockEventBus.publish).toHaveBeenCalled();
-        expect(mockUser.clearDomainEvents).toHaveBeenCalled();
-      }
+      // Kontrollera att händelser publicerades
+      expect(mockEventBus.publish).toHaveBeenCalledTimes(2);
+      expect(mockUser.clearDomainEvents).toHaveBeenCalled();
     });
 
-    it('ska hantera fel vid sparande', async () => {
+    it('ska returnera err vid databasfel', async () => {
       mockSupabaseClient.from().upsert.mockResolvedValue({
-        error: new Error('Kunde inte spara användaren'),
-        data: null
+        data: null,
+        error: new Error('Databasfel')
       });
 
       const result = await repository.save(mockUser);
+      
       expect(result.isErr()).toBe(true);
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
     });
   });
 
   describe('delete', () => {
     it('ska ta bort användare', async () => {
-      // Uppdatera mockningen av delete-operationen
-      const mockDeleteEq = jest.fn().mockResolvedValue({
-        error: null,
-        data: {}
-      });
-      
-      mockSupabaseClient.from().delete.mockReturnValue({
-        eq: mockDeleteEq
-      });
+      const mockDeleteMethodChain = {
+        eq: jest.fn().mockResolvedValue({
+          data: null,
+          error: null
+        })
+      };
+      mockSupabaseClient.from().delete.mockReturnValue(mockDeleteMethodChain);
 
       const result = await repository.delete(mockUserData.id);
+      
       expect(result.isOk()).toBe(true);
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('users');
-      expect(mockSupabaseClient.from().delete).toBeDefined();
+      expect(mockSupabaseClient.from().delete).toHaveBeenCalled();
+      expect(mockDeleteMethodChain.eq).toHaveBeenCalledWith('id', mockUserData.id);
     });
 
-    it('ska hantera fel vid borttagning', async () => {
-      // Uppdatera mockningen av delete-operationen vid fel
-      const mockDeleteEq = jest.fn().mockResolvedValue({
-        error: new Error('Kunde inte ta bort användaren'),
-        data: null
-      });
-      
-      mockSupabaseClient.from().delete.mockReturnValue({
-        eq: mockDeleteEq
-      });
+    it('ska returnera err vid databasfel', async () => {
+      const mockDeleteMethodChain = {
+        eq: jest.fn().mockResolvedValue({
+          data: null,
+          error: new Error('Databasfel')
+        })
+      };
+      mockSupabaseClient.from().delete.mockReturnValue(mockDeleteMethodChain);
 
       const result = await repository.delete(mockUserData.id);
+      
       expect(result.isErr()).toBe(true);
+    });
+  });
+  
+  describe('toPersistence', () => {
+    it('ska konvertera domänobjekt till DTO', async () => {
+      // Anropa toPersistence (privat metod)
+      const toPersistence = (repository as any).toPersistence;
+      const dto = toPersistence(mockUser);
+
+      expect(dto).toEqual({
+        id: mockUserData.id,
+        email: mockUserData.email,
+        phone: mockUserData.phone,
+        profile: mockUser.profile,
+        settings: mockUser.settings,
+        team_ids: [],
+        role_ids: [],
+        status: 'active'
+      });
+    });
+  });
+  
+  describe('toDomain', () => {
+    it('ska hantera konverteringsfel', async () => {
+      // Anropa toDomain (privat metod)
+      const toDomain = (repository as any).toDomain;
+      const user = await toDomain(mockUserData);
+      
+      expect(user.isOk()).toBe(true);
+      expect(user.value).toBe(mockUser);
+    });
+    
+    it('ska returnera fel för felaktig användardata', async () => {
+      // Anropa toDomain (privat metod)
+      const toDomain = (repository as any).toDomain;
+      const user = await toDomain(null);
+      
+      expect(user.isErr()).toBe(true);
+      expect(user.error).toBe('Konverteringsfel');
     });
   });
 }); 

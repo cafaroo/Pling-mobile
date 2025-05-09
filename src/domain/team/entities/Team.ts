@@ -360,6 +360,16 @@ export class Team extends AggregateRoot<TeamProps> {
         i.userId.toString() !== userId.toString()
       );
 
+      // Lägg till händelse för accept/decline
+      this.addDomainEvent({
+        name: accept ? 'InvitationAccepted' : 'InvitationDeclined',
+        payload: {
+          teamId: this.id.toString(),
+          userId: userId.toString(),
+          timestamp: new Date()
+        }
+      });
+
       // Om accepterad, lägg till medlem
       if (accept) {
         const member = TeamMember.create({
@@ -370,16 +380,6 @@ export class Team extends AggregateRoot<TeamProps> {
 
         return this.addMember(member);
       }
-
-      // Lägg till domänhändelse
-      this.addDomainEvent({
-        name: accept ? 'InvitationAccepted' : 'InvitationDeclined',
-        payload: {
-          teamId: this.id.toString(),
-          userId: userId.toString(),
-          timestamp: new Date()
-        }
-      });
 
       return ok(undefined);
     } catch (error) {

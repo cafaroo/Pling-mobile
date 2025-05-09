@@ -75,11 +75,13 @@ export const useUpdateProfile = () => {
       // Invalidera cachen för att säkerställa senaste data
       await invalidateUserCache(variables.userId);
       
-      toast.show({
-        type: 'success',
-        text1: 'Profil uppdaterad',
-        text2: 'Dina ändringar har sparats',
-      });
+      if (toast && typeof toast.show === 'function') {
+        toast.show({
+          type: 'success',
+          text1: 'Profil uppdaterad',
+          text2: 'Dina ändringar har sparats',
+        });
+      }
     },
     
     // Vid fel: Återställ till tidigare tillstånd
@@ -92,11 +94,13 @@ export const useUpdateProfile = () => {
         await updateUserCache(variables.userId, context.previousUser);
       }
       
-      toast.show({
-        type: 'error',
-        text1: 'Kunde inte uppdatera profil',
-        text2: error.message || 'Ett fel uppstod när profilen skulle uppdateras',
-      });
+      if (toast && typeof toast.show === 'function') {
+        toast.show({
+          type: 'error',
+          text1: 'Kunde inte uppdatera profil',
+          text2: error.message || 'Ett fel uppstod när profilen skulle uppdateras',
+        });
+      }
     },
     
     // Oavsett resultat: Säkerställ att data är uppdaterad

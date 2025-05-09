@@ -1,4 +1,4 @@
-import { Result } from '@/domain/core/Result';
+import { Result } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { TeamStatistics, StatisticsPeriod } from '../value-objects/TeamStatistics';
 

@@ -1,4 +1,4 @@
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { User } from '@/domain/user/entities/User';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
@@ -13,7 +13,7 @@ describe('createUser', () => {
 
   beforeEach(() => {
     mockUserRepo = {
-      save: jest.fn().mockResolvedValue(Result.ok(undefined)),
+      save: jest.fn().mockResolvedValue(ok(undefined)),
       findByEmail: jest.fn(),
       findById: jest.fn()
     } as any;
@@ -29,10 +29,13 @@ describe('createUser', () => {
         firstName: 'Test',
         lastName: 'User',
         displayName: 'TestUser',
-        contact: {
-          email: 'test@example.com',
-          phone: '+46701234567'
-        }
+        bio: 'En testprofil',
+        location: 'Stockholm',
+        socialLinks: {
+          website: 'https://example.com',
+          linkedin: 'https://linkedin.com/in/test'
+        },
+        interests: ['programmering', 'testning']
       },
       settings: {
         theme: 'light',
@@ -40,20 +43,19 @@ describe('createUser', () => {
         notifications: {
           email: true,
           push: true,
-          sms: false,
-          frequency: 'daily'
+          inApp: true
         },
         privacy: {
-          profileVisibility: 'public',
-          showEmail: false,
-          showPhone: false
+          showProfile: true,
+          showActivity: true,
+          showTeams: true
         }
       }
     };
   });
 
   it('ska skapa en ny användare med giltiga värden', async () => {
-    mockUserRepo.findByEmail.mockResolvedValue(Result.err('Användaren finns inte'));
+    mockUserRepo.findByEmail.mockResolvedValue(err('Användaren finns inte'));
 
     const useCase = createUser({ userRepo: mockUserRepo, eventBus: mockEventBus });
     const result = await useCase(validInput);
@@ -68,21 +70,21 @@ describe('createUser', () => {
 
   it('ska returnera fel om användaren redan finns', async () => {
     const existingUser = { id: new UniqueId() } as User;
-    mockUserRepo.findByEmail.mockResolvedValue(Result.ok(existingUser));
+    mockUserRepo.findByEmail.mockResolvedValue(ok(existingUser));
 
     const useCase = createUser({ userRepo: mockUserRepo, eventBus: mockEventBus });
     const result = await useCase(validInput);
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.getError()).toBe('En användare med denna e-postadress finns redan');
+      expect(result.error).toBe('En användare med denna e-postadress finns redan');
     }
     expect(mockUserRepo.save).not.toHaveBeenCalled();
     expect(mockEventBus.publish).not.toHaveBeenCalled();
   });
 
   it('ska validera e-postadress', async () => {
-    mockUserRepo.findByEmail.mockResolvedValue(Result.err('Användaren finns inte'));
+    mockUserRepo.findByEmail.mockResolvedValue(err('Användaren finns inte'));
 
     const useCase = createUser({ userRepo: mockUserRepo, eventBus: mockEventBus });
     const result = await useCase({
@@ -92,45 +94,39 @@ describe('createUser', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.getError()).toBe('Ogiltig e-postadress');
+      expect(result.error).toBe('Ogiltig e-postadress');
     }
     expect(mockUserRepo.save).not.toHaveBeenCalled();
     expect(mockEventBus.publish).not.toHaveBeenCalled();
   });
 
   it('ska validera telefonnummer', async () => {
-    mockUserRepo.findByEmail.mockResolvedValue(Result.err('Användaren finns inte'));
+    mockUserRepo.findByEmail.mockResolvedValue(err('Användaren finns inte'));
 
     const useCase = createUser({ userRepo: mockUserRepo, eventBus: mockEventBus });
     const result = await useCase({
       ...validInput,
-      profile: {
-        ...validInput.profile,
-        contact: {
-          ...validInput.profile.contact,
-          phone: 'invalid-phone'
-        }
-      }
+      phone: 'invalid-phone'
     });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.getError()).toBe('Ogiltigt telefonnummer');
+      expect(result.error).toBe('Ogiltigt telefonnummer');
     }
     expect(mockUserRepo.save).not.toHaveBeenCalled();
     expect(mockEventBus.publish).not.toHaveBeenCalled();
   });
 
   it('ska hantera fel vid sparande', async () => {
-    mockUserRepo.findByEmail.mockResolvedValue(Result.err('Användaren finns inte'));
-    mockUserRepo.save.mockResolvedValue(Result.err('Databasfel'));
+    mockUserRepo.findByEmail.mockResolvedValue(err('Användaren finns inte'));
+    mockUserRepo.save.mockResolvedValue(err('Databasfel'));
 
     const useCase = createUser({ userRepo: mockUserRepo, eventBus: mockEventBus });
     const result = await useCase(validInput);
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.getError()).toBe('Kunde inte skapa användaren: Databasfel');
+      expect(result.error).toBe('Kunde inte skapa användaren: Databasfel');
     }
     expect(mockEventBus.publish).not.toHaveBeenCalled();
   });

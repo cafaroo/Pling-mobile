@@ -1,5 +1,5 @@
 import { ValueObject } from '@/shared/core/ValueObject';
-import { Result } from '@/domain/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 
 export interface MessageAttachmentProps {
   type: 'image' | 'file' | 'link';

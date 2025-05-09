@@ -27,174 +27,171 @@ import { expectResultOk } from '@/test-utils/error-helpers';
 import { createTestUser, createTestUserProfile, createTestUserSettings } from '@/test-utils/mocks/UserTestData';
 
 describe('UserEvent', () => {
-  // Skapa testbara varianter av domänentiteter
-  let user: User;
+  let user;
   
   // Skapa testfixtures
   beforeEach(() => {
-    user = createTestUser().getValue();
+    user = createTestUser();
   });
   
   describe('Basklassomhändelser', () => {
     it('ska skapa UserCreated-händelse med rätt egenskaper', () => {
       const event = new UserCreated(user);
       
-      expect(event.name).toBe('user.created');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.data.occurredAt).toBeInstanceOf(Date);
+      expect(event.eventName).toBe('user.created');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
+      expect(event.aggregateId).toBe(user.id);
     });
     
     it('ska skapa UserProfileUpdated-händelse med rätt egenskaper', () => {
-      const event = new UserProfileUpdated(user, user.profile);
+      const event = new UserProfileUpdated(user);
       
-      expect(event.name).toBe('user.profile.updated');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.data.occurredAt).toBeInstanceOf(Date);
+      expect(event.eventName).toBe('user.profile.updated');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
       expect(event.profile).toBe(user.profile);
+      expect(event.aggregateId).toBe(user.id);
     });
     
     it('ska skapa UserSettingsUpdated-händelse med rätt egenskaper', () => {
-      const event = new UserSettingsUpdated(user, user.settings);
+      const event = new UserSettingsUpdated(user);
       
-      expect(event.name).toBe('user.settings.updated');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.data.occurredAt).toBeInstanceOf(Date);
+      expect(event.eventName).toBe('user.settings.updated');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
       expect(event.settings).toBe(user.settings);
+      expect(event.aggregateId).toBe(user.id);
     });
   });
   
   describe('Kontohändelser', () => {
     it('ska skapa UserActivated-händelse med rätt egenskaper', () => {
-      const event = new UserActivated(user, 'email_verification');
+      const event = new UserActivated(user);
       
-      expect(event.name).toBe('user.account.activated');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.activationReason).toBe('email_verification');
+      expect(event.eventName).toBe('user.activated');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
+      expect(event.aggregateId).toBe(user.id);
     });
     
     it('ska skapa UserDeactivated-händelse med rätt egenskaper', () => {
-      const event = new UserDeactivated(user, 'user_request');
+      const deactivationReason = 'test_reason';
+      const event = new UserDeactivated(user, deactivationReason);
       
+      expect(event.eventName).toBe('user.deactivated');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
+      expect(event.aggregateId).toBe(user.id);
+      expect(event.deactivationReason).toBe(deactivationReason);
       expect(event.name).toBe('user.account.deactivated');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.deactivationReason).toBe('user_request');
+      expect(event.data).toBeDefined();
+      expect(event.data.userId).toBe(user.id.toString());
     });
     
     it('ska skapa UserDeleted-händelse med rätt egenskaper', () => {
-      const event = new UserDeleted(user, 'gdpr_request');
+      const event = new UserDeleted(user);
       
-      expect(event.name).toBe('user.account.deleted');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.deletionReason).toBe('gdpr_request');
+      expect(event.eventName).toBe('user.deleted');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
+      expect(event.aggregateId).toBe(user.id);
     });
   });
   
   describe('Privacy- och säkerhetshändelser', () => {
     it('ska skapa UserPrivacySettingsChanged-händelse med rätt egenskaper', () => {
-      const oldSettings = { profileVisibility: 'friends' };
-      const newSettings = { profileVisibility: 'public' };
+      const privacy = { showProfile: true, showActivity: false };
+      const event = new UserPrivacySettingsChanged(user, privacy);
       
-      const event = new UserPrivacySettingsChanged(user, oldSettings, newSettings);
-      
-      expect(event.name).toBe('user.privacy.updated');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.oldSettings).toEqual(oldSettings);
-      expect(event.newSettings).toEqual(newSettings);
+      expect(event.eventName).toBe('user.privacy_settings.changed');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
+      expect(event.privacy).toBe(privacy);
+      expect(event.aggregateId).toBe(user.id);
     });
     
     it('ska skapa UserNotificationSettingsChanged-händelse med rätt egenskaper', () => {
-      const oldSettings = { email: true, push: true };
-      const newSettings = { email: false, push: true };
+      const notifications = { email: true, push: false };
+      const event = new UserNotificationSettingsChanged(user, notifications);
       
-      const event = new UserNotificationSettingsChanged(user, oldSettings, newSettings);
-      
-      expect(event.name).toBe('user.notifications.updated');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.oldSettings).toEqual(oldSettings);
-      expect(event.newSettings).toEqual(newSettings);
+      expect(event.eventName).toBe('user.notification_settings.changed');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
+      expect(event.notifications).toBe(notifications);
+      expect(event.aggregateId).toBe(user.id);
     });
     
     it('ska skapa UserSecurityEvent-händelse med rätt egenskaper', () => {
-      const metadata = { ip: '192.168.1.1', device: 'mobile' };
+      const securityEvent = 'password_changed';
+      const metadata = { ip: '127.0.0.1', userAgent: 'Test Browser' };
+      const event = new UserSecurityEvent(user, securityEvent, metadata);
       
-      const event = new UserSecurityEvent(user, 'login', metadata);
-      
-      expect(event.name).toBe('user.security.login');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.eventType).toBe('login');
-      expect(event.metadata).toEqual(metadata);
+      expect(event.eventName).toBe('user.security.password_changed');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
+      expect(event.securityEvent).toBe(securityEvent);
+      expect(event.metadata).toBe(metadata);
+      expect(event.aggregateId).toBe(user.id);
     });
     
     it('ska skapa UserSecurityEvent med dynamiskt händelsenamn', () => {
-      const loginEvent = new UserSecurityEvent(user, 'login', {});
-      const logoutEvent = new UserSecurityEvent(user, 'logout', {});
+      const securityEvent = 'login_attempt';
+      const event = new UserSecurityEvent(user, securityEvent);
       
-      expect(loginEvent.name).toBe('user.security.login');
-      expect(logoutEvent.name).toBe('user.security.logout');
+      expect(event.eventName).toBe('user.security.login_attempt');
     });
   });
   
   describe('Statistik- och beteendehändelser', () => {
     it('ska skapa UserStatisticsUpdated-händelse med rätt egenskaper', () => {
-      const stats = { 
-        teamCount: 5, 
-        tasksCompleted: 42, 
-        activityScore: 98 
-      };
-      
+      const stats = { logins: 5, lastActive: new Date() };
       const event = new UserStatisticsUpdated(user, stats);
       
-      expect(event.name).toBe('user.statistics.updated');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.statistics).toEqual(stats);
+      expect(event.eventName).toBe('user.statistics.updated');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
+      expect(event.statistics).toBe(stats);
+      expect(event.aggregateId).toBe(user.id);
     });
     
     it('ska skapa UserAchievementUnlocked-händelse med rätt egenskaper', () => {
-      const event = new UserAchievementUnlocked(
-        user, 
-        'team-player-2023', 
-        'Team Player 2023'
-      );
+      const achievement = { id: 'first_login', name: 'First Login', points: 10 };
+      const event = new UserAchievementUnlocked(user, achievement);
       
-      expect(event.name).toBe('user.achievement.unlocked');
-      expect(event.data.userId).toBe('test-user-id');
-      expect(event.achievementId).toBe('team-player-2023');
-      expect(event.achievementName).toBe('Team Player 2023');
+      expect(event.eventName).toBe('user.achievement.unlocked');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
+      expect(event.achievement).toBe(achievement);
+      expect(event.aggregateId).toBe(user.id);
     });
   });
   
   describe('Teamrelaterade händelser', () => {
     it('ska skapa UserTeamRoleChanged-händelse med rätt egenskaper', () => {
-      const teamId = new UniqueId('test-team-id');
+      const teamId = new UniqueId();
+      const role = 'admin';
+      const event = new UserTeamRoleChanged(user, teamId, role);
       
-      const event = new UserTeamRoleChanged(
-        user,
-        teamId,
-        'member',
-        'admin'
-      );
-      
-      expect(event.name).toBe('user.team.role_changed');
-      expect(event.data.userId).toBe('test-user-id');
+      expect(event.eventName).toBe('user.team.role_changed');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
       expect(event.teamId).toBe(teamId);
-      expect(event.oldRole).toBe('member');
-      expect(event.newRole).toBe('admin');
+      expect(event.role).toBe(role);
+      expect(event.aggregateId).toBe(user.id);
     });
     
     it('ska skapa UserTeamInvited-händelse med rätt egenskaper', () => {
-      const teamId = new UniqueId('test-team-id');
-      const inviterId = new UniqueId('inviter-id');
+      const teamId = new UniqueId();
+      const inviterId = new UniqueId();
+      const event = new UserTeamInvited(user, teamId, inviterId);
       
-      const event = new UserTeamInvited(
-        user,
-        teamId,
-        inviterId
-      );
-      
-      expect(event.name).toBe('user.team.invited');
-      expect(event.data.userId).toBe('test-user-id');
+      expect(event.eventName).toBe('user.team.invited');
+      expect(event.dateTimeOccurred).toBeDefined();
+      expect(event.user).toBe(user);
       expect(event.teamId).toBe(teamId);
-      expect(event.invitedBy).toBe(inviterId);
+      expect(event.inviterId).toBe(inviterId);
+      expect(event.aggregateId).toBe(user.id);
     });
   });
 }); 

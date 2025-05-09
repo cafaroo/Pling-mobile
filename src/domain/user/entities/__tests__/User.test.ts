@@ -24,7 +24,7 @@ describe('User', () => {
         showLastSeen: true
       }
     });
-    validSettings = settingsResult.getValue();
+    validSettings = settingsResult.value;
 
     const profileResult = await UserProfile.create({
       firstName: 'Test',
@@ -33,7 +33,7 @@ describe('User', () => {
         email: 'test@example.com'
       }
     });
-    validProfile = profileResult.getValue();
+    validProfile = profileResult.value;
   });
 
   describe('create', () => {
@@ -48,7 +48,7 @@ describe('User', () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const user = result.getValue();
+        const user = result.value;
         expect(user.email).toBe('test@example.com');
         expect(user.name).toBe('Test User');
         expect(user.settings).toBe(validSettings);
@@ -67,7 +67,7 @@ describe('User', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError()).toBe('Ogiltig e-postadress');
+        expect(result.error).toBe('Ogiltig e-postadress');
       }
     });
 
@@ -81,7 +81,7 @@ describe('User', () => {
 
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError()).toBe('Namnet måste vara minst 2 tecken');
+        expect(result.error).toBe('Namnet måste vara minst 2 tecken');
       }
     });
   });
@@ -97,7 +97,7 @@ describe('User', () => {
 
       expect(userResult.isOk()).toBe(true);
       if (userResult.isOk()) {
-        const user = userResult.getValue();
+        const user = userResult.value;
         const newSettingsResult = await UserSettings.create({
           theme: 'dark',
           language: 'en',
@@ -116,9 +116,9 @@ describe('User', () => {
 
         expect(newSettingsResult.isOk()).toBe(true);
         if (newSettingsResult.isOk()) {
-          const updateResult = user.updateSettings(newSettingsResult.getValue());
+          const updateResult = user.updateSettings(newSettingsResult.value);
           expect(updateResult.isOk()).toBe(true);
-          expect(user.settings).toBe(newSettingsResult.getValue());
+          expect(user.settings).toBe(newSettingsResult.value);
         }
       }
     });
@@ -137,7 +137,7 @@ describe('User', () => {
 
       expect(userResult.isOk()).toBe(true);
       if (userResult.isOk()) {
-        user = userResult.getValue();
+        user = userResult.value;
       }
     });
 
@@ -157,7 +157,7 @@ describe('User', () => {
       const secondAdd = user.addTeam(teamId);
       expect(secondAdd.isErr()).toBe(true);
       if (secondAdd.isErr()) {
-        expect(secondAdd.getError()).toBe('Användaren är redan medlem i teamet');
+        expect(secondAdd.error).toBe('Användaren är redan medlem i teamet');
       }
     });
 
@@ -176,7 +176,7 @@ describe('User', () => {
       
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError()).toBe('Användaren är inte medlem i teamet');
+        expect(result.error).toBe('Användaren är inte medlem i teamet');
       }
     });
   });

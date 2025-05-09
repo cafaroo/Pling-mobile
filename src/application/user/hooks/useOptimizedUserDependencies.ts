@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { supabase } from '@/infrastructure/supabase';
 import { getEventBus } from '@/shared/core/EventBus';
 import { InfrastructureFactory } from '@/infrastructure/InfrastructureFactory';
-import { LogLevel } from '@/infrastructure/logger/LoggingService';
+import { LogLevel } from '@/shared/logging/LogLevel';
 
 /**
  * Hook för att hämta optimerade användar-beroenden med cachning, loggning och prestanda-övervakning
@@ -15,7 +15,7 @@ export const useOptimizedUserDependencies = () => {
     {
       // Loggning
       enableLogging: true,
-      logLevel: LogLevel.INFO,
+      logLevel: 'info',
       enableRemoteLogging: false,  // Aktivera vid behov
       
       // Prestanda

@@ -1,4 +1,4 @@
-import { Result } from '@/domain/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { TeamGoal, GoalStatus, TeamGoalProps, TeamGoalAssignment } from '@/domain/team/entities/TeamGoal';
 import { TeamGoalRepository, TeamGoalFilter } from '@/domain/team/repositories/TeamGoalRepository';

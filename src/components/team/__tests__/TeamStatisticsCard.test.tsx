@@ -11,12 +11,16 @@ jest.mock('react-native-chart-kit', () => ({
 
 describe('TeamStatisticsCard', () => {
   const teamId = new UniqueId();
-  const mockStatistics = TeamStatistics.calculateFromGoals(
+  const statisticsResult = TeamStatistics.calculateFromGoals(
     teamId,
     [],
     [],
     StatisticsPeriod.WEEKLY
-  ).unwrap();
+  );
+  
+  // Kontrollera att resultatet är OK innan vi fortsätter
+  expect(statisticsResult.isOk()).toBe(true);
+  const mockStatistics = statisticsResult.value;
 
   it('ska rendera alla statistikkomponenter', () => {
     const { getByText } = render(
@@ -39,7 +43,7 @@ describe('TeamStatisticsCard', () => {
   });
 
   it('ska visa korrekta statistikvärden', () => {
-    const mockStatsWithData = TeamStatistics.calculateFromGoals(
+    const statsWithDataResult = TeamStatistics.calculateFromGoals(
       teamId,
       [
         {
@@ -66,7 +70,11 @@ describe('TeamStatisticsCard', () => {
         }
       ],
       StatisticsPeriod.WEEKLY
-    ).unwrap();
+    );
+    
+    // Kontrollera att resultatet är OK innan vi fortsätter
+    expect(statsWithDataResult.isOk()).toBe(true);
+    const mockStatsWithData = statsWithDataResult.value;
 
     const { getByText } = render(
       <TeamStatisticsCard statistics={mockStatsWithData} />
@@ -114,7 +122,7 @@ describe('TeamStatisticsCard', () => {
 
   it('ska visa korrekt formaterade datum i aktivitetstrenden', () => {
     const now = new Date();
-    const mockStatsWithTrend = TeamStatistics.calculateFromGoals(
+    const statsWithTrendResult = TeamStatistics.calculateFromGoals(
       teamId,
       [],
       [
@@ -128,7 +136,11 @@ describe('TeamStatisticsCard', () => {
         }
       ],
       StatisticsPeriod.WEEKLY
-    ).unwrap();
+    );
+    
+    // Kontrollera att resultatet är OK innan vi fortsätter
+    expect(statsWithTrendResult.isOk()).toBe(true);
+    const mockStatsWithTrend = statsWithTrendResult.value;
 
     const { getByText } = render(
       <TeamStatisticsCard statistics={mockStatsWithTrend} />
@@ -139,7 +151,7 @@ describe('TeamStatisticsCard', () => {
   });
 
   it('ska visa korrekt procentuellt målframsteg', () => {
-    const mockStatsWithProgress = TeamStatistics.calculateFromGoals(
+    const statsWithProgressResult = TeamStatistics.calculateFromGoals(
       teamId,
       [
         {
@@ -157,7 +169,11 @@ describe('TeamStatisticsCard', () => {
       ],
       [],
       StatisticsPeriod.WEEKLY
-    ).unwrap();
+    );
+    
+    // Kontrollera att resultatet är OK innan vi fortsätter
+    expect(statsWithProgressResult.isOk()).toBe(true);
+    const mockStatsWithProgress = statsWithProgressResult.value;
 
     const { getByText } = render(
       <TeamStatisticsCard statistics={mockStatsWithProgress} />

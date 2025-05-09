@@ -62,7 +62,7 @@ export function expectResultOk<T, E>(
     `Förväntade ett ok-resultat men fick fel: ${result.error}${context ? ` i ${context}` : ''}`
   ).toBe(true);
   
-  return result.unwrap();
+  return result.value;
 }
 
 /**

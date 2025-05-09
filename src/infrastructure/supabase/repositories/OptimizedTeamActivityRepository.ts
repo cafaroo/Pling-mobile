@@ -48,7 +48,7 @@ export class OptimizedTeamActivityRepository implements TeamActivityRepository {
   async getStatistics(
     teamId: UniqueId,
     period: StatisticsPeriod = StatisticsPeriod.WEEKLY
-  ): Promise<Result<TeamStatistics>> {
+  ): Promise<Result<TeamStatistics, string>> {
     const cacheKey = `team_activity_stats_${teamId}_${period}`;
     
     // Försök hämta från cache först

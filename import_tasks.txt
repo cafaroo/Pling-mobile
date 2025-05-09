@@ -1,0 +1,175 @@
+# Import-uppgifter för konvertering till @-alias
+
+## Konvertera från relativa importer till @-alias
+
+### TeamForm.tsx
+- Fil: components/team/TeamForm.tsx
+- Status: REDAN FIXAD - använder redan @/components/ui/TextInput
+
+### TeamList.tsx
+- Fil: components/team/TeamList.tsx 
+- Status: REDAN FIXAD - använder redan @/components/ui/TeamCard
+
+### TeamList.test.tsx
+- Fil: components/team/__tests__/TeamList.test.tsx
+- Status: REDAN FIXAD - använder redan @/components/ui/TeamCard i mocken
+
+### ui-application-integration.test.tsx
+- Fil: src/ui/user/integration-tests/ui-application-integration.test.tsx
+- Problem: Använder relativa sökvägar för hooks istället för @-alias
+- Status: FIXAD (2024-06-09) - Uppdaterade från ../../hooks/ till @/hooks/ och ../../components/ till @/components/
+  
+### createUser.test.ts
+- Fil: src/application/user/useCases/__tests__/createUser.test.ts
+- Problem: Använder Result.ok och Result.err istället för ok och err
+- Status: FIXAD (2024-06-09) - Importerar nu ok och err separat och använder dessa istället för Result.ok/Result.err
+- TESTPROBLEM: Testerna misslyckas med "TypeError: userResult.isErr is not a function" pga User.create i createUser.ts
+
+### useTeamStatistics.test.tsx
+- Fil: src/application/team/hooks/__tests__/useTeamStatistics.test.tsx
+- Problem: Använder Result.ok och Result.err istället för ok och err
+- Status: FIXAD (2024-06-09) - Importerar nu ok och err separat och använder dessa istället för Result.ok/Result.err
+
+### UserProfile.test.ts
+- Fil: src/domain/user/entities/__tests__/UserProfile.test.ts
+- Problem: Använder getValue() och getError() istället för .value och .error
+- Status: FIXAD (2024-06-10) - Ersatt alla getValue() med .value och getError() med .error
+- TESTPROBLEM: Testerna misslyckas med "Cannot read properties of undefined (reading 'email')" och felmeddelandena matchar inte
+
+### UserPermission.test.ts
+- Fil: src/domain/user/value-objects/__tests__/UserPermission.test.ts
+- Problem: Använder getValue() och getError() istället för .value och .error
+- Status: FIXAD (2024-06-09) - Ersatt alla getValue() med .value och getError() med .error
+
+### Language.test.ts
+- Fil: src/domain/user/value-objects/__tests__/Language.test.ts
+- Problem: Använder getValue() och getError() istället för .value och .error
+- Status: FIXAD (2024-06-09) - Ersatt alla getValue() med .value och getError() med .error
+
+### Language.ts
+- Fil: src/domain/user/value-objects/Language.ts
+- Problem: Använder getValue() i statiska metoder
+- Status: FIXAD (2024-06-09) - Ersatt alla getValue() med .value
+
+### ResultMock.ts
+- Fil: src/test-utils/mocks/ResultMock.ts
+- Problem: Saknar .value och .error egenskaper som används av uppdaterade tester
+- Status: FIXAD (2024-06-09) - Lagt till .value och .error egenskaper samt behållit getValue/getError för bakåtkompatibilitet
+
+### UserTestData.ts
+- Fil: src/test-utils/mocks/UserTestData.ts
+- Problem: Använder getValue() istället för .value
+- Status: FIXAD (2024-06-09) - Ändrat alla förekomster av getValue() till .value
+
+### TeamForm.test.tsx & TeamForm.test.jsx
+- Fil: components/team/__tests__/TeamForm.test.tsx och components/team/__tests__/TeamForm.test.jsx
+- Problem: Kan inte hitta '@/components/ui/TextInput'
+- Status: VERIFIERAD (2024-06-09) - Testerna ser ut att använda korrekta importer
+
+### TeamList.test.tsx & TeamList.test.jsx
+- Fil: components/team/__tests__/TeamList.test.tsx och components/team/__tests__/TeamList.test.jsx
+- Problem: Kan inte hitta '@/components/ui/TeamCard'
+- Status: VERIFIERAD (2024-06-09) - Testerna ser ut att använda korrekta importer
+
+### useUpdateProfile.test.tsx
+- Fil: src/application/user/hooks/__tests__/useUpdateProfile.test.tsx
+- Problem: Fel med LogLevel.INFO i useOptimizedUserDependencies
+- Status: BEHÖVER ÅTGÄRDAS
+
+## Result-importer
+
+### Problem
+`Result` är en typ, inte en klass med statiska metoder. `Result.ok` och `Result.err` är egentligen separata funktioner som importeras.
+
+### Status
+- DELVIS ÅTGÄRDAT (2024-06-10) - Flera filer har nu korrigerats, men testers för User och UserProfile misslyckas fortfarande
+
+### Åtgärd
+- Uppdatera importerna till `import { Result, ok, err } from '@/shared/core/Result';`
+- Ersätt alla `Result.ok()` med `ok()` och `Result.err()` med `err()`
+- I testfiler, uppdatera `getValue()` till `.value` och `getError()` till `.error`
+
+### Domänlager
+1. src/domain/user/value-objects/PhoneNumber.ts - FIXAD (2024-06-09)
+2. src/domain/user/value-objects/Email.ts - FIXAD (2024-06-09)
+3. src/domain/team/value-objects/TeamStatistics.ts - FIXAD (2024-06-09)
+4. src/domain/user/value-objects/UserRole.ts - FIXAD (2024-06-09)
+5. src/domain/user/value-objects/UserPermission.ts - FIXAD (2024-06-09)
+6. src/domain/user/value-objects/Language.ts - FIXAD (2024-06-09)
+7. src/domain/user/entities/UserSettings.ts - FIXAD (2024-06-09)
+8. src/domain/user/entities/__tests__/UserSettings.test.ts - FIXAD (2024-06-09)
+9. src/domain/user/entities/__tests__/User.test.ts - FIXAD (2024-06-09)
+10. src/domain/user/entities/__tests__/UserProfile.test.ts - FIXAD (2024-06-09)
+11. src/domain/team/value-objects/TeamStatistics.ts - FIXAD (2024-06-09)
+12. src/domain/user/rules/__tests__/statsCalculator.test.ts - FIXAD (2024-06-09)
+
+### Infrastrukturlager
+1. src/infrastructure/supabase/repositories/SupabaseTeamStatisticsRepository.ts - BEHÖVER ÅTGÄRDAS
+2. src/infrastructure/supabase/repositories/TeamRepository.ts - BEHÖVER ÅTGÄRDAS
+3. src/infrastructure/supabase/repositories/SupabaseTeamActivityRepository.ts - BEHÖVER ÅTGÄRDAS
+4. src/infrastructure/supabase/repositories/__tests__/OptimizedTeamActivityRepository.test.ts - BEHÖVER ÅTGÄRDAS
+5. src/infrastructure/supabase/repositories/__tests__/UserRepositoryIntegration.test.ts - BEHÖVER ÅTGÄRDAS
+6. src/infrastructure/supabase/mappers/UserMapper.ts - BEHÖVER ÅTGÄRDAS
+7. src/infrastructure/supabase/dtos/UserDTO.ts - BEHÖVER ÅTGÄRDAS
+
+### Applikationslager
+1. src/application/team/hooks/__tests__/useTeamStatistics.test.tsx - FIXAD (2024-06-09)
+2. src/application/user/useCases/createUser.ts - FIXAD (2024-06-10)
+3. src/application/user/useCases/updateProfile.test.ts - FIXAD (2024-06-10)
+4. src/application/user/useCases/updateSettings.test.ts - FIXAD (2024-06-10)
+5. src/application/user/useCases/UpdateProfileUseCase.ts - FIXAD (2024-06-09)
+6. src/application/user/useCases/__tests__/createUser.test.ts - FIXAD (2024-06-09)
+7. src/application/user/useCases/__tests__/updateProfile.test.ts - FIXAD (2024-06-09)
+8. src/application/user/useCases/__tests__/updateSettings.test.ts - FIXAD (2024-06-09)
+9. src/application/user/useCases/updateSettings.ts - FIXAD (2024-06-09)
+10. src/application/user/hooks/useOptimizedUserDependencies.ts - FIXAD (LogLevel-problem)
+11. src/application/user/integration-tests/user-infrastructure-integration.test.ts - FIXAD (mapToUserEntity)
+12. src/test-utils/error-helpers.ts - FIXAD (unwrap -> value)
+
+### Andra lager
+1. src/lib/useStorage.ts - BEHÖVER ÅTGÄRDAS
+2. src/shared/core/__tests__/Result.test.ts - BEHÖVER ÅTGÄRDAS
+3. src/test-utils/mocks/ResultMock.ts - FIXAD (2024-06-09)
+4. src/test-utils/mocks/UserTestData.ts - FIXAD (2024-06-09)
+
+### LogLevel-import
+- Fil: src/application/user/hooks/useOptimizedUserDependencies.ts
+- Problem: Felaktig import av LogLevel
+- Status: BEHÖVER ÅTGÄRDAS
+- Åtgärd: Hitta och uppdatera import till `import { LogLevel } from '@/shared/logging/LogLevel';` eller motsvarande korrekt sökväg
+
+## Sammanfattning av statusuppdatering (2024-06-10)
+- REDAN FIXADE: 3 filer (TeamForm.tsx, TeamList.tsx, TeamList.test.tsx)
+- FIXADE IDAG: 18 filer totalt
+  - 2024-06-09: 12 filer
+  - 2024-06-10: 6 filer (TeamStatistics.ts, UserSettings.ts, createUser.ts, updateProfile.test.ts, updateSettings.test.ts, UserProfile.test.ts)
+- VERIFIERADE: 2 filer
+- ÅTERSTÅR ATT ÅTGÄRDA: 8 filer
+
+## Problem vid testning
+1. UserProfile.test.ts - Testerna misslyckas pga förändrad struktur och felmeddelanden
+2. createUser.test.ts - Testerna misslyckas pga problem med User.create i createUser.ts
+3. Vissa entiteter har fortfarande kvar kod som förväntar sig gamla metoden (isErr/getValue/getError)
+
+## Åtgärdsplan för fortsatt arbete
+1. Undersöka och fixa UserProfile-entiteten för att matcha testerna eller uppdatera testerna för att matcha entiteten
+2. Fixa User.create i createUser.ts för att åtgärda testerna
+3. Fortsätta med att fixa återstående filer i infrastrukturlagret
+4. Uppdatera LogLevel-importen i useOptimizedUserDependencies.ts
+
+## Nästa steg
+1. Fokusera på att få testerna att fungera för User och UserProfile entiteterna
+2. Fixa resterande filer i infrastrukturlagret
+3. När alla imports är korrigerade, uppdatera babel.config.js och/eller tsconfig.json vid behov
+
+## Slutsatser och nästa steg (2024-06-09)
+
+### Uppnått
+- Fixat alla tester i användardomänen (value-objects, entities, rules)
+- Delvis löst problem i teamdomänen (TeamStatistics.ts)
+- Uppdaterat applikationslager där det behövdes (Result-använding)
+
+### Återstår
+- Team-tester (.value istället för getValue())
+- TeamActivity-tester (Result-API problem)
+- Applikationstester (useUpdateProfile, infrastructure-integration, event-handling)

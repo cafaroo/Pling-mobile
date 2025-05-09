@@ -2,12 +2,16 @@ import { activateUser, ActivateUserInput, ActivateUserDeps } from '../activateUs
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { EventBus } from '@/shared/core/EventBus';
 import { User } from '@/domain/user/entities/User';
-import { UniqueId } from '@/shared/domain/UniqueId';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { UserActivated } from '@/domain/user/events/UserEvent';
+import { Result, ok, err } from '@/shared/core/Result';
 import { mockResult } from '@/test-utils/mocks/ResultMock';
 
-// Mocka resultatfunktioner direkt
-const mockedActivateUser = jest.fn();
+// Skapa typade mock-funktioner för aktivateUser
+const mockedActivateUser = jest.fn<
+  Promise<Result<void, string>>, 
+  [ActivateUserInput]
+>();
 
 // Mocka metoden som använder dessa beroenden
 jest.mock('../activateUser', () => ({
@@ -41,7 +45,7 @@ describe('activateUser', () => {
   
   it('ska aktivera en användare och publicera UserActivated-händelse', async () => {
     // Arrange
-    mockedActivateUser.mockResolvedValue(mockResult.ok(undefined));
+    mockedActivateUser.mockResolvedValue(ok(undefined));
     
     const input: ActivateUserInput = {
       userId,
@@ -68,7 +72,7 @@ describe('activateUser', () => {
   
   it('ska returnera USER_NOT_FOUND om användaren inte hittas', async () => {
     // Arrange
-    mockedActivateUser.mockResolvedValue(mockResult.err('USER_NOT_FOUND'));
+    mockedActivateUser.mockResolvedValue(err('USER_NOT_FOUND'));
     const input: ActivateUserInput = { userId, reason };
     
     // Act
@@ -84,7 +88,7 @@ describe('activateUser', () => {
   
   it('ska returnera ALREADY_ACTIVE om användaren redan är aktiv', async () => {
     // Arrange
-    mockedActivateUser.mockResolvedValue(mockResult.err('ALREADY_ACTIVE'));
+    mockedActivateUser.mockResolvedValue(err('ALREADY_ACTIVE'));
     const input: ActivateUserInput = { userId, reason };
     
     // Act
@@ -100,7 +104,7 @@ describe('activateUser', () => {
   
   it('ska returnera OPERATION_FAILED om uppdatering av användare misslyckas', async () => {
     // Arrange
-    mockedActivateUser.mockResolvedValue(mockResult.err('OPERATION_FAILED'));
+    mockedActivateUser.mockResolvedValue(err('OPERATION_FAILED'));
     const input: ActivateUserInput = { userId, reason };
     
     // Act
@@ -116,7 +120,7 @@ describe('activateUser', () => {
   
   it('ska hantera fel vid spara och returnera OPERATION_FAILED', async () => {
     // Arrange
-    mockedActivateUser.mockResolvedValue(mockResult.err('OPERATION_FAILED'));
+    mockedActivateUser.mockResolvedValue(err('OPERATION_FAILED'));
     
     // Input
     const input: ActivateUserInput = { userId, reason };

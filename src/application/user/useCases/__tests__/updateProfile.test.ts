@@ -1,4 +1,4 @@
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { User } from '@/domain/user/entities/User';
 import { UserProfile } from '@/domain/user/entities/UserProfile';
@@ -28,12 +28,11 @@ describe('UpdateProfileUseCase', () => {
     const profileResult = await UserProfile.create({
       firstName: 'Test',
       lastName: 'Testsson',
-      contact: {
-        email: 'test@test.com'
-      }
+      bio: 'En testbiografi',
+      location: 'Stockholm'
     });
 
-    mockProfile = profileResult.getValue();
+    mockProfile = profileResult.value;
 
     const userResult = await User.create({
       email: 'test@test.com',
@@ -42,21 +41,20 @@ describe('UpdateProfileUseCase', () => {
         theme: 'light',
         language: 'sv',
         notifications: {
-          enabled: true,
-          frequency: 'daily',
-          emailEnabled: true,
-          pushEnabled: true
+          email: true,
+          push: true,
+          inApp: true
         },
         privacy: {
-          profileVisibility: 'public',
-          showOnlineStatus: true,
-          showLastSeen: true
+          showProfile: true,
+          showActivity: true,
+          showTeams: true
         }
       },
       teamIds: []
     });
 
-    mockUser = userResult.getValue();
+    mockUser = userResult.value;
     updateProfileUseCase = new UpdateProfileUseCase({ 
       userRepo: mockUserRepo,
       eventBus: mockEventBus
@@ -66,8 +64,8 @@ describe('UpdateProfileUseCase', () => {
   it('ska uppdatera en användares profil', async () => {
     // Arrange
     const userId = new UniqueId();
-    mockUserRepo.findById.mockResolvedValue(Result.ok(mockUser));
-    mockUserRepo.save.mockResolvedValue(Result.ok(undefined));
+    mockUserRepo.findById.mockResolvedValue(ok(mockUser));
+    mockUserRepo.save.mockResolvedValue(ok(undefined));
 
     // Act
     const result = await updateProfileUseCase.execute({
@@ -75,8 +73,11 @@ describe('UpdateProfileUseCase', () => {
       profile: {
         firstName: 'Uppdaterad',
         lastName: 'Testsson',
-        contact: {
-          email: 'test@test.com'
+        bio: 'En uppdaterad biografi',
+        location: 'Göteborg',
+        socialLinks: {
+          website: 'https://example.com',
+          linkedin: 'https://linkedin.com/in/test'
         }
       }
     });
@@ -93,7 +94,7 @@ describe('UpdateProfileUseCase', () => {
   it('ska returnera fel om användaren inte hittas', async () => {
     // Arrange
     const userId = new UniqueId();
-    mockUserRepo.findById.mockResolvedValue(Result.err('Användaren hittades inte'));
+    mockUserRepo.findById.mockResolvedValue(err('Användaren hittades inte'));
 
     // Act
     const result = await updateProfileUseCase.execute({
@@ -101,9 +102,7 @@ describe('UpdateProfileUseCase', () => {
       profile: {
         firstName: 'Test',
         lastName: 'Testsson',
-        contact: {
-          email: 'test@test.com'
-        }
+        bio: 'En testbiografi'
       }
     });
 
@@ -116,7 +115,7 @@ describe('UpdateProfileUseCase', () => {
   it('ska returnera fel vid ogiltig profildata', async () => {
     // Arrange
     const userId = new UniqueId();
-    mockUserRepo.findById.mockResolvedValue(Result.ok(mockUser));
+    mockUserRepo.findById.mockResolvedValue(ok(mockUser));
 
     // Act
     const result = await updateProfileUseCase.execute({
@@ -124,9 +123,7 @@ describe('UpdateProfileUseCase', () => {
       profile: {
         firstName: '', // Ogiltigt tomt namn
         lastName: 'Testsson',
-        contact: {
-          email: 'test@test.com'
-        }
+        bio: 'En testbiografi'
       }
     });
 
@@ -139,8 +136,8 @@ describe('UpdateProfileUseCase', () => {
   it('ska returnera fel om sparande misslyckas', async () => {
     // Arrange
     const userId = new UniqueId();
-    mockUserRepo.findById.mockResolvedValue(Result.ok(mockUser));
-    mockUserRepo.save.mockResolvedValue(Result.err('Databasfel'));
+    mockUserRepo.findById.mockResolvedValue(ok(mockUser));
+    mockUserRepo.save.mockResolvedValue(err('Databasfel'));
 
     // Act
     const result = await updateProfileUseCase.execute({
@@ -148,16 +145,14 @@ describe('UpdateProfileUseCase', () => {
       profile: {
         firstName: 'Test',
         lastName: 'Testsson',
-        contact: {
-          email: 'test@test.com'
-        }
+        bio: 'En testbiografi'
       }
     });
 
     // Assert
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.getError()).toBe('Kunde inte uppdatera profilen: Databasfel');
+      expect(result.error).toBe('Kunde inte uppdatera profilen: Databasfel');
     }
     expect(mockEventBus.publish).not.toHaveBeenCalled();
   });

@@ -1,7 +1,7 @@
-import { Result, ok, err } from '@/domain/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { UseCase } from '@/application/core/UseCase';
-import { TeamMessage } from '@/domain/team/entities/TeamMessage';
+import { TeamMessage, CreateTeamMessageProps } from '@/domain/team/entities/TeamMessage';
 import { TeamMessageRepository } from '@/domain/team/repositories/TeamMessageRepository';
 // Importera eventuella nödvändiga domänhändelser om de ska publiceras härifrån,
 // t.ex. en specifik ThreadReplyCreatedEvent om den skiljer sig från TeamMessageCreated.
@@ -31,18 +31,18 @@ export class CreateThreadReplyUseCase implements UseCase<CreateThreadReplyUseCas
       }
       // Ytterligare valideringar (t.ex. längd på innehåll) kan läggas till här eller hanteras av TeamMessage.create
 
-      const parentIdResult = UniqueId.create(props.parentId);
+      const parentIdResult = UniqueId.createExisting(props.parentId);
       if (parentIdResult.isErr()) {
-        return err('Ogiltigt Parent ID-format.');
+        return err(parentIdResult.error);
       }
-      const parentMessageId = parentIdResult.unwrap();
+      const parentId = parentIdResult.value;
 
       // 2. Hämta och validera föräldrameddelandet
-      const parentMessageResult = await this.teamMessageRepository.findById(parentMessageId);
+      const parentMessageResult = await this.teamMessageRepository.findById(parentId);
       if (parentMessageResult.isErr()) {
-        return err(`Kunde inte hitta föräldrameddelandet: ${parentMessageResult.unwrapErr()}`);
+        return err(parentMessageResult.error);
       }
-      const parentMessage = parentMessageResult.unwrap();
+      const parentMessage = parentMessageResult.value;
 
       if (parentMessage.isDeleted) {
         return err('Kan inte svara på ett raderat meddelande.');
@@ -56,22 +56,22 @@ export class CreateThreadReplyUseCase implements UseCase<CreateThreadReplyUseCas
         teamId: props.teamId,
         senderId: props.senderId,
         content: props.content,
-        parentId: parentMessageId.toString(), // Skickar med parentId här
+        parentId: parentId.toString(), // Skickar med parentId här
         // attachments: ..., // Hantera om det ska stödjas
         // mentions: ...,    // Hantera om det ska stödjas
       });
 
       if (replyMessageResult.isErr()) {
-        return err(`Kunde inte skapa svarsmeddelande: ${replyMessageResult.unwrapErr()}`);
+        return err(replyMessageResult.error);
       }
-      const newReplyMessage = replyMessageResult.unwrap();
+      const newReplyMessage = replyMessageResult.value;
 
       // 4. Spara det nya svarsmeddelandet
       const saveReplyResult = await this.teamMessageRepository.save(newReplyMessage);
       if (saveReplyResult.isErr()) {
-        return err(`Kunde inte spara svarsmeddelande: ${saveReplyResult.unwrapErr()}`);
+        return err(saveReplyResult.error);
       }
-      const savedReply = saveReplyResult.unwrap(); // Använd det sparade meddelandet som kan ha uppdaterad `updatedAt` etc.
+      const savedReply = saveReplyResult.value; // Använd det sparade meddelandet som kan ha uppdaterad `updatedAt` etc.
 
       // 5. Uppdatera föräldrameddelandets trådinformation
       parentMessage.incrementReplyCount(savedReply.createdAt); // Använd svarets createdAt
@@ -81,7 +81,7 @@ export class CreateThreadReplyUseCase implements UseCase<CreateThreadReplyUseCas
         // Logga felet, men överväg om detta ska få hela operationen att misslyckas.
         // Kanske är det acceptabelt att svaret skapades även om föräldern inte kunde uppdateras direkt?
         // För nu, låt oss säga att det är ett fel som bör rapporteras men svaret är ändå skapat.
-        console.error(`Kunde inte uppdatera trådinfo på föräldrameddelande ${parentMessageId.toString()}: ${updateParentResult.unwrapErr()}`);
+        console.error(`Kunde inte uppdatera trådinfo på föräldrameddelande ${parentId.toString()}: ${updateParentResult.error}`);
         // Eventuellt returnera ett partiellt framgångsresultat eller en varning.
       }
       
@@ -89,7 +89,7 @@ export class CreateThreadReplyUseCase implements UseCase<CreateThreadReplyUseCas
       // newReplyMessage.domainEvents.forEach(event => this.eventBus.publish(event));
       // newReplyMessage.clearEvents();
       // if (updateParentResult.isOk()) {
-      //   const updatedParent = updateParentResult.unwrap();
+      //   const updatedParent = updateParentResult.value;
       //   updatedParent.domainEvents.forEach(event => this.eventBus.publish(event));
       //   updatedParent.clearEvents();
       // }

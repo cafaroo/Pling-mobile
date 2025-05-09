@@ -1,4 +1,5 @@
 import { Language, LanguageCode } from '../Language';
+import '@testing-library/jest-dom';
 
 describe('Language', () => {
   describe('create', () => {
@@ -9,7 +10,7 @@ describe('Language', () => {
         const result = Language.create(lang);
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().code).toBe(lang);
+          expect(result.value.code).toBe(lang);
         }
       });
     });
@@ -18,7 +19,7 @@ describe('Language', () => {
       const result = Language.create('jp');
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError().message).toContain('Språket "jp" stöds inte');
+        expect(result.error.message).toContain('Språket "jp" stöds inte');
       }
     });
     
@@ -36,7 +37,7 @@ describe('Language', () => {
       const result = Language.create('EN');
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.getValue().code).toBe('en');
+        expect(result.value.code).toBe('en');
       }
     });
   });
@@ -58,35 +59,35 @@ describe('Language', () => {
         const result = Language.create(code);
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().displayName).toBe(name);
+          expect(result.value.displayName).toBe(name);
         }
       });
     });
     
     it('ska returnera korrekt nativeName för varje språk', () => {
-      const language = Language.create('de').getValue();
+      const language = Language.create('de').value;
       expect(language.nativeName).toBe('Deutsch');
       
-      const french = Language.create('fr').getValue();
+      const french = Language.create('fr').value;
       expect(french.nativeName).toBe('Français');
     });
     
     it('ska returnera korrekt defaultDateFormat för varje språk', () => {
-      const swedish = Language.create('sv').getValue();
+      const swedish = Language.create('sv').value;
       expect(swedish.defaultDateFormat).toBe('YYYY-MM-DD');
       
-      const english = Language.create('en').getValue();
+      const english = Language.create('en').value;
       expect(english.defaultDateFormat).toBe('MM/DD/YYYY');
       
-      const german = Language.create('de').getValue();
+      const german = Language.create('de').value;
       expect(german.defaultDateFormat).toBe('DD.MM.YYYY');
     });
     
     it('ska returnera korrekt defaultCurrency för varje språk', () => {
-      const swedish = Language.create('sv').getValue();
+      const swedish = Language.create('sv').value;
       expect(swedish.defaultCurrency).toBe('SEK');
       
-      const finnish = Language.create('fi').getValue();
+      const finnish = Language.create('fi').value;
       expect(finnish.defaultCurrency).toBe('EUR');
     });
   });
@@ -113,26 +114,26 @@ describe('Language', () => {
 
       expect(sv1.isOk() && sv2.isOk() && en.isOk()).toBe(true);
       if (sv1.isOk() && sv2.isOk() && en.isOk()) {
-        expect(sv1.getValue().equals(sv2.getValue())).toBe(true);
-        expect(sv1.getValue().equals(en.getValue())).toBe(false);
+        expect(sv1.value.equals(sv2.value)).toBe(true);
+        expect(sv1.value.equals(en.value)).toBe(false);
       }
     });
   });
   
   describe('hjälpmetoder', () => {
     it('ska identifiera nordiska språk korrekt', () => {
-      const swedish = Language.create('sv').getValue();
+      const swedish = Language.create('sv').value;
       expect(swedish.isNordic()).toBe(true);
       
-      const finnish = Language.create('fi').getValue();
+      const finnish = Language.create('fi').value;
       expect(finnish.isNordic()).toBe(true);
       
-      const german = Language.create('de').getValue();
+      const german = Language.create('de').value;
       expect(german.isNordic()).toBe(false);
     });
     
     it('ska konvertera språk till string korrekt', () => {
-      const language = Language.create('en').getValue();
+      const language = Language.create('en').value;
       expect(language.toString()).toBe('en');
       expect(String(language)).toBe('en');
     });

@@ -1,4 +1,5 @@
 import { UserPermission, PermissionName, PermissionCategory } from '../UserPermission';
+import '@testing-library/jest-dom';
 
 describe('UserPermission', () => {
   describe('create', () => {
@@ -7,7 +8,7 @@ describe('UserPermission', () => {
       expect(result.isOk()).toBe(true);
       
       if (result.isOk()) {
-        const permission = result.getValue();
+        const permission = result.value;
         expect(permission.name).toBe(PermissionName.MANAGE_USERS);
         expect(permission.category).toBe(PermissionCategory.USER);
       }
@@ -19,7 +20,7 @@ describe('UserPermission', () => {
       expect(result.isErr()).toBe(true);
       
       if (result.isErr()) {
-        expect(result.getError().message).toContain('inte en giltig systembehörighet');
+        expect(result.error.message).toContain('inte en giltig systembehörighet');
       }
     });
     
@@ -30,8 +31,8 @@ describe('UserPermission', () => {
       expect(result1.isOk() && result2.isOk()).toBe(true);
       
       if (result1.isOk() && result2.isOk()) {
-        const permission1 = result1.getValue();
-        const permission2 = result2.getValue();
+        const permission1 = result1.value;
+        const permission2 = result2.value;
         
         // Ska vara exakt samma objektreferens
         expect(permission1).toBe(permission2);
@@ -64,29 +65,29 @@ describe('UserPermission', () => {
   
   describe('properties', () => {
     it('ska returnera korrekt kategori för en behörighet', () => {
-      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).getValue();
+      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).value;
       expect(manageUsers.category).toBe(PermissionCategory.USER);
       
-      const createTeam = UserPermission.create(PermissionName.CREATE_TEAM).getValue();
+      const createTeam = UserPermission.create(PermissionName.CREATE_TEAM).value;
       expect(createTeam.category).toBe(PermissionCategory.TEAM);
     });
     
     it('ska returnera korrekt beskrivning för en behörighet', () => {
-      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).getValue();
+      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).value;
       expect(manageUsers.description).toBe('Hantera alla användare och deras konton');
     });
   });
   
   describe('includes', () => {
     it('ska inkludera sig själv', () => {
-      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).getValue();
+      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).value;
       expect(manageUsers.includes(manageUsers)).toBe(true);
     });
     
     it('ska korrekt hantera behörighetshierarkier', () => {
-      const manageTeams = UserPermission.create(PermissionName.MANAGE_TEAMS).getValue();
-      const createTeam = UserPermission.create(PermissionName.CREATE_TEAM).getValue();
-      const joinTeam = UserPermission.create(PermissionName.JOIN_TEAM).getValue();
+      const manageTeams = UserPermission.create(PermissionName.MANAGE_TEAMS).value;
+      const createTeam = UserPermission.create(PermissionName.CREATE_TEAM).value;
+      const joinTeam = UserPermission.create(PermissionName.JOIN_TEAM).value;
       
       // MANAGE_TEAMS inkluderar CREATE_TEAM och JOIN_TEAM
       expect(manageTeams.includes(createTeam)).toBe(true);
@@ -98,8 +99,8 @@ describe('UserPermission', () => {
     
     it('ska hantera rekursiva behörighetshierarkier', () => {
       // Förbered så att MANAGE_CONTENT inkluderar EDIT_CONTENT som inkluderar VIEW_CONTENT
-      const manageContent = UserPermission.create(PermissionName.MANAGE_CONTENT).getValue();
-      const viewContent = UserPermission.create(PermissionName.VIEW_CONTENT).getValue();
+      const manageContent = UserPermission.create(PermissionName.MANAGE_CONTENT).value;
+      const viewContent = UserPermission.create(PermissionName.VIEW_CONTENT).value;
       
       // MANAGE_CONTENT bör inkludera VIEW_CONTENT indirekt via EDIT_CONTENT
       expect(manageContent.includes(viewContent)).toBe(true);
@@ -108,19 +109,19 @@ describe('UserPermission', () => {
   
   describe('utility methods', () => {
     it('ska skapa korrekt identifierare', () => {
-      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).getValue();
+      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).value;
       expect(manageUsers.toIdentifier()).toBe('permission:manage_users');
     });
     
     it('ska konvertera till läsbar sträng', () => {
-      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).getValue();
+      const manageUsers = UserPermission.create(PermissionName.MANAGE_USERS).value;
       expect(manageUsers.toString()).toBe('Hantera alla användare och deras konton (manage_users)');
     });
     
     it('ska jämföra behörigheter korrekt', () => {
-      const manageUsers1 = UserPermission.create(PermissionName.MANAGE_USERS).getValue();
-      const manageUsers2 = UserPermission.create(PermissionName.MANAGE_USERS).getValue();
-      const viewUsers = UserPermission.create(PermissionName.VIEW_USERS).getValue();
+      const manageUsers1 = UserPermission.create(PermissionName.MANAGE_USERS).value;
+      const manageUsers2 = UserPermission.create(PermissionName.MANAGE_USERS).value;
+      const viewUsers = UserPermission.create(PermissionName.VIEW_USERS).value;
       
       expect(manageUsers1.equals(manageUsers2)).toBe(true);
       expect(manageUsers1.equals(viewUsers)).toBe(false);

@@ -1,4 +1,4 @@
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { UserProfile } from '@/domain/user/entities/UserProfile';
 import { EventBus } from '@/shared/core/EventBus';
@@ -13,12 +13,13 @@ export interface UpdateProfileInput {
     avatarUrl?: string;
     bio?: string;
     location?: string;
-    contact: {
-      email: string;
-      phone?: string;
-      alternativeEmail?: string;
+    socialLinks?: {
+      website?: string;
+      twitter?: string;
+      linkedin?: string;
+      github?: string;
     };
-    customFields?: Record<string, unknown>;
+    interests?: string[];
   };
 }
 
@@ -35,7 +36,7 @@ export class UpdateProfileUseCase {
       return userResult;
     }
 
-    const user = userResult.getValue();
+    const user = userResult.value;
 
     // Skapa ny profil
     const profileResult = await UserProfile.create({
@@ -45,8 +46,8 @@ export class UpdateProfileUseCase {
       avatarUrl: input.profile.avatarUrl,
       bio: input.profile.bio,
       location: input.profile.location,
-      contact: input.profile.contact,
-      customFields: input.profile.customFields
+      socialLinks: input.profile.socialLinks,
+      interests: input.profile.interests
     });
 
     if (profileResult.isErr()) {
@@ -54,7 +55,7 @@ export class UpdateProfileUseCase {
     }
 
     // Uppdatera användaren med ny profil
-    const updateResult = user.updateProfile(profileResult.getValue());
+    const updateResult = user.updateProfile(profileResult.value);
     if (updateResult.isErr()) {
       return updateResult;
     }
@@ -62,15 +63,15 @@ export class UpdateProfileUseCase {
     // Spara användaren
     const saveResult = await this.deps.userRepo.save(user);
     if (saveResult.isErr()) {
-      return Result.err(`Kunde inte uppdatera profilen: ${saveResult.getError()}`);
+      return err(`Kunde inte uppdatera profilen: ${saveResult.error}`);
     }
 
     // Publicera händelse
     await this.deps.eventBus.publish(new UserProfileUpdated(
       user,
-      profileResult.getValue()
+      profileResult.value
     ));
 
-    return Result.ok(undefined);
+    return ok(undefined);
   }
 } 

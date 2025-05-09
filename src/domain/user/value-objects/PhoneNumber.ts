@@ -1,11 +1,11 @@
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 
 export class PhoneNumber {
   private constructor(readonly value: string) {}
 
   public static create(phoneNumber: string): Result<PhoneNumber> {
     if (!phoneNumber) {
-      return Result.err('Telefonnummer kan inte vara tomt');
+      return err('Telefonnummer kan inte vara tomt');
     }
 
     // Ta bort alla icke-numeriska tecken
@@ -14,7 +14,7 @@ export class PhoneNumber {
     // Validera formatet (svenska nummer)
     const phoneRegex = /^(\+46|0)7[0-9]{8}$/;
     if (!phoneRegex.test(normalizedNumber)) {
-      return Result.err('Ogiltigt telefonnummer');
+      return err('Ogiltigt telefonnummer');
     }
 
     // Konvertera till standardformat (+46)
@@ -22,7 +22,7 @@ export class PhoneNumber {
       ? '+46' + normalizedNumber.substring(1)
       : normalizedNumber;
 
-    return Result.ok(new PhoneNumber(standardizedNumber));
+    return ok(new PhoneNumber(standardizedNumber));
   }
 
   public toString(): string {

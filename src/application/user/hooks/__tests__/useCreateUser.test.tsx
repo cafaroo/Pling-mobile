@@ -16,23 +16,27 @@ const mockEventBusImpl = {
 
 const mockResultImpl = {
   ok: jest.fn().mockImplementation(value => ({
-    isSuccess: true,
-    _value: value,
-    getValue: () => value,
-    isErr: () => false,
     isOk: () => true,
+    isErr: () => false,
+    value,
     error: null,
-    unwrap: () => value
+    // Bakåtkompatibilitet
+    getValue: () => value,
+    getError: () => { throw new Error('Cannot get error from OK result'); },
+    unwrap: () => value,
+    unwrapOr: (defaultValue) => value
   })),
   
   err: jest.fn().mockImplementation(error => ({
-    isSuccess: false,
-    _error: error,
-    getValue: () => { throw new Error(typeof error === 'string' ? error : 'Error'); },
-    isErr: () => true,
     isOk: () => false,
+    isErr: () => true,
+    value: null,
     error,
-    unwrap: () => { throw new Error(typeof error === 'string' ? error : 'Error'); }
+    // Bakåtkompatibilitet
+    getValue: () => { throw new Error(typeof error === 'string' ? error : 'Error'); },
+    getError: () => error,
+    unwrap: () => { throw new Error(typeof error === 'string' ? error : 'Error'); },
+    unwrapOr: (defaultValue) => defaultValue
   }))
 };
 

@@ -5,7 +5,7 @@ import { renderHook, act } from '@testing-library/react-hooks';
 import { useTeamStatistics } from '../useTeamStatistics';
 import { InfrastructureFactory } from '@/infrastructure/InfrastructureFactory';
 import { TeamStatistics, StatisticsPeriod } from '@/domain/team/value-objects/TeamStatistics';
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { createWrapper, WAIT_FOR_OPTIONS } from './test-utils';
 
@@ -47,7 +47,7 @@ describe('useTeamStatistics', () => {
 
   it('ska hämta och cacha teamstatistik', async () => {
     // Arrange
-    mockRepository.getStatistics.mockResolvedValue(Result.ok(mockStats));
+    mockRepository.getStatistics.mockResolvedValue(ok(mockStats));
 
     // Act
     const { result, waitFor } = renderHook(
@@ -70,7 +70,7 @@ describe('useTeamStatistics', () => {
   it('ska hantera fel vid datahämtning', async () => {
     // Arrange
     const errorMessage = 'Kunde inte hämta statistik';
-    mockRepository.getStatistics.mockResolvedValue(Result.err(errorMessage));
+    mockRepository.getStatistics.mockResolvedValue(err(errorMessage));
 
     // Act
     const { result, waitFor } = renderHook(
@@ -88,7 +88,7 @@ describe('useTeamStatistics', () => {
 
   it('ska uppdatera cache optimistiskt', async () => {
     // Arrange
-    mockRepository.getStatistics.mockResolvedValue(Result.ok(mockStats));
+    mockRepository.getStatistics.mockResolvedValue(ok(mockStats));
     
     const { result, waitFor } = renderHook(
       () => useTeamStatistics(teamId),
@@ -117,7 +117,7 @@ describe('useTeamStatistics', () => {
 
   it('ska invalidera cache', async () => {
     // Arrange
-    mockRepository.getStatistics.mockResolvedValue(Result.ok(mockStats));
+    mockRepository.getStatistics.mockResolvedValue(ok(mockStats));
     
     const { result, waitFor } = renderHook(
       () => useTeamStatistics(teamId),
@@ -137,7 +137,7 @@ describe('useTeamStatistics', () => {
 
   it('ska uppdatera data när period ändras', async () => {
     // Arrange
-    mockRepository.getStatistics.mockResolvedValue(Result.ok(mockStats));
+    mockRepository.getStatistics.mockResolvedValue(ok(mockStats));
     
     const { result, waitFor, rerender } = renderHook(
       ({ period }) => useTeamStatistics(teamId, period),

@@ -94,7 +94,7 @@ export class DomainEventTestHelper<T extends AggregateRoot<any>> {
    * Rensar händelselistan för att förbereda för nästa test
    */
   clearEvents(): void {
-    this.aggregate.clearDomainEvents();
+    this.aggregate.clearEvents();
   }
 }
 

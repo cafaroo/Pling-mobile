@@ -187,7 +187,7 @@ export class Language extends ValueObject<string> {
    * Returnerar standardspråket (svenska)
    */
   public static getDefaultLanguage(): Language {
-    return this.create('sv').getValue();
+    return this.create('sv').value;
   }
   
   /**
@@ -195,7 +195,7 @@ export class Language extends ValueObject<string> {
    */
   public static getAllLanguages(): Language[] {
     return this.SUPPORTED_LANGUAGES.map(
-      code => this.create(code).getValue()
+      code => this.create(code).value
     );
   }
   
@@ -205,7 +205,7 @@ export class Language extends ValueObject<string> {
   public static getSupportedLanguages(): Language[] {
     return this.SUPPORTED_LANGUAGES
       .filter(code => this.LANGUAGE_DETAILS[code].isSupported)
-      .map(code => this.create(code).getValue());
+      .map(code => this.create(code).value);
   }
   
   /**

@@ -1,5 +1,5 @@
 import { AggregateRoot, AggregateRootProps } from '@/shared/core/AggregateRoot';
-import { Result } from '@/domain/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { MessageAttachment } from '../value-objects/MessageAttachment';
 import { MessageMention } from '../value-objects/MessageMention';
@@ -8,6 +8,9 @@ import { TeamMessageCreated } from '../events/TeamMessageCreated';
 import { TeamMessageEdited } from '../events/TeamMessageEdited';
 import { TeamMessageDeleted } from '../events/TeamMessageDeleted';
 import { TeamMessageReacted } from '../events/TeamMessageReacted';
+import { MessageReactionAdded } from '../events/MessageReactionAdded';
+import { MessageMentionAdded } from '../events/MessageMentionAdded';
+import { MessageAttachmentAdded } from '../events/MessageAttachmentAdded';
 
 export interface TeamMessageProps extends AggregateRootProps {
   teamId: UniqueId;
@@ -265,10 +268,10 @@ export class TeamMessage extends AggregateRoot<TeamMessageProps> {
       });
 
       if (reactionResult.isErr()) {
-        return Result.err(reactionResult.unwrapErr());
+        return Result.err(reactionResult.error);
       }
 
-      this.props.reactions.push(reactionResult.unwrap());
+      this.props.reactions.push(reactionResult.value);
     }
 
     this.props.updatedAt = new Date();
@@ -328,11 +331,14 @@ export class TeamMessage extends AggregateRoot<TeamMessageProps> {
     });
 
     if (mentionResult.isErr()) {
-      return Result.err(mentionResult.unwrapErr());
+      return Result.err(mentionResult.error);
     }
 
-    this.props.mentions.push(mentionResult.unwrap());
+    this.props.mentions.push(mentionResult.value);
     this.props.updatedAt = new Date();
+
+    // Skapa domänhändelse
+    this.addDomainEvent(new MessageMentionAdded(this, mention));
 
     return Result.ok();
   }
@@ -351,11 +357,14 @@ export class TeamMessage extends AggregateRoot<TeamMessageProps> {
     });
 
     if (attachmentResult.isErr()) {
-      return Result.err(attachmentResult.unwrapErr());
+      return Result.err(attachmentResult.error);
     }
 
-    this.props.attachments.push(attachmentResult.unwrap());
+    this.props.attachments.push(attachmentResult.value);
     this.props.updatedAt = new Date();
+
+    // Skapa domänhändelse
+    this.addDomainEvent(new MessageAttachmentAdded(this, attachment));
 
     return Result.ok();
   }

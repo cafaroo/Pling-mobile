@@ -1,5 +1,5 @@
-import { Result } from '@/domain/core/Result';
-import { UniqueId } from '@/domain/core/UniqueId';
+import { Result, ok, err } from '@/shared/core/Result';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { ActivityType } from '../value-objects/ActivityType';
 
 export interface TeamActivityProps {
@@ -20,10 +20,10 @@ export class TeamActivity {
 
   static create(props: TeamActivityProps): Result<TeamActivity, string> {
     if (!Object.values(ActivityType).includes(props.type)) {
-      return Result.err('Ogiltig aktivitetstyp');
+      return err('Ogiltig aktivitetstyp');
     }
 
-    return Result.ok(new TeamActivity(props));
+    return ok(new TeamActivity(props));
   }
 
   get id(): UniqueId {
@@ -60,7 +60,7 @@ export class TeamActivity {
    */
   public enrichMetadata(additionalMetadata: Record<string, any>): Result<TeamActivity, string> {
     if (typeof additionalMetadata !== 'object') {
-      return Result.err('additionalMetadata måste vara ett objekt');
+      return err('additionalMetadata måste vara ett objekt');
     }
     
     // Skapa nya props med kombinerad metadata
@@ -72,7 +72,7 @@ export class TeamActivity {
       }
     };
     
-    return Result.ok(new TeamActivity(updatedProps));
+    return ok(new TeamActivity(updatedProps));
   }
   
   /**
@@ -103,7 +103,7 @@ export class TeamActivity {
       case ActivityType.MEMBER_LEFT:
         return `${this.metadata.userName || 'En användare'} lämnade teamet`;
         
-      case ActivityType.ROLE_CHANGED:
+      case ActivityType.MEMBER_ROLE_CHANGED:
         return `${this.metadata.userName || 'En användare'} fick rollen ${this.metadata.newRole || 'uppdaterad'}`;
         
       case ActivityType.TEAM_UPDATED:

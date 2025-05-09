@@ -236,7 +236,7 @@ export class UserRole extends ValueObject<string> {
    */
   public static getAllRoles(): UserRole[] {
     return Object.values(RoleName).map(
-      name => this.create(name).getValue()
+      name => this.create(name).value
     );
   }
   
@@ -316,7 +316,7 @@ export class UserRole extends ValueObject<string> {
     if (this._permissionCache === null) {
       // Skapa behörighetsobjekt från rollens behörigheter
       const directPermissions = this.details.permissions.map(
-        permName => UserPermission.create(permName).getValue()
+        permName => UserPermission.create(permName).value
       );
       
       // Skapa en set för att undvika dubbletter
@@ -334,7 +334,7 @@ export class UserRole extends ValueObject<string> {
       
       // Konvertera tillbaka till behörighetsobjekt
       this._permissionCache = Array.from(allPermissionNames).map(
-        permName => UserPermission.create(permName).getValue()
+        permName => UserPermission.create(permName).value
       );
     }
     
@@ -348,7 +348,7 @@ export class UserRole extends ValueObject<string> {
     const permissionResult = UserPermission.create(permissionName);
     if (permissionResult.isErr()) return false;
     
-    const permission = permissionResult.getValue();
+    const permission = permissionResult.value;
     
     // Kontrollera om behörigheten finns bland rollens behörighetsobjekt
     return this.permissionObjects.some(perm => 

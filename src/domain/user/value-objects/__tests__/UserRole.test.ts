@@ -9,7 +9,7 @@ describe('UserRole', () => {
         const result = UserRole.create(role);
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().name).toBe(role);
+          expect(result.value.name).toBe(role);
         }
       });
     });
@@ -18,7 +18,7 @@ describe('UserRole', () => {
       const result = UserRole.create('invalid_role');
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError().message).toContain('är inte en giltig systemroll');
+        expect(result.error.message).toContain('är inte en giltig systemroll');
       }
     });
   });
@@ -28,7 +28,7 @@ describe('UserRole', () => {
       const result = UserRole.create(UserRole.ADMIN);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const role = result.getValue();
+        const role = result.value;
         expect(role.permissions).toContain('manage_users');
         expect(role.permissions).toContain('manage_teams');
         expect(role.permissions).toContain('manage_content');
@@ -41,7 +41,7 @@ describe('UserRole', () => {
       const result = UserRole.create(UserRole.MODERATOR);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const role = result.getValue();
+        const role = result.value;
         expect(role.permissions).toContain('manage_content');
         expect(role.permissions).toContain('view_analytics');
         expect(role.permissions).not.toContain('manage_users');
@@ -52,7 +52,7 @@ describe('UserRole', () => {
       const result = UserRole.create(UserRole.USER);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const role = result.getValue();
+        const role = result.value;
         expect(role.permissions).toContain('manage_profile');
         expect(role.permissions).toContain('join_team');
         expect(role.permissions).not.toContain('manage_users');
@@ -67,8 +67,8 @@ describe('UserRole', () => {
 
       expect(adminResult.isOk() && userResult.isOk()).toBe(true);
       if (adminResult.isOk() && userResult.isOk()) {
-        const admin = adminResult.getValue();
-        const user = userResult.getValue();
+        const admin = adminResult.value;
+        const user = userResult.value;
 
         expect(admin.hasPermission('manage_users')).toBe(true);
         expect(user.hasPermission('manage_users')).toBe(false);
@@ -88,7 +88,7 @@ describe('UserRole', () => {
         const result = UserRole.create(type);
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          const role = result.getValue();
+          const role = result.value;
           expect(role[check]()).toBe(true);
         }
       });

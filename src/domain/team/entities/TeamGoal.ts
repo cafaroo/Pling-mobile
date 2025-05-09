@@ -1,4 +1,5 @@
-import { Result } from '@/domain/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
+import { AggregateRoot } from '@/shared/core/AggregateRoot';
 import { UniqueId } from '@/domain/core/UniqueId';
 
 export enum GoalStatus {
@@ -35,18 +36,18 @@ export class TeamGoal {
 
   static create(props: TeamGoalProps): Result<TeamGoal, string> {
     if (!props.title.trim()) {
-      return Result.err('Måltitel kan inte vara tom');
+      return err('Måltitel kan inte vara tom');
     }
 
     if (props.progress < 0 || props.progress > 100) {
-      return Result.err('Framsteg måste vara mellan 0 och 100');
+      return err('Framsteg måste vara mellan 0 och 100');
     }
 
     if (props.dueDate && props.startDate > props.dueDate) {
-      return Result.err('Startdatum kan inte vara efter slutdatum');
+      return err('Startdatum kan inte vara efter slutdatum');
     }
 
-    return Result.ok(new TeamGoal(props));
+    return ok(new TeamGoal(props));
   }
 
   get id(): UniqueId {
@@ -99,7 +100,7 @@ export class TeamGoal {
 
   updateProgress(progress: number): Result<void, string> {
     if (progress < 0 || progress > 100) {
-      return Result.err('Framsteg måste vara mellan 0 och 100');
+      return err('Framsteg måste vara mellan 0 och 100');
     }
 
     this.props.progress = progress;
@@ -111,23 +112,23 @@ export class TeamGoal {
       this.props.status = GoalStatus.IN_PROGRESS;
     }
 
-    return Result.ok(void 0);
+    return ok(void 0);
   }
 
   updateStatus(status: GoalStatus): Result<void, string> {
     if (status === GoalStatus.COMPLETED && this.progress < 100) {
-      return Result.err('Kan inte markera som slutfört när framsteg är mindre än 100%');
+      return err('Kan inte markera som slutfört när framsteg är mindre än 100%');
     }
 
     this.props.status = status;
     this.props.updatedAt = new Date();
 
-    return Result.ok(void 0);
+    return ok(void 0);
   }
 
   assignMember(userId: UniqueId, role?: string): Result<void, string> {
     if (this.props.assignments.some(a => a.userId.equals(userId))) {
-      return Result.err('Medlemmen är redan tilldelad detta mål');
+      return err('Medlemmen är redan tilldelad detta mål');
     }
 
     this.props.assignments.push({
@@ -137,18 +138,18 @@ export class TeamGoal {
     });
 
     this.props.updatedAt = new Date();
-    return Result.ok(void 0);
+    return ok(void 0);
   }
 
   unassignMember(userId: UniqueId): Result<void, string> {
     const index = this.props.assignments.findIndex(a => a.userId.equals(userId));
     if (index === -1) {
-      return Result.err('Medlemmen är inte tilldelad detta mål');
+      return err('Medlemmen är inte tilldelad detta mål');
     }
 
     this.props.assignments.splice(index, 1);
     this.props.updatedAt = new Date();
-    return Result.ok(void 0);
+    return ok(void 0);
   }
 
   equals(other: TeamGoal): boolean {

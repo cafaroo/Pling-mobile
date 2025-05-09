@@ -27,11 +27,11 @@ export const activateUser = (deps: ActivateUserDeps) =>
     
     // Hämta användaren från repository
     const userResult = await deps.userRepo.findById(userId);
-    if (!userResult) {
+    if (userResult.isErr()) {
       return err('USER_NOT_FOUND');
     }
     
-    const user = userResult;
+    const user = userResult.value;
     
     // Kontrollera om användaren redan är aktiv
     if (user.status === 'active') {
@@ -46,8 +46,8 @@ export const activateUser = (deps: ActivateUserDeps) =>
       }
       
       // Spara användaren och publicera händelsen
-      await deps.userRepo.save(updatedUser.getValue());
-      await deps.eventBus.publish(new UserActivated(updatedUser.getValue(), reason));
+      await deps.userRepo.save(updatedUser.value);
+      await deps.eventBus.publish(new UserActivated(updatedUser.value, reason));
       
       return ok(undefined);
     } catch (error) {

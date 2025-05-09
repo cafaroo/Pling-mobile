@@ -223,7 +223,7 @@ const TestProvider: React.FC<{
   });
   
   // Mocka hooks
-  jest.mock('../../hooks/useUser', () => ({
+  jest.mock('@/hooks/useUser', () => ({
     useUser: jest.fn().mockReturnValue({
       data: {
         id: 'test-user-id',
@@ -245,12 +245,31 @@ const TestProvider: React.FC<{
     })
   }));
   
-  jest.mock('../../hooks/useUpdateProfile', () => ({
+  jest.mock('@/hooks/useUpdateProfile', () => ({
     useUpdateProfile: jest.fn().mockReturnValue({
       mutate: jest.fn(),
       isLoading: false,
       error: null
     })
+  }));
+  
+  // Mocka feedback-hook
+  jest.mock('@/hooks/useFeedback', () => ({
+    useFeedback: () => ({
+      showSuccessMessage: mockShowSuccessMessage,
+      showErrorMessage: mockShowErrorMessage,
+    }),
+  }));
+  
+  // Mocka komponenter vid behov
+  jest.mock('@/components/UserProfileForm', () => ({
+    UserProfileForm: ({ initialValues, onSubmit }: any) => (
+      <MockForm
+        testID="profile-form"
+        initialValues={initialValues}
+        onSubmit={onSubmit}
+      />
+    ),
   }));
   
   // Injecera repositories i providerkontext
@@ -321,7 +340,7 @@ describe('UI-Application Integration Tests', () => {
     });
     
     // Mocka useUpdateProfile
-    jest.mock('../../hooks/useUpdateProfile', () => ({
+    jest.mock('@/hooks/useUpdateProfile', () => ({
       useUpdateProfile: () => ({
         mutate: mockUpdateProfile,
         isLoading: false,
@@ -330,7 +349,7 @@ describe('UI-Application Integration Tests', () => {
     }));
     
     // Mocka useUser för att returnera data från vår repository
-    jest.mock('../../hooks/useUser', () => ({
+    jest.mock('@/hooks/useUser', () => ({
       useUser: () => ({
         data: {
           id: 'test-user-id',
@@ -389,7 +408,7 @@ describe('UI-Application Integration Tests', () => {
     });
     
     // Mocka useUpdateProfile med felhantering
-    jest.mock('../../hooks/useUpdateProfile', () => ({
+    jest.mock('@/hooks/useUpdateProfile', () => ({
       useUpdateProfile: () => ({
         mutate: mockUpdateProfileFailing,
         isLoading: false,
@@ -410,7 +429,7 @@ describe('UI-Application Integration Tests', () => {
   
   it('ska hantera laddningstillstånd', async () => {
     // Mocka useUser med laddningstillstånd
-    jest.mock('../../hooks/useUser', () => ({
+    jest.mock('@/hooks/useUser', () => ({
       useUser: () => ({
         data: null,
         isLoading: true,

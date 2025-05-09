@@ -1,5 +1,5 @@
 import { useMutation, UseMutationOptions, useQueryClient } from '@tanstack/react-query';
-import { Result } from '@/domain/core/Result';
+import { Result } from '@/shared/core/Result';
 import { TeamMessage } from '@/domain/team/entities/TeamMessage';
 import { CreateThreadReplyUseCase, CreateThreadReplyUseCaseProps } from '../useCases/createThreadReplyUseCase';
 import { TeamMessageRepository } from '@/domain/team/repositories/TeamMessageRepository'; // Importerad för mock/placeholder

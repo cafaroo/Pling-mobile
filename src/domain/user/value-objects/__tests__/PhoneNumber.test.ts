@@ -14,7 +14,7 @@ describe('PhoneNumber', () => {
         const result = PhoneNumber.create(number);
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().value).toBeDefined();
+          expect(result.value.value).toBeDefined();
         }
       });
     });
@@ -30,7 +30,7 @@ describe('PhoneNumber', () => {
         const result = PhoneNumber.create(input);
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.getValue().toString()).toBe(expected);
+          expect(result.value.toString()).toBe(expected);
         }
       });
     });
@@ -39,7 +39,7 @@ describe('PhoneNumber', () => {
       const result = PhoneNumber.create('');
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.getError()).toBe('Telefonnummer kan inte vara tomt');
+        expect(result.error).toBe('Telefonnummer kan inte vara tomt');
       }
     });
 
@@ -56,7 +56,7 @@ describe('PhoneNumber', () => {
         const result = PhoneNumber.create(number);
         expect(result.isErr()).toBe(true);
         if (result.isErr()) {
-          expect(result.getError()).toBe('Ogiltigt telefonnummer');
+          expect(result.error).toBe('Ogiltigt telefonnummer');
         }
       });
     });
@@ -70,8 +70,8 @@ describe('PhoneNumber', () => {
 
       expect(number1.isOk() && number2.isOk() && number3.isOk()).toBe(true);
       if (number1.isOk() && number2.isOk() && number3.isOk()) {
-        expect(number1.getValue().equals(number2.getValue())).toBe(true);
-        expect(number1.getValue().equals(number3.getValue())).toBe(false);
+        expect(number1.value.equals(number2.value)).toBe(true);
+        expect(number1.value.equals(number3.value)).toBe(false);
       }
     });
 
@@ -81,7 +81,7 @@ describe('PhoneNumber', () => {
 
       expect(number1.isOk() && number2.isOk()).toBe(true);
       if (number1.isOk() && number2.isOk()) {
-        expect(number1.getValue().equals(number2.getValue())).toBe(true);
+        expect(number1.value.equals(number2.value)).toBe(true);
       }
     });
   });
@@ -91,7 +91,7 @@ describe('PhoneNumber', () => {
       const result = PhoneNumber.create('070-123 45 67');
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.getValue().toString()).toBe('+46701234567');
+        expect(result.value.toString()).toBe('+46701234567');
       }
     });
   });
@@ -101,7 +101,7 @@ describe('PhoneNumber', () => {
       const result = PhoneNumber.create('+46701234567');
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.getValue().format()).toBe('+46 70 123 45 67');
+        expect(result.value.format()).toBe('+46 70 123 45 67');
       }
     });
   });

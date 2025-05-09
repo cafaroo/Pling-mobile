@@ -29,18 +29,19 @@ export const TEST_USER_DATA = {
   firstName: 'Test',
   lastName: 'User',
   displayName: 'TestUser',
-  bio: 'Bio för testanvändare',
+  bio: 'Test bio',
   location: 'Stockholm',
-  theme: 'dark',
+  theme: 'light',
   language: 'sv',
   notifications: {
     email: true,
     push: true,
-    sms: false
+    inApp: true
   },
   privacy: {
-    profileVisibility: 'public',
-    allowSearchByEmail: true
+    showProfile: true,
+    showActivity: true,
+    showTeams: true
   }
 };
 
@@ -104,38 +105,6 @@ export const createTestUserSettings = (overrides = {}) => {
 };
 
 /**
- * Skapa ett komplett User-objekt för tester med alla nödvändiga värden
- */
-export const createTestUser = (overrides = {}) => {
-  const userData = {
-    id: new UniqueId(TEST_USER_DATA.id),
-    email: Email.create(TEST_USER_DATA.email).getValue(),
-    phone: PhoneNumber.create(TEST_USER_DATA.phone).getValue(),
-    profile: createTestUserProfile().getValue(),
-    settings: createTestUserSettings().getValue(),
-    teamIds: [],
-    roleIds: [],
-    status: 'active',
-    ...overrides
-  };
-  
-  // Returnera ett mockad User-objekt
-  return mockResult.ok({
-    ...userData,
-    updateProfile: jest.fn().mockReturnValue(mockResult.ok(userData)),
-    updateSettings: jest.fn().mockReturnValue(mockResult.ok(userData)),
-    addTeam: jest.fn(),
-    removeTeam: jest.fn(),
-    addRole: jest.fn(),
-    removeRole: jest.fn(),
-    activate: jest.fn(),
-    deactivate: jest.fn(),
-    domainEvents: [],
-    clearDomainEvents: jest.fn()
-  });
-};
-
-/**
  * Skapa en DTO-representation av en testanvändare för API/databastester
  */
 export const createTestUserDTO = (overrides = {}) => {
@@ -168,4 +137,68 @@ export const createTestUserDTO = (overrides = {}) => {
     status: 'active',
     ...overrides
   };
+};
+
+/**
+ * Skapar en mock User-instans direkt med korrekta värden
+ * för användning i tester istället för att anropa den asynkrona factory-metoden
+ */
+export const createTestUser = (id: string = TEST_USER_DATA.id): User => {
+  // Skapa ett UserProfile
+  const profile = new UserProfile({
+    firstName: 'Test',
+    lastName: 'User',
+    displayName: 'TestUser',
+    bio: 'Test bio',
+    location: 'Stockholm',
+    contact: {
+      email: 'test@example.com',
+      phone: '+46701234567',
+      alternativeEmail: null
+    }
+  });
+  
+  // Skapa UserSettings
+  const settings = new UserSettings({
+    theme: 'light',
+    language: 'sv',
+    notifications: { 
+      enabled: true, 
+      frequency: 'daily',
+      emailEnabled: true,
+      pushEnabled: true
+    },
+    privacy: { 
+      profileVisibility: 'public',
+      showOnlineStatus: true,
+      showLastSeen: true
+    }
+  });
+  
+  // Skapa en UserProps-liknande struktur
+  const userProps = {
+    id: new UniqueId(id),
+    email: 'test@example.com',
+    name: 'Test User',
+    profile: profile,
+    settings: settings,
+    teamIds: [],
+    roleIds: [],
+    status: 'active',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  
+  // Skapa ett User-objekt direkt som en instans
+  // @ts-ignore - Vi tvingar fram konstruktörn som är privat
+  return new User(userProps);
+};
+
+/**
+ * Skapar testdata för en användarlista med flera användare
+ */
+export const createTestUsers = (count: number = 5): User[] => {
+  return Array.from({ length: count }, (_, i) => 
+    createTestUser(`test-id-${i + 1}`)
+  );
 }; 

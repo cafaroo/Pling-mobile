@@ -107,12 +107,37 @@ jest.mock('@expo/vector-icons', () => {
 // Mock för Animated
 jest.mock('react-native', () => {
   const reactNative = jest.requireActual('react-native');
+  
+  // Funktioner för att simulera Animated-beteende
+  const animatedCallback = jest.fn();
+  
   const mockAnimated = {
-    Value: jest.fn(() => ({
+    Value: jest.fn((initialValue) => ({
       setValue: jest.fn(),
+      _value: initialValue,
+      _listeners: [],
+      addListener: jest.fn(callback => {
+        this._listeners.push(callback);
+      }),
+      removeAllListeners: jest.fn(),
+      interpolate: jest.fn(() => ({
+        __getValue: jest.fn(() => 0)
+      })),
+      __getValue: jest.fn(() => initialValue),
     })),
-    timing: jest.fn(() => ({
-      start: jest.fn(callback => callback && callback()),
+    timing: jest.fn((value, config) => ({
+      start: jest.fn(callback => {
+        // Simulera animation genom att direkt uppdatera värdet
+        if (value && value.setValue) {
+          value.setValue(config.toValue);
+        }
+        // Använd alltid setTimeout istället för setImmediate för att vara kompatibel med test-miljön
+        if (callback && typeof callback === 'function') {
+          setTimeout(() => callback({ finished: true }), 0);
+        }
+        animatedCallback(config.toValue);
+      }),
+      reset: jest.fn()
     })),
     View: (props) => {
       const { style, children, testID } = props || {};
@@ -133,6 +158,26 @@ jest.mock('react-native', () => {
   };
 });
 
+// Mock för InteractionManager som använder setTimeout istället för setImmediate
+jest.mock('react-native/Libraries/Interaction/InteractionManager', () => {
+  return {
+    createInteractionHandle: jest.fn(),
+    clearInteractionHandle: jest.fn(),
+    runAfterInteractions: jest.fn(callback => {
+      if (callback) {
+        setTimeout(callback, 0);
+      }
+    }),
+    _scheduleUpdate: jest.fn(),
+    _createInteractionHandle: jest.fn()
+  };
+});
+
+// Om setImmediate saknas, ersätt med setTimeout
+if (typeof global.setImmediate === 'undefined') {
+  global.setImmediate = (callback) => setTimeout(callback, 0);
+}
+
 // Hjälpfunktion för att rendera tester med mocks
 const renderFeedback = (props = {}) => {
   const defaultProps = {
@@ -151,10 +196,11 @@ const renderFeedback = (props = {}) => {
 describe('UserFeedback', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
   });
   
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
   
@@ -184,7 +230,7 @@ describe('UserFeedback', () => {
     expect(onDismissMock).toHaveBeenCalled();
   });
   
-  it('ska dölja feedback automatiskt efter timeout för success', () => {
+  it('ska dölja feedback automatiskt efter timeout för success', async () => {
     const onDismissMock = jest.fn();
     renderFeedback({ 
       type: FeedbackType.SUCCESS,
@@ -196,8 +242,10 @@ describe('UserFeedback', () => {
       jest.advanceTimersByTime(3500);
     });
     
-    // Verifiera att onDismiss anropades efter timeout
-    expect(onDismissMock).toHaveBeenCalled();
+    // Verifiera att animation-callbacks har körts
+    await waitFor(() => {
+      expect(onDismissMock).toHaveBeenCalled();
+    });
   });
   
   it('ska visa retry-knapp endast för error typ', () => {

@@ -109,7 +109,7 @@ export class UserStatsCalculator {
           this.updateArrayStatistic(
             updatedStats,
             UserStatisticType.BADGES,
-            [achievementEvent.achievementId],
+            [achievementEvent.achievement.id],
             'add',
             now
           );

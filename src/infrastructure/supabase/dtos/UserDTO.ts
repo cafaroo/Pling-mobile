@@ -61,7 +61,7 @@ export const toUser = (dto: UserDTO): Result<User, string> => {
       if (phoneResult.isErr()) {
         return err(`Ogiltigt telefonnummer: ${phoneResult.error}`);
       }
-      phone = phoneResult.getValue();
+      phone = phoneResult.value;
     }
     
     // Skapa profil
@@ -97,10 +97,10 @@ export const toUser = (dto: UserDTO): Result<User, string> => {
     // Skapa användarentitet
     const userResult = User.create({
       id: new UniqueId(dto.id),
-      email: emailResult.getValue(),
+      email: emailResult.value,
       phone,
-      profile: profileResult.getValue(),
-      settings: settingsResult.getValue(),
+      profile: profileResult.value,
+      settings: settingsResult.value,
       teamIds: (dto.team_ids || []).map(id => new UniqueId(id)),
       roleIds: (dto.role_ids || []).map(id => new UniqueId(id)),
       status: dto.status || 'active'
@@ -110,7 +110,7 @@ export const toUser = (dto: UserDTO): Result<User, string> => {
       return err(`Ogiltig användare: ${userResult.error}`);
     }
     
-    return ok(userResult.getValue());
+    return ok(userResult.value);
   } catch (error) {
     return err(`Fel vid konvertering av användare: ${error.message}`);
   }

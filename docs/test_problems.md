@@ -69,6 +69,7 @@ Detta dokument beskriver kända problem med testningen i Pling-appen och en plan
   - ✅ updatePrivacySettings
   - ✅ Tester för komplexa eventsekvenser
   - ✅ Tester för olika kombinationer av händelser
+- ✅ **ResultMock bakåtkompatibilitet**: Uppdaterat ResultMock.ts för att stödja både gamla (getValue/getError) och nya (.value/.error) accessor-metoder, vilket gör att befintliga tester fortsätter fungera
 
 ## Värde-objekt
 
@@ -107,3 +108,114 @@ Detta dokument beskriver kända problem med testningen i Pling-appen och en plan
 6. ✅ Utveckla en standardiserad metodik för testning av värde-objekt med komplex validering. 
 7. ✅ Implementera tester för de nya användningsfallen.
 8. ✅ Dokumentera mönster för hur man testar behörighetsrelaterad logik med UserPermission och UserRole. 
+9. ✅ Uppdatera ResultMock.ts för att hantera både nya och gamla accessor-metoder för bakåtkompatibilitet. 
+
+## Team-domäntester
+
+### Identifierade problem
+
+Under arbetet med att fixa testerna i team-domänen har vi identifierat följande specifika problem:
+
+1. **Inkonsekvens i Result-API-användning**:
+   - Vissa delar av koden använder `.isOk()/.isErr()` med direkta egenskaper `.value/.error` 
+   - Andra delar använder metodanrop som `.isSuccess()/.isFailure()` med `.getValue()/.getError()` eller `.unwrap()`
+   - Detta orsakar typfel och runtime-fel i tester
+
+2. **Inkonsekvens i AggregateRoot-metoder**:
+   - Team-entiteten implementerar `clearEvents()` enligt AggregateRoot-basklassen
+   - Vissa tester försöker anropa `clearDomainEvents()` istället
+   - Detta skapar typfel då metoden inte existerar
+
+3. **Problem med mockning**:
+   - TeamSettings-objektet mockas inte korrekt i tester
+   - Vissa mockar saknar förväntade metoder som `toJSON()`
+   - Detta resulterar i körningsfel när metoderna anropas
+
+4. **Inkonsekvent användning av unwrap och value**:
+   - TeamCache.test.ts och useTeamCache.test.tsx använder `.unwrap()` för att extrahera värden från Result-objekt
+   - Detta är inkonsekvent med den rekommenderade metoden att använda `.value` direkt
+   - Skapar problem när Result-API förändras
+
+### Genomförda åtgärder
+
+1. **Robust testning av Result-objekt**:
+   - Ändrat tester att använda direkta egenskapskontroller (`.value` och `.error`) istället för metodanrop 
+   - Detta gör testerna mer robusta mot ändringar i API-namn
+
+2. **Korrekta metodnamn för AggregateRoot**:
+   - Uppdaterat användningen från `clearDomainEvents()` till `clearEvents()` i testerna
+   - Skapat dokumentation som förklarar de korrekta metodnamnen
+
+3. **Robust TeamSettings-mockning**:
+   - Skapat en fullständig mock för TeamSettings med alla nödvändiga metoder
+   - Implementerat `toJSON()` och andra nödvändiga metoder i mocken
+   - Placerat mocken i en standardiserad plats för återanvändning
+
+4. **Standardiserad Result-hantering i TeamCache-tester**:
+   - Uppdaterat TeamCache.test.ts för att använda `.value` istället för `.unwrap()`
+   - Uppdaterat useTeamCache.test.tsx för att följa samma metod
+   - Använder nu standardiserad metodik med `.isOk()`-kontroll följt av `.value`-åtkomst
+   - Förbättrad test-struktur för att separera Result-verifiering från värdehantering
+
+### Rekommenderade ytterligare åtgärder
+
+1. **Standardisera Result-användningen**:
+   - Välj konsekvent antingen `.isOk()/.isErr()` eller `.isSuccess()/.isFailure()`
+   - Utöka ResultMock.ts för att stödja alla olika API-stilar för ökad robusthet
+   - Dokumentera bästa praxis för användning av Result-objekt
+
+2. **Skapa fler robusta mockar för värdeobject**:
+   - Utöka med mockar för TeamMember, TeamInvitation och andra värdeobject
+   - Implementera alla metoder som förväntas i produktion
+   - Placera dessa i en centraliserad plats för återanvändning
+
+3. **Förbättra domänhändelsestestning**:
+   - Utveckla en standardiserad metodik för att testa domänhändelser över flera aggregat
+   - Skapa hjälpfunktioner för att förenkla verifiering av domänhändelser
+
+4. **Dokumentera testmönster**:
+   - Skapa en specifik guide för team-domäntester
+   - Inkludera exempel på bästa praxis för testning av team-relaterade komponenter
+   - Dokumentera vanliga fallgropar och hur man undviker dem
+
+Det är särskilt viktigt att standardisera Result-användningen eftersom skillnader mellan olika delar av koden skapar subtila och svårupptäckta fel som är svåra att felsöka. 
+
+# Testproblem i Team-domänen
+
+## Identifierade problem
+
+### 1. Inkonsekvens i Result-API-användning
+- Vissa delar av koden använder `.isOk()/.isErr()` med direkta egenskaper `.value/.error` 
+- Andra delar använder metodanrop som `.isSuccess()/.isFailure()` med `.getValue()/.getError()` eller `.unwrap()`
+- Detta orsakar typfel och runtime-fel i tester
+
+### 2. Inkonsekvens i AggregateRoot-metoder
+- Team-entiteten implementerar `clearEvents()` enligt AggregateRoot-basklassen
+- Vissa tester försöker anropa `clearDomainEvents()` istället
+- Detta skapar typfel då metoden inte existerar
+
+### 3. Problem med mockning
+- TeamSettings-objektet mockas inte korrekt i tester
+- Vissa mockar saknar förväntade metoder som `toJSON()`
+- Detta resulterar i körningsfel när metoderna anropas
+
+### 4. Inkonsekvent användning av unwrap och value
+- TeamCache.test.ts och useTeamCache.test.tsx använder `.unwrap()` för att extrahera värden från Result-objekt
+- Detta är inkonsekvent med den rekommenderade metoden att använda `.value` direkt
+- Skapar problem när Result-API förändras
+
+## Rekommenderade lösningar
+
+### För Result-API
+- Standardisera på `isOk()/isErr()` med direkt åtkomst till `.value/.error` egenskaper
+- Uppdatera alla tester att använda dessa metoder
+- Dokumentera standardanvändning i kodstandarder
+
+### För AggregateRoot-metoder
+- Använd endast `clearEvents()` i all kod som arbetar med AggregateRoot
+- Uppdatera eventuella felaktiga metodanrop i tester
+
+### För mockning
+- Skapa hjälpfunktioner för att generera korrekta mockar för värdesobjekt
+- Säkerställ att alla mockar implementerar nödvändiga metoder som `toJSON()`
+- Inkludera värdesobjektens fullständiga gränssnitt i mockobjekt 

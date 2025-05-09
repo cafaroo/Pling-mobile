@@ -1,4 +1,4 @@
-import { Result, ok, err } from '@/domain/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { TeamMessage, CreateTeamMessageProps, MessageAttachmentData, MessageMentionData } from '@/domain/team/entities/TeamMessage';
 import { TeamMessageRepository } from '@/domain/team/repositories/TeamMessageRepository';
@@ -26,10 +26,10 @@ export class CreateTeamMessageUseCase {
       
       const teamResult = await this.teamRepository.findById(teamId);
       if (teamResult.isErr()) {
-        return err(`Teamet hittades inte: ${teamResult.unwrapErr()}`);
+        return err(teamResult.error);
       }
       
-      const team = teamResult.unwrap();
+      const team = teamResult.value;
       
       // Kontrollera att avsändaren är medlem i teamet
       if (!team.isMember(senderIdObj)) {
@@ -42,28 +42,28 @@ export class CreateTeamMessageUseCase {
       }
       
       // Skapa meddelande
-      const createTeamMessageProps: CreateTeamMessageProps = {
-        teamId: payload.teamId,
+      const messageResult = TeamMessage.create({
+        id: undefined, // Kan vara undefined för att generera ett nytt
+        teamId: team.id.toString(),
         senderId: payload.senderId,
         content: payload.content,
         attachments: payload.attachments || [],
-        mentions: payload.mentions || []
-      };
+        mentions: payload.mentions || [],
+        parentId: undefined // Kan vara undefined för att generera ett nytt
+      });
       
-      const messageResult = TeamMessage.create(createTeamMessageProps);
       if (messageResult.isErr()) {
-        return err(`Kunde inte skapa meddelande: ${messageResult.unwrapErr()}`);
+        return err(messageResult.error);
       }
-      
-      const message = messageResult.unwrap();
+      const message = messageResult.value;
       
       // Spara meddelande i repository
       const savedResult = await this.teamMessageRepository.save(message);
       if (savedResult.isErr()) {
-        return err(`Kunde inte spara meddelande: ${savedResult.unwrapErr()}`);
+        return err(savedResult.error);
       }
       
-      return ok(savedResult.unwrap());
+      return ok(savedResult.value);
     } catch (error) {
       return err(`Ett fel uppstod vid skapande av meddelande: ${error.message}`);
     }

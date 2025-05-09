@@ -1,4 +1,4 @@
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { User } from '@/domain/user/entities/User';
 import { UserSettings } from '@/domain/user/entities/UserSettings';
@@ -34,7 +34,7 @@ describe('updateSettings', () => {
       }
     });
 
-    mockSettings = settingsResult.getValue();
+    mockSettings = settingsResult.value;
 
     // Skapa mockad användare
     const userResult = await User.create({
@@ -44,15 +44,15 @@ describe('updateSettings', () => {
       teamIds: []
     });
 
-    mockUser = userResult.getValue();
+    mockUser = userResult.value;
     Object.defineProperty(mockUser, 'id', {
       get: () => userId
     });
 
     // Skapa mock repositories
     mockUserRepo = {
-      findById: jest.fn().mockResolvedValue(Result.ok(mockUser)),
-      save: jest.fn().mockResolvedValue(Result.ok(undefined)),
+      findById: jest.fn().mockResolvedValue(ok(mockUser)),
+      save: jest.fn().mockResolvedValue(ok(undefined)),
       findByEmail: jest.fn()
     } as unknown as jest.Mocked<UserRepository>;
 
@@ -93,7 +93,7 @@ describe('updateSettings', () => {
   });
 
   it('ska returnera fel när användaren inte hittas', async () => {
-    mockUserRepo.findById.mockResolvedValue(Result.err('Användaren hittades inte'));
+    mockUserRepo.findById.mockResolvedValue(ok(null));
 
     const input: UpdateSettingsInput = {
       userId: 'non-existent-id',
@@ -151,7 +151,7 @@ describe('updateSettings', () => {
   });
 
   it('ska returnera fel vid databasfel', async () => {
-    mockUserRepo.save.mockResolvedValue(Result.err('Databasfel'));
+    mockUserRepo.save.mockResolvedValue(err('Databasfel'));
 
     const input: UpdateSettingsInput = {
       userId: userId.toString(),

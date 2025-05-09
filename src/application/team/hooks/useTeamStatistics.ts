@@ -27,10 +27,10 @@ export const useTeamStatistics = (
       );
 
       if (result.isErr()) {
-        throw new Error(result.getError());
+        throw new Error(result.error);
       }
 
-      return result.getValue();
+      return result.value;
     },
     ...TEAM_CACHE_CONFIG,
     retry: false,
@@ -99,7 +99,7 @@ export function useTeamStatisticsForTeams(
   return useQuery({
     queryKey: teamStatisticsKeys.list(period),
     queryFn: () => repository.getStatisticsForTeams(teamIds, period),
-    select: (result) => result.unwrapOr([]),
+    select: (result) => result.isErr() ? [] : result.value,
     staleTime: mergedOptions.staleTime,
     gcTime: mergedOptions.cacheTime,
     enabled: mergedOptions.enabled && teamIds.length > 0,
@@ -119,7 +119,7 @@ export function useTeamStatisticsTrend(
   return useQuery({
     queryKey: teamStatisticsKeys.trend(teamId.toString(), period),
     queryFn: () => repository.getStatisticsTrend(teamId, period, startDate, endDate),
-    select: (result) => result.unwrapOr([]),
+    select: (result) => result.isErr() ? [] : result.value,
     staleTime: mergedOptions.staleTime,
     gcTime: mergedOptions.cacheTime,
   });

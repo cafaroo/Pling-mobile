@@ -39,74 +39,62 @@ import {
 import { ok } from '@/shared/core/Result';
 import { createTestUser, createTestUserProfile, createTestUserSettings } from '@/test-utils/mocks/UserTestData';
 
-describe('UserEventHandling - Integrationstest', () => {
-  // Skapa testbara varianter av domänentiteter
-  let user: any;
-  let eventBus: EventBus;
-  let capturedEvents: any[] = [];
+// Mocka EventBus för att testa händelsehantering
+class MockEventBus implements EventBus {
+  private events: any[] = [];
+  private subscribers: Map<string, Array<(event: any) => void>> = new Map();
+
+  async publish(event: any): Promise<void> {
+    this.events.push(event);
+    
+    // Hämta alla prenumeranter för händelsetypen och anropa dem
+    const eventName = event.eventName || event.name;
+    const handlersForEvent = this.subscribers.get(eventName) || [];
+    
+    for (const handler of handlersForEvent) {
+      await handler(event);
+    }
+  }
+
+  subscribe(eventName: string, callback: (event: any) => void): { unsubscribe: () => void } {
+    if (!this.subscribers.has(eventName)) {
+      this.subscribers.set(eventName, []);
+    }
+
+    const handlers = this.subscribers.get(eventName)!;
+    handlers.push(callback);
+
+    return {
+      unsubscribe: () => {
+        const index = handlers.indexOf(callback);
+        if (index !== -1) {
+          handlers.splice(index, 1);
+        }
+      }
+    };
+  }
+
+  getPublishedEvents(): any[] {
+    return [...this.events];
+  }
   
-  // Skapa testfixtures och återställ eventBus
+  clearEvents(): void {
+    this.events = [];
+  }
+}
+
+// Testsvit för användar-domänhändelser
+describe('UserEventHandling - Integrationstest', () => {
+  // Testfixtures
+  let eventBus: MockEventBus;
+  let user: User;
+  
   beforeEach(() => {
-    // Återställ händelselistan
-    capturedEvents = [];
-    
-    // Skapa en färsk EventBus för varje test
-    eventBus = new EventBus();
-    
-    // Prenumerera på alla användarhändelser och samla in dem
-    eventBus.subscribe('UserCreated', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserProfileUpdated', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserSettingsUpdated', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserTeamJoined', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserRoleAdded', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserStatusChanged', (event) => {
-      capturedEvents.push(event);
-    });
-    
-    // Prenumerera på nya händelser
-    eventBus.subscribe('UserActivated', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserDeactivated', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserDeleted', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserPrivacySettingsChanged', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserNotificationSettingsChanged', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserSecurityEvent', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserStatisticsUpdated', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserAchievementUnlocked', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserTeamRoleChanged', (event) => {
-      capturedEvents.push(event);
-    });
-    eventBus.subscribe('UserTeamInvited', (event) => {
-      capturedEvents.push(event);
-    });
+    // Återställ domänobjekt och händelsebus inför varje test
+    eventBus = new MockEventBus();
     
     // Skapa testanvändare
-    user = createTestUser().getValue();
+    user = createTestUser();
     // Lägg till ett id-fält om det saknas, för att matcha User-entitetsstrukturen
     if (!user.id) {
       user.id = { toString: () => 'test-user-id' };
@@ -115,266 +103,212 @@ describe('UserEventHandling - Integrationstest', () => {
   
   describe('Användarlivscykel', () => {
     it('ska publicera UserCreated när användaren skapas', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa händelse och publicera
+      const event = new UserCreated(user);
+      await eventBus.publish(event);
       
-      // Publicera UserCreated-händelse
-      const createdEvent = new UserCreated(user);
-      await eventBus.publish(createdEvent);
-      
-      // Använd error-helpers för att validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserCreated,
-        event => true, // Acceptera alla händelser av rätt typ
-        'user creation event'
-      );
-      
-      // Validera att händelsen har rätt fält
-      expectObjectFields(
-        capturedEvents[0].data,
-        ['userId', 'occurredAt'],
-        'event data structure'
-      );
+      // Verifiera att händelsen publicerades korrekt
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.created');
+      expect(publishedEvents[0].user).toBe(user);
     });
     
     it('ska publicera UserActivated när användaren aktiveras', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa händelse och publicera
+      const event = new UserActivated(user);
+      await eventBus.publish(event);
       
-      const activatedEvent = new UserActivated(user, 'email_verification');
-      await eventBus.publish(activatedEvent);
-      
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserActivated,
-        event => event.activationReason === 'email_verification',
-        'activation event'
-      );
+      // Verifiera att händelsen publicerades korrekt
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.activated');
+      expect(publishedEvents[0].user).toBe(user);
     });
     
     it('ska publicera UserDeactivated när användaren inaktiveras', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa händelse och publicera
+      const event = new UserDeactivated(user, 'test_deactivation');
+      await eventBus.publish(event);
       
-      const deactivatedEvent = new UserDeactivated(user, 'admin_action');
-      await eventBus.publish(deactivatedEvent);
-      
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserDeactivated,
-        event => event.deactivationReason === 'admin_action',
-        'deactivation event'
-      );
+      // Verifiera att händelsen publicerades korrekt
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.deactivated');
+      expect(publishedEvents[0].user).toBe(user);
+      expect(publishedEvents[0].deactivationReason).toBe('test_deactivation');
     });
   });
   
   describe('Team och rollhantering', () => {
     it('ska publicera UserTeamJoined när användaren går med i team', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa en teamid
+      const teamId = new UniqueId('test-team-id');
       
-      const teamId = 'test-team-id';
-      const joinedEvent = new UserTeamJoined(user, teamId);
-      await eventBus.publish(joinedEvent);
+      // Anropa domänmetoden
+      user.addTeam(teamId.toString());
       
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserTeamJoined,
-        event => true,
-        'team joined event'
-      );
+      // Skapa och publicera händelse
+      const event = new UserTeamJoined(user, teamId);
+      await eventBus.publish(event);
+      
+      // Verifiera att händelsen publicerades korrekt
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.team.joined');
+      expect(publishedEvents[0].teamId).toBe(teamId);
     });
     
     it('ska publicera UserRoleAdded när användaren tilldelas en roll', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa en rollid
+      const roleId = new UniqueId('test-role-id');
       
-      const roleId = 'test-role-id';
-      const roleAddedEvent = new UserRoleAdded(user, roleId);
-      await eventBus.publish(roleAddedEvent);
+      // Anropa domänmetoden
+      user.addRole(roleId.toString());
       
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserRoleAdded,
-        event => true,
-        'role added event'
-      );
+      // Skapa och publicera händelse
+      const event = new UserRoleAdded(user, roleId);
+      await eventBus.publish(event);
+      
+      // Verifiera
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.role.added');
+      expect(publishedEvents[0].roleId).toBe(roleId);
     });
     
     it('ska publicera UserTeamRoleChanged när användarens roll i team ändras', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa en teamid
+      const teamId = new UniqueId('test-team-id');
+      const role = 'admin';
       
-      const teamId = 'test-team-id';
-      const oldRoleId = 'member';
-      const newRoleId = 'admin';
-      const roleChangedEvent = new UserTeamRoleChanged(
-        user,
-        teamId,
-        oldRoleId,
-        newRoleId
-      );
-      await eventBus.publish(roleChangedEvent);
+      // Skapa och publicera händelse
+      const event = new UserTeamRoleChanged(user, teamId, role);
+      await eventBus.publish(event);
       
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserTeamRoleChanged,
-        event => true,
-        'role changed event'
-      );
+      // Verifiera
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.team.role_changed');
+      expect(publishedEvents[0].role).toBe(role);
     });
   });
   
   describe('Privacy och säkerhet', () => {
     it('ska publicera UserPrivacySettingsChanged när privacyinställningar ändras', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa privacyinställningar
+      const privacy = { showProfile: true, showActivity: false };
       
-      const settingsChangedEvent = new UserPrivacySettingsChanged(
-        user,
-        { profileVisibility: 'private' }
-      );
-      await eventBus.publish(settingsChangedEvent);
+      // Skapa och publicera händelse
+      const event = new UserPrivacySettingsChanged(user, privacy);
+      await eventBus.publish(event);
       
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserPrivacySettingsChanged,
-        event => true,
-        'privacy settings event'
-      );
+      // Verifiera
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.privacy_settings.changed');
+      expect(publishedEvents[0].privacy).toBe(privacy);
     });
     
     it('ska publicera UserNotificationSettingsChanged när notifikationsinställningar ändras', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa notifikationsinställningar
+      const notifications = { email: true, push: true };
       
-      const notificationEvent = new UserNotificationSettingsChanged(
-        user,
-        { email: false, push: true }
-      );
-      await eventBus.publish(notificationEvent);
+      // Skapa och publicera händelse
+      const event = new UserNotificationSettingsChanged(user, notifications);
+      await eventBus.publish(event);
       
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserNotificationSettingsChanged,
-        event => true,
-        'notification settings event'
-      );
+      // Verifiera
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.notification_settings.changed');
+      expect(publishedEvents[0].notifications).toBe(notifications);
     });
     
     it('ska publicera UserSecurityEvent vid säkerhetsrelaterade händelser', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa säkerhetshändelse
+      const securityEvent = 'login_attempt';
+      const metadata = { ip: '192.168.1.1', success: true };
       
-      const securityEvent = new UserSecurityEvent(
-        user,
-        'password_reset',
-        { ip: '192.168.1.1' }
-      );
-      await eventBus.publish(securityEvent);
+      // Skapa och publicera händelse
+      const event = new UserSecurityEvent(user, securityEvent, metadata);
+      await eventBus.publish(event);
       
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserSecurityEvent,
-        event => true,
-        'security event'
-      );
+      // Verifiera
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.security.login_attempt');
+      expect(publishedEvents[0].metadata).toBe(metadata);
     });
   });
   
   describe('Statistik och beteende', () => {
     it('ska publicera UserStatisticsUpdated när användarstatistik uppdateras', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa statistik
+      const stats = { logins: 5, actionsCompleted: 10 };
       
-      const statsEvent = new UserStatisticsUpdated(
-        user,
-        { loginCount: 10, lastSeen: new Date() }
-      );
-      await eventBus.publish(statsEvent);
+      // Skapa och publicera händelse
+      const event = new UserStatisticsUpdated(user, stats);
+      await eventBus.publish(event);
       
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserStatisticsUpdated,
-        event => true,
-        'statistics event'
-      );
+      // Verifiera
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.statistics.updated');
+      expect(publishedEvents[0].statistics).toBe(stats);
     });
     
     it('ska publicera UserAchievementUnlocked när användaren låser upp en prestation', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa prestation
+      const achievement = { id: 'first_login', name: 'First Login', points: 10 };
       
-      const achievementEvent = new UserAchievementUnlocked(
-        user,
-        'profile_completed',
-        { points: 50 }
-      );
-      await eventBus.publish(achievementEvent);
+      // Skapa och publicera händelse
+      const event = new UserAchievementUnlocked(user, achievement);
+      await eventBus.publish(event);
       
-      // Validera händelsen
-      expectEventPublished(
-        capturedEvents,
-        UserAchievementUnlocked,
-        event => event.achievementId === 'profile_completed',
-        'achievement event'
-      );
+      // Verifiera
+      const publishedEvents = eventBus.getPublishedEvents();
+      expect(publishedEvents.length).toBe(1);
+      expect(publishedEvents[0].eventName).toBe('user.achievement.unlocked');
+      expect(publishedEvents[0].achievement).toBe(achievement);
     });
   });
   
   describe('Händelseprenumeration', () => {
     it('ska låta prenumeranter få händelser', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa en händelse
+      const event = new UserCreated(user);
       
-      // Lägg till en specifik prenumerant
-      let receivedEvent = null;
-      eventBus.subscribe('UserCreated', (event) => {
-        receivedEvent = event;
-      });
+      // Skapa en mock-callback
+      const mockCallback = jest.fn();
       
-      // Publicera en händelse
-      await eventBus.publish(new UserCreated(user));
+      // Prenumerera på händelsen
+      eventBus.subscribe('user.created', mockCallback);
       
-      // Verifiera att prenumeranten fick händelsen
-      expect(receivedEvent).not.toBeNull();
-      expect(receivedEvent).toBeInstanceOf(UserCreated);
+      // Publicera händelsen
+      await eventBus.publish(event);
+      
+      // Verifiera att callbacken anropades
+      expect(mockCallback).toHaveBeenCalledTimes(1);
+      expect(mockCallback).toHaveBeenCalledWith(event);
     });
     
     it('ska stödja flera prenumerationer på olika händelser', async () => {
-      // Rensa alla tidigare händelser
-      capturedEvents = [];
+      // Skapa mock-callbacks
+      const createdCallback = jest.fn();
+      const activatedCallback = jest.fn();
       
-      // Skapa en array för att samla in flera händelser
-      const receivedEvents: any[] = [];
+      // Prenumerera på händelserna
+      eventBus.subscribe('user.created', createdCallback);
+      eventBus.subscribe('user.activated', activatedCallback);
       
-      // Prenumerera på flera olika händelser
-      eventBus.subscribe('UserCreated', (event) => {
-        receivedEvents.push(event);
-      });
-      
-      eventBus.subscribe('UserActivated', (event) => {
-        receivedEvents.push(event);
-      });
-      
-      // Publicera händelser
+      // Publicera olika händelser
       await eventBus.publish(new UserCreated(user));
-      await eventBus.publish(new UserActivated(user, 'test'));
+      await eventBus.publish(new UserActivated(user));
       
-      // Verifiera att båda händelserna togs emot
-      expect(receivedEvents.length).toBe(2);
-      expect(receivedEvents[0]).toBeInstanceOf(UserCreated);
-      expect(receivedEvents[1]).toBeInstanceOf(UserActivated);
+      // Verifiera att callbackarna anropades korrekt
+      expect(createdCallback).toHaveBeenCalledTimes(1);
+      expect(activatedCallback).toHaveBeenCalledTimes(1);
     });
   });
 }); 

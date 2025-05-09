@@ -1,5 +1,5 @@
 import { ValueObject } from '@/shared/core/ValueObject';
-import { Result } from '@/domain/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
 
 export interface MessageMentionProps {

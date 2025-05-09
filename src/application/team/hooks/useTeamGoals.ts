@@ -3,7 +3,7 @@ import { TeamGoal, GoalStatus, TeamGoalCreateProps } from '@/domain/team/entitie
 import { TeamGoalFilter } from '@/domain/team/repositories/TeamGoalRepository';
 import { UniqueId } from '@/domain/core/UniqueId';
 import { useSupabaseTeamGoalRepository } from '@/infrastructure/supabase/hooks/useSupabaseTeamGoalRepository';
-import { Result } from '@/domain/core/Result';
+import { Result } from '@/shared/core/Result';
 
 export const teamGoalsKeys = {
   all: ['team-goals'] as const,

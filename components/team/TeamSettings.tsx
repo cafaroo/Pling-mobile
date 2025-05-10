@@ -160,9 +160,9 @@ const TeamSettings: React.FC<TeamSettingsProps> = ({ teamId, initialData, onSucc
     return (
       <View style={[styles.container, styles.errorContainer]}>
         <LottieView
-          source={require('../../assets/animations/error.json')}
+          source={require('@assets/animations/error.json')}
           autoPlay
-          loop={false}
+          loop
           style={styles.errorAnimation}
         />
         <Text style={styles.errorTitle}>Något gick fel</Text>

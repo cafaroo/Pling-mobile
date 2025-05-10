@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   StyleSheet, 
-  ScrollView, 
-  Image, 
   TouchableOpacity, 
   KeyboardAvoidingView, 
   Platform, 
@@ -11,181 +9,294 @@ import {
   Easing,
   Dimensions,
   ActivityIndicator,
-  ImageBackground
+  ImageBackground,
+  Keyboard,
+  TextInput
 } from 'react-native';
-import { TextInput, Button, Text, useTheme } from 'react-native-paper';
-import { Link, router } from 'expo-router';
+import { Text, useTheme } from 'react-native-paper';
+import { router } from 'expo-router';
 import { useAuth } from '@context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react-native';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle, Bell } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import MaskedView from '@react-native-masked-view/masked-view';
+import { BlurView } from 'expo-blur';
 
-// Kontrollera om vi kör på webben
+// Platform check
 const IS_WEB = Platform.OS === 'web';
+const { width, height } = Dimensions.get('window');
 
-// Plattformsspecifika easing-funktioner för att undvika kompatibilitetsproblem med webben
-const createEasing = () => {
-  if (IS_WEB) {
-    // Enklare easing-funktioner för webb
-    return {
-      easeInOut: Easing.ease, // Använd standardfunktionen ease istället för inOut
-      rotate: Easing.linear,
-      move: Easing.ease
-    };
-  } else {
-    // Fullständiga easing-funktioner för nativt
-    return {
-      easeInOut: Easing.inOut(Easing.sin),
-      rotate: Easing.inOut(Easing.sin),
-      move: Easing.inOut(Easing.sin)
-    };
-  }
+// Custom TextInput component with animations
+const AnimatedInput = ({ 
+  label, 
+  value, 
+  onChangeText, 
+  icon, 
+  secureTextEntry = false, 
+  keyboardType = 'default',
+  disabled = false,
+  rightIcon = null,
+  onRightIconPress = () => {}
+}) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const labelPositionAnim = useRef(new Animated.Value(value ? 1 : 0)).current;
+  const borderAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    Animated.timing(labelPositionAnim, {
+      toValue: (isFocused || value) ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+      easing: Easing.ease
+    }).start();
+    
+    Animated.timing(borderAnim, {
+      toValue: isFocused ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+      easing: Easing.ease
+    }).start();
+  }, [isFocused, value]);
+  
+  const labelStyle = {
+    position: 'absolute',
+    left: icon ? 44 : 16,
+    top: labelPositionAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [17, 8]
+    }),
+    fontSize: labelPositionAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [16, 12]
+    }),
+    color: labelPositionAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['rgba(255, 255, 255, 0.6)', '#FACC15']
+    }),
+    zIndex: 2
+  };
+  
+  const borderColor = borderAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(255, 255, 255, 0.15)', '#FACC15']
+  });
+  
+  return (
+    <View style={styles.inputContainer}>
+      {icon && <View style={styles.inputIconContainer}>{icon}</View>}
+      
+      <Animated.Text style={labelStyle}>
+        {label}
+      </Animated.Text>
+      
+      <Animated.View style={[
+        styles.inputWrapper,
+        { borderColor }
+      ]}>
+        <TextInput
+          style={[
+            styles.textInput,
+            {
+              color: '#FFFFFF',
+              height: 56,
+              paddingHorizontal: 16,
+              fontSize: 16,
+              paddingTop: 16,
+              paddingBottom: 8,
+              width: '100%',
+              paddingLeft: 40
+            }
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          editable={!disabled}
+          placeholderTextColor="rgba(255, 255, 255, 0.5)"
+          selectionColor="#FACC15"
+          autoCapitalize="none"
+        />
+        
+        {rightIcon && (
+          <TouchableOpacity 
+            style={styles.rightIconContainer} 
+            onPress={onRightIconPress}
+            disabled={disabled}
+          >
+            {rightIcon}
+          </TouchableOpacity>
+        )}
+      </Animated.View>
+    </View>
+  );
 };
 
+// Animated gradient text component
+const GradientText = ({ text, style, colors = ['#FACC15', '#F59E0B'] }) => {
+  // Använd enklare lösning för alla plattformar för att undvika MaskedView-problem
+  return (
+    <Text 
+      style={[
+        { 
+          color: colors[0], 
+          fontWeight: 'bold',
+          ...(IS_WEB ? {
+            background: `-webkit-linear-gradient(left, ${colors[0]}, ${colors[1]})`,
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          } : {})
+        }, 
+        style
+      ]}
+    >
+      {text}
+    </Text>
+  );
+};
+
+// Floating particles component
+const FloatingParticles = () => {
+  // Förenkla implementationen för att undvika problem
+  if (IS_WEB) {
+    return null; // Skip på webben
+  }
+  
+  // Create a small number of static particles with simple styling
+  const particles = Array.from({ length: 5 }).map((_, index) => {
+    const size = 8 + (index * 2);
+    const left = (index * width / 5) + (Math.random() * 20);
+    const top = 100 + (index * 60) + (Math.random() * 40);
+    
+    return (
+      <View
+        key={index}
+        style={{
+          position: 'absolute',
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          left: left,
+          top: top,
+          opacity: 0.3 + (Math.random() * 0.3),
+          backgroundColor: index % 3 === 0 
+            ? '#FACC15' // Yellow
+            : index % 3 === 1 
+              ? '#EC4899' // Pink
+              : '#5B21B6' // Purple
+        }}
+      />
+    );
+  });
+  
+  return <>{particles}</>;
+};
+
+// Main login screen component
 export default function LoginScreen() {
   const theme = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const { signInWithEmail, isLoading } = useAuth();
-  const easingFunctions = createEasing();
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  const formFadeAnim = useRef(new Animated.Value(0)).current;
-  const formSlideAnim = useRef(new Animated.Value(50)).current;
+  const logoScaleAnim = useRef(new Animated.Value(1)).current;
   const buttonScaleAnim = useRef(new Animated.Value(1)).current;
   const buttonPressAnim = useRef(new Animated.Value(0)).current;
   const shimmerAnim = useRef(new Animated.Value(0)).current;
-  
-  // Bakgrundsanimation värden
-  const bgScaleAnim = useRef(new Animated.Value(1)).current;
-  const bgRotateAnim = useRef(new Animated.Value(0)).current;
-  const bgMoveXAnim = useRef(new Animated.Value(0)).current;
-  const bgMoveYAnim = useRef(new Animated.Value(0)).current;
+  const bellAnim = useRef(new Animated.Value(0)).current;
 
-  // Animate shimmer effect - keep it simple for compatibility
+  // Keyboard listeners
   useEffect(() => {
-    const shimmerAnimation = Animated.loop(
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+        // Scale down logo when keyboard appears
+        Animated.timing(logoScaleAnim, {
+          toValue: 0.7,
+          duration: 300,
+          useNativeDriver: true,
+          easing: Easing.ease
+        }).start();
+      }
+    );
+    
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+        // Scale logo back up when keyboard hides
+        Animated.timing(logoScaleAnim, {
+        toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+          easing: Easing.ease
+        }).start();
+      }
+    );
+    
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+  
+  // Bell animation
+  useEffect(() => {
+    if (IS_WEB) return; // Skip på webben
+    
+    const animateBell = () => {
+          Animated.sequence([
+        Animated.timing(bellAnim, {
+          toValue: 0.1,
+          duration: 50,
+              useNativeDriver: true,
+          easing: Easing.linear
+            }),
+        Animated.timing(bellAnim, {
+          toValue: -0.1,
+          duration: 50,
+              useNativeDriver: true,
+          easing: Easing.linear
+        }),
+        Animated.timing(bellAnim, {
+          toValue: 0.1,
+          duration: 50,
+              useNativeDriver: true,
+          easing: Easing.linear
+            }),
+        Animated.timing(bellAnim, {
+              toValue: 0,
+          duration: 50,
+              useNativeDriver: true,
+          easing: Easing.linear
+            }),
+        Animated.delay(3000)
+      ]).start(() => animateBell());
+    };
+    
+    animateBell();
+    return () => bellAnim.stopAnimation();
+  }, []);
+  
+  // Shimmer animation
+  useEffect(() => {
+    Animated.loop(
       Animated.timing(shimmerAnim, {
         toValue: 1,
         duration: 2000,
         easing: Easing.linear,
-        useNativeDriver: !IS_WEB,
-      })
-    );
-    shimmerAnimation.start();
-    return () => shimmerAnimation.stop();
-  }, []);
-  
-  // Animera bakgrunden med en långsam pulsering och rörelse
-  useEffect(() => {
-    if (IS_WEB) {
-      // Enklare animationer för webbversionen med färre parallella animationer
-      const animateBgWeb = () => {
-        // Kör bara en animation åt gången på webben
-        Animated.sequence([
-          // Sakta skala upp bakgrunden
-          Animated.timing(bgScaleAnim, {
-            toValue: 1.03, // Något mindre skalning på webben
-            duration: 10000,
-            easing: Easing.ease,
-            useNativeDriver: false, // false för webben
-          }),
-          // Sakta skala ner bakgrunden
-          Animated.timing(bgScaleAnim, {
-            toValue: 1,
-            duration: 10000,
-            easing: Easing.ease,
-            useNativeDriver: false,
-          }),
-        ]).start(() => {
-          // När animationerna är klara, börja om
-          animateBgWeb();
-        });
-      };
-      
-      // Starta den enklare bakgrundsanimationen för webb
-      animateBgWeb();
-    } else {
-      // Standardanimationer för nativa plattformar
-      const animateBg = () => {
-        // Starta flera parallella animationer
-        Animated.parallel([
-          // Sakta skala upp/ner bakgrunden
-          Animated.sequence([
-            Animated.timing(bgScaleAnim, {
-              toValue: 1.05,
-              duration: 15000,
-              easing: easingFunctions.easeInOut,
-              useNativeDriver: true,
-            }),
-            Animated.timing(bgScaleAnim, {
-              toValue: 1,
-              duration: 15000,
-              easing: easingFunctions.easeInOut,
               useNativeDriver: true,
             })
-          ]),
-          
-          // Sakta rotera bakgrunden fram och tillbaka
-          Animated.sequence([
-            Animated.timing(bgRotateAnim, {
-              toValue: 1,
-              duration: 20000,
-              easing: easingFunctions.rotate,
-              useNativeDriver: true,
-            }),
-            Animated.timing(bgRotateAnim, {
-              toValue: 0,
-              duration: 20000,
-              easing: easingFunctions.rotate,
-              useNativeDriver: true,
-            })
-          ]),
-          
-          // Rörelse i X-led
-          Animated.sequence([
-            Animated.timing(bgMoveXAnim, {
-              toValue: 10,
-              duration: 25000,
-              easing: easingFunctions.move,
-              useNativeDriver: true,
-            }),
-            Animated.timing(bgMoveXAnim, {
-              toValue: -10,
-              duration: 25000,
-              easing: easingFunctions.move,
-              useNativeDriver: true,
-            })
-          ]),
-          
-          // Rörelse i Y-led
-          Animated.sequence([
-            Animated.timing(bgMoveYAnim, {
-              toValue: 10,
-              duration: 30000,
-              easing: easingFunctions.move,
-              useNativeDriver: true,
-            }),
-            Animated.timing(bgMoveYAnim, {
-              toValue: -10,
-              duration: 30000,
-              easing: easingFunctions.move,
-              useNativeDriver: true,
-            })
-          ])
-        ]).start(() => {
-          // När animationerna är klara, börja om
-          animateBg();
-        });
-      };
-      
-      // Starta bakgrundsanimationen
-      animateBg();
-    }
+    ).start();
   }, []);
   
   // Entry animations
@@ -196,29 +307,13 @@ export default function LoginScreen() {
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 800,
-          useNativeDriver: !IS_WEB,
+          useNativeDriver: true,
           easing: Easing.out(Easing.cubic),
         }),
         Animated.timing(slideAnim, {
           toValue: 0,
           duration: 800,
-          useNativeDriver: !IS_WEB,
-          easing: Easing.out(Easing.cubic),
-        }),
-      ]),
-      
-      // Form animations (appears after logo)
-      Animated.parallel([
-        Animated.timing(formFadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: !IS_WEB,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.timing(formSlideAnim, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: !IS_WEB,
+          useNativeDriver: true,
           easing: Easing.out(Easing.cubic),
         }),
       ]),
@@ -227,19 +322,20 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setError(null);
+    Keyboard.dismiss();
     
-    // Enkel knapp-animation som fungerar på alla plattformar
+    // Button press animation
     Animated.sequence([
       Animated.timing(buttonScaleAnim, {
         toValue: 0.95,
         duration: 100,
-        useNativeDriver: !IS_WEB,
+        useNativeDriver: true,
         easing: Easing.ease,
       }),
       Animated.timing(buttonScaleAnim, {
         toValue: 1,
         duration: 200,
-        useNativeDriver: !IS_WEB,
+        useNativeDriver: true,
         easing: Easing.ease,
       }),
     ]).start();
@@ -247,20 +343,18 @@ export default function LoginScreen() {
     try {
       await signInWithEmail(email, password);
       // Navigation handled by AuthProvider
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || 'Ett oväntat fel inträffade vid inloggning.');
       
-      // Förenklad fel-animation
+      // Error shake animation
       Animated.sequence([
-        Animated.timing(buttonPressAnim, { toValue: 8, duration: 50, useNativeDriver: !IS_WEB, easing: Easing.ease }),
-        Animated.timing(buttonPressAnim, { toValue: -8, duration: 50, useNativeDriver: !IS_WEB, easing: Easing.ease }),
-        Animated.timing(buttonPressAnim, { toValue: 0, duration: 50, useNativeDriver: !IS_WEB, easing: Easing.ease }),
+        Animated.timing(buttonPressAnim, { toValue: 8, duration: 50, useNativeDriver: true, easing: Easing.ease }),
+        Animated.timing(buttonPressAnim, { toValue: -8, duration: 50, useNativeDriver: true, easing: Easing.ease }),
+        Animated.timing(buttonPressAnim, { toValue: 8, duration: 50, useNativeDriver: true, easing: Easing.ease }),
+        Animated.timing(buttonPressAnim, { toValue: -8, duration: 50, useNativeDriver: true, easing: Easing.ease }),
+        Animated.timing(buttonPressAnim, { toValue: 0, duration: 50, useNativeDriver: true, easing: Easing.ease }),
       ]).start();
     }
-  };
-
-  const toggleShowPassword = () => {
-    setShowPassword(!showPassword);
   };
 
   // Shimmer effect for gradient button
@@ -269,10 +363,10 @@ export default function LoginScreen() {
     outputRange: [-150, 350]
   });
 
-  // Interpolera rotationen för bakgrunden
-  const bgRotate = bgRotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '2deg']
+  // Bell rotation animation
+  const bellRotate = bellAnim.interpolate({
+    inputRange: [-0.1, 0, 0.1],
+    outputRange: ['-10deg', '0deg', '10deg']
   });
 
   return (
@@ -280,66 +374,79 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      {/* Animerad bakgrundsbild med konfetti */}
-      <Animated.View
-        style={[
-          styles.animatedBgContainer,
-          {
-            transform: [
-              { scale: bgScaleAnim },
-              { rotate: bgRotate },
-              { translateX: bgMoveXAnim },
-              { translateY: bgMoveYAnim }
-            ]
-          }
-        ]}
-      >
+      <StatusBar style="light" />
+      
+      {/* Background */}
         <ImageBackground 
-          source={require('../../../assets/images/pling_confetti_bg.png')} 
+          source={require('@assets/images/pling_confetti_bg.png')} 
           style={styles.background}
           resizeMode="cover"
         >
-          {/* Overlay för bättre kontrast - mörkare än tidigare */}
           <View style={styles.overlay} />
-        </ImageBackground>
-      </Animated.View>
+        
+        {/* Floating particles */}
+        <FloatingParticles />
+        
+        {/* Glass card effect */}
+        {!IS_WEB && Platform.OS !== 'web' && (
+          <BlurView
+            intensity={20}
+            tint="dark"
+            style={styles.blurContainer}
+          />
+        )}
+        
+        {IS_WEB && (
+          <View style={styles.webGlassEffect} />
+        )}
 
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
           {/* Logo & Header */}
           <Animated.View 
             style={[
               styles.logoContainer,
               {
                 opacity: fadeAnim,
-                transform: IS_WEB ? [] : [{ translateY: slideAnim }]
+                transform: [
+                  { translateY: slideAnim },
+                  { scale: logoScaleAnim }
+                ]
               }
             ]}
           >
             <View style={styles.logoWrapper}>
-              <Image 
-                source={require('../../../assets/images/logo.png')} 
-                style={styles.logo} 
-                resizeMode="contain"
+              <Animated.View
+                style={{
+                  transform: [{ rotate: bellRotate }]
+                }}
+              >
+                <Bell size={40} color="#FACC15" style={styles.bellIcon} />
+              </Animated.View>
+              
+              <GradientText 
+                text="Pling" 
+                style={styles.logoText}
+                colors={['#FACC15', '#F59E0B']}
               />
             </View>
-            <Text variant="headlineLarge" style={styles.title}>
-              Välkommen tillbaka
+            
+            <Text variant="headlineMedium" style={styles.title}>
+              Välkommen tillbaka!
             </Text>
+            
             <Text variant="bodyLarge" style={styles.subtitle}>
-              Logga in för att fortsätta din Pling-resa
+              Logga in för att fortsätta din säljresa
             </Text>
           </Animated.View>
 
+          {/* Login Form */}
+          <View style={styles.formContainer}>
           {/* Error message */}
           {error && (
             <Animated.View 
               style={[
                 styles.errorContainer,
-                IS_WEB ? {} : { transform: [{ translateX: buttonPressAnim }] }
+                  { transform: [{ translateX: buttonPressAnim }] }
               ]}
             >
               <AlertCircle size={20} color="#EF4444" style={styles.errorIcon} />
@@ -347,78 +454,29 @@ export default function LoginScreen() {
             </Animated.View>
           )}
 
-          {/* Login Form */}
-          <Animated.View 
-            style={[
-              styles.formContainer,
-              {
-                opacity: formFadeAnim,
-                transform: IS_WEB ? [] : [{ translateY: formSlideAnim }]
-              }
-            ]}
-          >
-            <View style={styles.inputWrapper}>
-              <Mail 
-                size={20} 
-                color={theme.colors.onSurfaceVariant} 
-                style={styles.inputIcon} 
-              />
-              <TextInput
+            <AnimatedInput
                 label="E-postadress"
                 value={email}
                 onChangeText={setEmail}
-                mode="flat"
-                style={styles.input}
+              icon={<Mail size={20} color="rgba(255, 255, 255, 0.6)" />}
                 keyboardType="email-address"
-                autoCapitalize="none"
                 disabled={isLoading}
-                textColor={theme.colors.onSurface}
-                underlineColor="transparent"
-                activeUnderlineColor="transparent"
-                theme={{ 
-                  colors: { 
-                    background: 'rgba(0, 0, 0, 0.2)',
-                    onSurfaceVariant: theme.colors.onSurfaceVariant
-                  } 
-                }}
-              />
-            </View>
-
-            <View style={styles.inputWrapper}>
-              <Lock 
-                size={20} 
-                color={theme.colors.onSurfaceVariant} 
-                style={styles.inputIcon} 
-              />
-              <TextInput
+            />
+            
+            <AnimatedInput
                 label="Lösenord"
                 value={password}
                 onChangeText={setPassword}
-                mode="flat"
-                style={styles.input}
+              icon={<Lock size={20} color="rgba(255, 255, 255, 0.6)" />}
                 secureTextEntry={!showPassword}
                 disabled={isLoading}
-                textColor={theme.colors.onSurface}
-                underlineColor="transparent"
-                activeUnderlineColor="transparent"
-                theme={{ 
-                  colors: { 
-                    background: 'rgba(0, 0, 0, 0.2)',
-                    onSurfaceVariant: theme.colors.onSurfaceVariant
-                  } 
-                }}
-                right={
-                  <TextInput.Icon 
-                    icon={() => 
+              rightIcon={
                       showPassword 
-                        ? <EyeOff size={20} color={theme.colors.onSurfaceVariant} /> 
-                        : <Eye size={20} color={theme.colors.onSurfaceVariant} />
+                  ? <EyeOff size={20} color="rgba(255, 255, 255, 0.6)" /> 
+                  : <Eye size={20} color="rgba(255, 255, 255, 0.6)" />
                     } 
-                    onPress={toggleShowPassword} 
-                  />
-                }
+              onRightIconPress={() => setShowPassword(!showPassword)}
               />
-            </View>
 
             <TouchableOpacity 
               style={styles.forgotPassword} 
@@ -428,11 +486,11 @@ export default function LoginScreen() {
               <Text style={styles.forgotPasswordText}>Glömt lösenord?</Text>
             </TouchableOpacity>
 
-            {/* Förenklad knapp som fungerar på alla plattformar */}
+            {/* Login Button */}
             <Animated.View 
               style={[
                 styles.buttonContainer,
-                IS_WEB ? {} : { transform: [{ scale: buttonScaleAnim }] }
+                { transform: [{ scale: buttonScaleAnim }] }
               ]}
             >
               <TouchableOpacity
@@ -447,8 +505,7 @@ export default function LoginScreen() {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
-                  {/* Simplified shimmer effect */}
-                  {!IS_WEB && (
+                  {/* Shimmer effect */}
                     <Animated.View
                       style={[
                         styles.shimmer,
@@ -457,7 +514,6 @@ export default function LoginScreen() {
                         }
                       ]}
                     />
-                  )}
                   
                   {isLoading ? (
                     <ActivityIndicator size="small" color="#0F0E2A" />
@@ -485,25 +541,16 @@ export default function LoginScreen() {
             >
               <Text style={styles.registerButtonText}>Skapa nytt konto</Text>
             </TouchableOpacity>
-          </Animated.View>
-        </ScrollView>
+          </View>
       </SafeAreaView>
+      </ImageBackground>
     </KeyboardAvoidingView>
   );
 }
 
-const { width, height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  animatedBgContainer: {
-    position: 'absolute',
-    width: width + 40, // Lite större än skärmen för att undvika vita kanter vid animering
-    height: height + 40,
-    left: -20, // Centrera den förstorade bakgrunden
-    top: -20,
   },
   background: {
     flex: 1,
@@ -512,145 +559,115 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 14, 42, 0.80)', // Mörkblå med 80% opacitet för bättre kontrast med logotypen
+    backgroundColor: 'rgba(30, 27, 75, 0.85)', // Dark blue with opacity
+  },
+  blurContainer: {
+    position: 'absolute',
+    top: height * 0.15,
+    left: width * 0.05,
+    right: width * 0.05,
+    bottom: height * 0.1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(91, 33, 182, 0.15)', // Primary color with opacity
+  },
+  webGlassEffect: {
+    position: 'absolute',
+    top: height * 0.15,
+    left: width * 0.05,
+    right: width * 0.05,
+    bottom: height * 0.1,
+    borderRadius: 24,
+    backgroundColor: 'rgba(91, 33, 182, 0.15)', // Primary color with opacity
+    backdropFilter: 'blur(10px)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   safeArea: {
     flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 40,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   logoWrapper: {
-    position: 'relative',
-    marginBottom: 48,
+    flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
+    justifyContent: 'center',
+    marginBottom: 24,
   },
-  logo: {
-    width: 306,
-    height: 306,
-    zIndex: 1,
-    ...(IS_WEB ? {
-      filter: 'drop-shadow(0 0 10px rgba(250, 204, 21, 0.3))'
-    } : {
-      shadowColor: '#FACC15',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-      elevation: 15,
-    }),
+  logoText: {
+    fontSize: 48,
+    marginLeft: 8,
   },
-  logoGlow: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'transparent',
-    ...(IS_WEB ? {
-      // Webbspecifik styling med CSS
-      boxShadow: '0 0 30px rgba(250, 204, 21, 0.6)'
-    } : {
-      shadowColor: '#FACC15',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.6,
-      shadowRadius: 30,
-      elevation: 15,
-    }),
-    top: 0,
-    left: 0,
+  bellIcon: {
+    marginRight: 4,
   },
   title: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
-    ...(IS_WEB ? {
-      // Webbspecifik styling med CSS
-      textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)'
-    } : {
       textShadowColor: 'rgba(0, 0, 0, 0.5)',
       textShadowOffset: { width: 0, height: 2 },
       textShadowRadius: 4,
-    }),
   },
   subtitle: {
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
-    ...(IS_WEB ? {
-      // Webbspecifik styling med CSS
-      textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
-    } : {
       textShadowColor: 'rgba(0, 0, 0, 0.3)',
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 2,
-    }),
   },
   formContainer: {
-    marginBottom: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
   },
-  inputWrapper: {
+  inputContainer: {
     marginBottom: 20,
     position: 'relative',
-    ...(IS_WEB ? {
-      // Webbspecifik styling med CSS
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-    } : {
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 5,
-    }),
   },
-  inputIcon: {
+  inputWrapper: {
+    borderWidth: 1,
+    borderRadius: 12,
+    height: 56,
+    backgroundColor: 'rgba(15, 14, 42, 0.5)',
+    overflow: 'hidden',
+  },
+  inputIconContainer: {
     position: 'absolute',
     left: 12,
-    top: 24,
-    zIndex: 1,
+    top: 18,
+    zIndex: 2,
   },
-  input: {
-    backgroundColor: 'rgba(15, 14, 42, 0.75)', // Mörkare bakgrund för bättre kontrast
-    borderRadius: 12,
+  rightIconContainer: {
+    position: 'absolute',
+    right: 12,
+    top: 18,
+    zIndex: 2,
+  },
+  textInput: {
     paddingLeft: 40,
-    height: 56,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    overflow: 'hidden',
   },
   forgotPassword: {
     alignSelf: 'flex-end',
     marginBottom: 24,
+    marginTop: 4,
   },
   forgotPasswordText: {
     color: '#FACC15', // Accent Yellow
     fontSize: 14,
-    ...(IS_WEB ? {
-      // Webbspecifik styling med CSS
-      textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
-    } : {
       textShadowColor: 'rgba(0, 0, 0, 0.3)',
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 2,
-    }),
   },
   buttonContainer: {
     marginBottom: 24,
     borderRadius: 12,
     overflow: 'hidden',
-    ...(IS_WEB ? {
-      // Webbspecifik styling med CSS
-      boxShadow: '0 6px 10px rgba(0, 0, 0, 0.3)'
-    } : {
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -659,7 +676,6 @@ const styles = StyleSheet.create({
       shadowOpacity: 0.3,
       shadowRadius: 10,
       elevation: 10,
-    }),
   },
   buttonTouchable: {
     borderRadius: 12,
@@ -717,10 +733,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    ...(IS_WEB ? {
-      // Webbspecifik styling med CSS
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-    } : {
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -729,7 +741,6 @@ const styles = StyleSheet.create({
       shadowOpacity: 0.2,
       shadowRadius: 4,
       elevation: 3,
-    }),
   },
   registerButtonText: {
     color: '#FFFFFF',
@@ -745,10 +756,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.2)',
-    ...(IS_WEB ? {
-      // Webbspecifik styling med CSS
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-    } : {
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -757,7 +764,6 @@ const styles = StyleSheet.create({
       shadowOpacity: 0.2,
       shadowRadius: 4,
       elevation: 2,
-    }),
   },
   errorIcon: {
     marginRight: 8,
@@ -766,5 +772,9 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     flex: 1,
     fontSize: 14,
+  },
+  particle: {
+    position: 'absolute',
+    opacity: 0.5,
   },
 }); 

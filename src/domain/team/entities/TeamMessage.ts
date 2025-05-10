@@ -324,21 +324,27 @@ export class TeamMessage extends AggregateRoot<TeamMessageProps> {
       return Result.err('Kan inte lägga till omnämnande i ett raderat meddelande');
     }
 
-    const mentionResult = MessageMention.create({
-      userId: new UniqueId(mention.userId),
+    const userId = new UniqueId(mention.userId);
+    const newMention = MessageMention.create({
+      userId,
       index: mention.index,
       length: mention.length
-    });
+    }).unwrapOr(null);
 
-    if (mentionResult.isErr()) {
-      return Result.err(mentionResult.error);
+    if (!newMention) {
+      return Result.err('Ogiltig omnämning');
     }
 
-    this.props.mentions.push(mentionResult.value);
+    this.props.mentions.push(newMention);
     this.props.updatedAt = new Date();
 
     // Skapa domänhändelse
-    this.addDomainEvent(new MessageMentionAdded(this, mention));
+    this.addDomainEvent(new MessageMentionAdded(
+      this.id,
+      this.teamId,
+      userId,
+      newMention
+    ));
 
     return Result.ok();
   }
@@ -348,23 +354,27 @@ export class TeamMessage extends AggregateRoot<TeamMessageProps> {
       return Result.err('Kan inte lägga till bilaga i ett raderat meddelande');
     }
 
-    const attachmentResult = MessageAttachment.create({
+    const newAttachment = MessageAttachment.create({
       type: attachment.type,
       url: attachment.url,
       name: attachment.name,
       size: attachment.size,
       mimeType: attachment.mimeType
-    });
+    }).unwrapOr(null);
 
-    if (attachmentResult.isErr()) {
-      return Result.err(attachmentResult.error);
+    if (!newAttachment) {
+      return Result.err('Ogiltig bilaga');
     }
 
-    this.props.attachments.push(attachmentResult.value);
+    this.props.attachments.push(newAttachment);
     this.props.updatedAt = new Date();
 
     // Skapa domänhändelse
-    this.addDomainEvent(new MessageAttachmentAdded(this, attachment));
+    this.addDomainEvent(new MessageAttachmentAdded(
+      this.id,
+      this.teamId,
+      newAttachment
+    ));
 
     return Result.ok();
   }

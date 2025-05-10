@@ -270,7 +270,7 @@ export default function ForgotPasswordScreen() {
         ]}
       >
         <ImageBackground 
-          source={require('../../../assets/images/pling_confetti_bg.png')} 
+          source={require('@assets/images/pling_confetti_bg.png')} 
           style={styles.background}
           resizeMode="cover"
         >
@@ -296,7 +296,7 @@ export default function ForgotPasswordScreen() {
           >
             <View style={styles.logoWrapper}>
               <Image 
-                source={require('../../../assets/images/logo.png')} 
+                source={require('@assets/images/logo.png')} 
                 style={styles.logo} 
                 resizeMode="contain"
               />

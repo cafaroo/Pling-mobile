@@ -55,8 +55,13 @@ export class UserMapper {
       
       // Validera telefonnummer om det finns
       let phone = null;
-      if (dto.phone) {
-        const phoneResult = PhoneNumber.create(dto.phone);
+      // Få telefonnummer från profile.contact.phone eller från profile.phone_number
+      const phoneStr = dto.profile?.contact?.phone || 
+                     (dto.profile as any)?.phone_number || 
+                     null;
+      
+      if (phoneStr) {
+        const phoneResult = PhoneNumber.create(phoneStr);
         if (phoneResult.isErr()) {
           return err(`Ogiltigt telefonnummer: ${phoneResult.error}`);
         }
@@ -133,20 +138,22 @@ export class UserMapper {
       id: user.id.toString(),
       email: user.email.toString(),
       name: user.name,
-      phone: user.phone ? user.phone.toString() : null,
-      settings: user.settings ? {
-        theme: user.settings.theme,
-        language: user.settings.language,
-        notifications: user.settings.notifications,
-        privacy: user.settings.privacy
-      } : undefined,
       profile: user.profile ? {
         firstName: user.profile.firstName,
         lastName: user.profile.lastName,
         displayName: user.profile.displayName,
         bio: user.profile.bio,
         location: user.profile.location,
-        contact: user.profile.contact
+        contact: {
+          ...user.profile.contact,
+          phone: user.phone ? user.phone.toString() : null
+        }
+      } : undefined,
+      settings: user.settings ? {
+        theme: user.settings.theme,
+        language: user.settings.language,
+        notifications: user.settings.notifications,
+        privacy: user.settings.privacy
       } : undefined,
       created_at: user.createdAt?.toISOString(),
       updated_at: user.updatedAt?.toISOString()

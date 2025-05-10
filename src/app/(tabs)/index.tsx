@@ -1,840 +1,943 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  Dimensions, 
-  Platform,
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Dimensions,
   Animated,
   Easing,
-  TouchableOpacity,
+  Platform,
   ImageBackground,
-  TextInput as RNTextInput
+  Image,
+  ViewStyle
 } from 'react-native';
-import { 
-  Text, 
-  Card, 
-  useTheme, 
-  Avatar, 
-  Button,
-  IconButton,
-  TextInput,
-  SegmentedButtons,
-  Checkbox,
-  Menu,
-  Divider,
-  List,
-  Modal,
-  Provider as PaperProvider
-} from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@context/AuthContext';
+import { Stack, router } from 'expo-router';
+import { Text, Avatar, useTheme, Divider } from 'react-native-paper';
+import { useUser } from '../../application/user/hooks/useUser';
+import { LoadingSpinner } from '../../ui/shared/components/LoadingSpinner';
+import { ErrorMessage } from '../../ui/shared/components/ErrorMessage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { 
   Bell, 
-  RadioTower, 
-  Trophy, 
-  Zap, 
-  Plus, 
-  ChevronRight, 
-  Calendar, 
   Award, 
+  TrendingUp, 
   Users, 
-  TrendingUp,
-  BarChart,
-  Coins,
-  Check,
-  Crown,
-  Medal,
-  Badge,
+  ChevronRight, 
+  Plus, 
+  Settings,
   BarChart3,
-  Info,
-  AlertCircle,
-  Target,
-  TrendingUp as TrendingUpIcon,
-  Award as AwardIcon,
-  Trophy as TrophyIcon,
-  CalendarDays,
+  Crown
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { BlurView, BlurTint } from 'expo-blur';
-import * as Progress from 'react-native-progress';
+import { BlurView } from 'expo-blur';
 
-// Kontrollera om vi kör på webben
+// Platform check
 const IS_WEB = Platform.OS === 'web';
+const { width, height } = Dimensions.get('window');
 
-// Plattformsspecifika easing-funktioner för att undvika kompatibilitetsproblem med webben
-const createEasing = () => {
-  if (IS_WEB) {
-    // Enklare easing-funktioner för webb
-    return {
-      easeInOut: Easing.ease,
-      move: Easing.ease,
-      bounce: Easing.linear
-    };
-  } else {
-    // Fullständiga easing-funktioner för nativt
-    return {
-      easeInOut: Easing.inOut(Easing.cubic),
-      move: Easing.inOut(Easing.cubic),
-      bounce: Easing.bounce
-    };
-  }
-};
-
-// Typning för GlassEffect-komponenten
-interface GlassEffectProps {
-  intensity?: number;
-  tint?: 'light' | 'dark' | 'default'; 
-  style?: any;
+// Glass Card Component types
+interface GlassCardProps {
   children: React.ReactNode;
-  borderGlow?: boolean; // Ny prop för att lägga till en subtil lysande kant
-  highlightTop?: boolean; // Ny prop för att lägga till en highlight-effekt högst upp
-  highlightColor?: string; // Färg för highlight-effekten
+  style?: ViewStyle;
+  intensity?: number;
 }
 
-// Anpassad komponent för glaseffekt som fungerar på alla plattformar
-const GlassEffect: React.FC<GlassEffectProps> = ({ 
-  intensity = 50, 
-  tint = 'dark', 
-  style, 
-  children,
-  borderGlow = false,
-  highlightTop = false,
-  highlightColor = 'rgba(255, 255, 255, 0.12)'
-}) => {
+// Glass Card Component
+const GlassCard = ({ children, style, intensity = 20 }: GlassCardProps) => {
   if (IS_WEB) {
-    // Web använder CSS för glaseffekt
     return (
-      <View style={[
-        styles.glassWeb, 
-        borderGlow && styles.glassGlowBorder,
-        style
-      ]}>
-        {highlightTop && <View style={[styles.glassHighlight, { backgroundColor: highlightColor }]} />}
+      <View style={[styles.webGlassCard, style]}>
         {children}
       </View>
-    );
-  } else {
-    // Native använder expo-blur
-    return (
-      <BlurView 
-        intensity={intensity} 
-        tint={tint as BlurTint} 
-        style={[
-          styles.glassNative, 
-          borderGlow && styles.glassGlowBorder,
-          style
-        ]}
-      >
-        {highlightTop && <View style={[styles.glassHighlight, { backgroundColor: highlightColor }]} />}
-        {children}
-      </BlurView>
     );
   }
-};
-
-// Mockup-data
-const mockProducts = [
-  { id: '1', name: 'Premium Prenumeration' },
-  { id: '2', name: 'Årsavtal Företag' },
-  { id: '3', name: 'Konsulttjänst' },
-  { id: '4', name: 'Månadsprenumeration' }
-];
-
-const mockLeaderboard = [
-  { id: '1', name: 'Annika Larsson', avatar: null, sales: 24500, change: '+12%' },
-  { id: '2', name: 'Erik Johansson', avatar: null, sales: 21200, change: '+5%' },
-  { id: '3', name: 'Maria Lindberg', avatar: null, sales: 19800, change: '+8%' },
-];
-
-const mockContests = [
-  { id: '1', name: 'Sommarsprint', endDate: '25 juni', yourPosition: 2, totalParticipants: 18 },
-  { id: '2', name: 'Kvartalsutmaning', endDate: '30 juni', yourPosition: 5, totalParticipants: 25 },
-];
-
-const mockNotifications = [
-  { id: '1', message: 'Du slog ditt rekord!', time: 'Idag 14:22', type: 'success' },
-  { id: '2', message: 'Ny tävling har startat', time: 'Idag 09:30', type: 'info' },
-  { id: '3', message: 'Erik skickade dig en high-five', time: 'Igår 18:45', type: 'info' },
-];
-
-// Ny PlingModal komponent
-interface PlingModalProps {
-  visible: boolean;
-  onClose: () => void;
-}
-
-const PlingModal: React.FC<PlingModalProps> = ({ visible, onClose }) => {
-  const [amount, setAmount] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [productMenuVisible, setProductMenuVisible] = useState(false);
-  const [comment, setComment] = useState('');
-  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
-
-  const submitButtonScale = useRef(new Animated.Value(1)).current;
-  const confettiAnim = useRef(new Animated.Value(0)).current;
-  const easingFunctions = createEasing();
-
-  const handleModalSubmit = () => {
-    Animated.sequence([
-      Animated.timing(submitButtonScale, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: !IS_WEB,
-        easing: Easing.ease,
-      }),
-      Animated.timing(submitButtonScale, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: !IS_WEB,
-        easing: Easing.elastic(1),
-      })
-    ]).start();
-
-    setShowSuccessAnimation(true);
-    Animated.timing(confettiAnim, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: !IS_WEB,
-      easing: Easing.out(Easing.ease),
-    }).start(() => {
-      setTimeout(() => {
-        setShowSuccessAnimation(false);
-        confettiAnim.setValue(0);
-        setAmount('');
-        setSelectedProduct('');
-        setComment('');
-        onClose();
-      }, 1500);
-    });
-  };
-
-  useEffect(() => {
-    if (!visible) {
-      setProductMenuVisible(false);
-    }
-  }, [visible]);
-
+  
   return (
-    <Modal visible={visible} onDismiss={onClose} contentContainerStyle={styles.modalOuterContainer}>
-      <View style={styles.modalInnerContainer}>
-        <GlassEffect
-          style={styles.modalContent}
-          intensity={40}
-          borderGlow={true}
-          highlightTop={true}
-          highlightColor="rgba(250, 204, 21, 0.1)"
-        >
-          <Text style={styles.modalTitle}>Registrera försäljning</Text>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Belopp</Text>
-            <TextInput
-              mode="outlined"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-              placeholder="0 SEK"
-              style={styles.textInput}
-              outlineColor="rgba(255, 255, 255, 0.15)"
-              activeOutlineColor="#FACC15"
-              textColor="#FFFFFF"
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
-              theme={{ colors: { background: 'rgba(0, 0, 0, 0.2)' } }}
-              left={<TextInput.Icon icon={() => <Coins size={20} color="rgba(255, 255, 255, 0.7)" />} />}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Produkt (valfritt)</Text>
-            <Menu
-              visible={productMenuVisible}
-              onDismiss={() => setProductMenuVisible(false)}
-              anchor={
-                <TouchableOpacity
-                  style={styles.dropdownButton}
-                  onPress={() => setProductMenuVisible(true)}
-                >
-                  <Text style={styles.dropdownButtonText}>
-                    {selectedProduct ? selectedProduct : 'Välj produkt'}
-                  </Text>
-                  <ChevronRight size={20} color="rgba(255, 255, 255, 0.7)" style={{ transform: [{ rotate: '90deg' }] }} />
-                </TouchableOpacity>
-              }
-              contentStyle={styles.menuContent}
-            >
-              {mockProducts.map(product => (
-                <Menu.Item
-                  key={product.id}
-                  onPress={() => {
-                    setSelectedProduct(product.name);
-                    setProductMenuVisible(false);
-                  }}
-                  title={product.name}
-                  titleStyle={{ color: '#FFFFFF' }}
-                  style={{ backgroundColor: 'rgba(0,0,0,0.3)'}}
-                />
-              ))}
-            </Menu>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Kommentar (valfritt)</Text>
-            <TextInput
-              mode="outlined"
-              value={comment}
-              onChangeText={setComment}
-              placeholder="Lägg till kommentar..."
-              style={styles.textInput}
-              multiline
-              numberOfLines={2}
-              outlineColor="rgba(255, 255, 255, 0.15)"
-              activeOutlineColor="#FACC15"
-              textColor="#FFFFFF"
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
-              theme={{ colors: { background: 'rgba(0, 0, 0, 0.2)' } }}
-            />
-          </View>
-
-          <Animated.View style={{
-            transform: [{ scale: submitButtonScale }],
-            alignItems: 'center',
-            marginTop: 16
-          }}>
-            <TouchableOpacity
-              style={styles.plingButton}
-              onPress={handleModalSubmit}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={['#FACC15', '#F59E0B']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.plingButtonGradient}
-              >
-                <View style={styles.plingButtonContent}>
-                  <RadioTower size={24} color="#0F0E2A" style={{ marginRight: 12 }} />
-                  <Text style={styles.plingButtonText}>PLING!</Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-
-          {showSuccessAnimation && (
-            <Animated.View style={[
-              styles.confettiContainer,
-              {
-                opacity: confettiAnim,
-              }
-            ]}>
-              <View style={styles.successIconContainer}>
-                <Check size={40} color="#10B981" />
-              </View>
-              <Text style={styles.successText}>Försäljning registrerad!</Text>
-            </Animated.View>
-          )}
-        </GlassEffect>
+    <View style={[styles.glassCardContainer, style]}>
+      <BlurView
+        intensity={intensity}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={styles.glassCardContent}>
+        {children}
       </View>
-    </Modal>
+    </View>
   );
 };
 
-// Ny mock-data för Dagens Överblick och Fokus
-const mockTodaysOverview = {
-  todaysSales: 7850,
-  salesGoal: 12000,
-  goalProgress: 7850 / 12000, // Använd decimal för progresskomponenter
-  currentRank: 3,
-  totalRanked: 18,
-  salesChangePercent: 15, // Positiv förändring
-};
-
-const mockFocusToday = {
-  type: 'contest', // Kan vara 'tip', 'motivation' etc.
-  title: 'Månadsfinalen: Sista Spurten!',
-  description: 'Endast 3 dagar kvar! Du ligger på 3:e plats.',
-  icon: TrophyIcon,
-  actionText: 'Visa Tävling',
-  // actionLink: '/competitions/1', // Exempellänk (hanteras med onPress)
-};
-
-const mockLeaderboardSnapshot = mockLeaderboard.slice(0, 2); // Anpassa senare för att inkludera användaren
-const mockActiveContestTeaser = mockContests.length > 0 ? mockContests[0] : null;
-const mockLatestNotification = mockNotifications.length > 0 ? mockNotifications[0] : null;
-
-export default function PlingScreen() {
+// Main Dashboard Component
+export default function Dashboard() {
   const theme = useTheme();
-  const { user } = useAuth();
-  const easingFunctions = createEasing();
-  const [isPlingModalVisible, setIsPlingModalVisible] = useState(false);
-
-  const plingButtonScale = useRef(new Animated.Value(1)).current;
-  const headerElementsFade = useRef(new Animated.Value(0)).current;
-  const overviewFade = useRef(new Animated.Value(0)).current;
-  const focusFade = useRef(new Animated.Value(0)).current;
-  const listFade = useRef(new Animated.Value(0)).current;
-
+  const { data: user, isLoading, error } = useUser();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  
+  // Mock data
+  const mockData = {
+    stats: {
+      dailySales: '12 500 kr',
+      rank: 3,
+      weeklySales: '87 300 kr',
+      plingCount: 8
+    },
+    activeCompetition: {
+      title: 'Veckans utmaning',
+      goal: 'Först till 50 000 kr',
+      endDate: 'Fredag 16:00',
+      progress: 65
+    },
+    topSellers: [
+      { id: 1, name: 'Anna L.', amount: '23 500 kr', avatar: null },
+      { id: 2, name: 'Erik S.', amount: '19 800 kr', avatar: null },
+      { id: 3, name: 'Maria K.', amount: '15 200 kr', avatar: null, isCurrentUser: true },
+    ],
+    recentPlings: [
+      { 
+        id: 1, 
+        user: 'Erik S.', 
+        amount: '5 200 kr', 
+        product: 'Premium-paket',
+        timeAgo: '5 min sedan' 
+      },
+      { 
+        id: 2, 
+        user: 'Anna L.', 
+        amount: '3 800 kr', 
+        product: 'Konsulttjänst',
+        timeAgo: '32 min sedan' 
+      }
+    ]
+  };
+  
+  // Entry animations
   useEffect(() => {
-    Animated.timing(headerElementsFade, {
-      toValue: 1,
-      duration: 600,
-      delay: 200,
-      useNativeDriver: !IS_WEB,
-      easing: easingFunctions.easeInOut,
-    }).start();
-
-    Animated.timing(overviewFade, {
-      toValue: 1,
-      duration: 600,
-      delay: 400,
-      useNativeDriver: !IS_WEB,
-      easing: easingFunctions.easeInOut,
-    }).start();
-
-    Animated.timing(focusFade, {
-      toValue: 1,
-      duration: 600,
-      delay: 600,
-      useNativeDriver: !IS_WEB,
-      easing: easingFunctions.easeInOut,
-    }).start();
-
-    Animated.timing(listFade, {
-      toValue: 1,
-      duration: 600,
-      delay: 800,
-      useNativeDriver: !IS_WEB,
-      easing: easingFunctions.easeInOut,
-    }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1), // Cubic bezier curve, ersätter Easing.out(Easing.cubic)
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1), // Cubic bezier curve
+      }),
+    ]).start();
   }, []);
+  
+  // Header animation based on scroll
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp'
+  });
+  
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
-  const handlePlingPressIn = () => {
-    Animated.spring(plingButtonScale, {
-      toValue: 0.95,
-      useNativeDriver: !IS_WEB,
-    }).start();
+  if (error || !user) {
+    return <ErrorMessage message={error?.message ?? 'Kunde inte ladda användardata'} />;
+  }
+  
+  // Handle new pling action
+  const handleNewPling = () => {
+    // Använd en sträng som vi vet är giltig som ett relativt nav
+    router.push('/new-pling' as any);
   };
-
-  const handlePlingPressOut = () => {
-    Animated.spring(plingButtonScale, {
-      toValue: 1,
-      friction: 3,
-      tension: 40,
-      useNativeDriver: !IS_WEB,
-    }).start();
-    setIsPlingModalVisible(true);
-  };
-
-  const firstName = user?.name?.split(' ')[0] || 'Plingare';
-
-  const renderFocusTodayIcon = () => {
-    if (mockFocusToday.type === 'contest') {
-      return <TrophyIcon size={28} color="#FACC15" />;
-    } else if (mockFocusToday.type === 'tip') {
-      return <Info size={28} color="#818CF8" />; // Annan färg för tips
-    }
-    return <AwardIcon size={28} color="#FFFFFF" />;
-  };
-
+  
+  // Extrahera användarnamn säkert
+  const firstName = user.profile?.firstName || '';
+  const lastName = user.profile?.lastName || '';
+  const initials = firstName.charAt(0) + (lastName ? lastName.charAt(0) : '');
+  
   return (
-    <PaperProvider>
-      <View style={styles.container}>
-        <LinearGradient
-          colors={['#0F0E2A', '#1E1B4B', '#312E81']}
-          style={styles.background}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-        />
-        <View style={styles.gradientAccent1} />
-        <View style={styles.gradientAccent2} />
-        <View style={styles.gradientAccent3} />
-        <View style={styles.gradientAccent4} />
-        <StatusBar style="light" />
-
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.newHeaderContainer}>
-            <Animated.View style={{ opacity: headerElementsFade }}>
-              <TouchableOpacity onPress={() => console.log('Avatar')} style={styles.newHeaderAvatarButton}>
-                <Avatar.Image
-                  size={40}
-                  source={user?.avatarUrl ? { uri: user.avatarUrl } : require('../../../assets/images/avatar-placeholder.png')}
-                  style={styles.newHeaderAvatar}
-                />
-              </TouchableOpacity>
-            </Animated.View>
-
-            <Animated.View style={{ transform: [{ scale: plingButtonScale }] }}>
-              <TouchableOpacity
-                style={styles.newHeaderPlingButton}
-                onPressIn={handlePlingPressIn}
-                onPressOut={handlePlingPressOut}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={['#FACC15', '#F59E0B']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={styles.newHeaderPlingButtonGradient}
-                >
-                  <RadioTower size={28} color="#0F0E2A" />
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-
-            <Animated.View style={{ opacity: headerElementsFade }}>
-              <TouchableOpacity onPress={() => console.log('Notiser')} style={styles.newHeaderNotificationButton}>
+    <>
+      <StatusBar style="light" />
+      
+      <Stack.Screen
+        options={{
+          title: 'Dashboard',
+          headerStyle: {
+            backgroundColor: '#5B21B6', // Primary color
+          },
+          headerTintColor: '#FFFFFF',
+          headerShadowVisible: false,
+          headerRight: () => (
+            <View style={styles.headerButtons}>
+              <TouchableOpacity style={styles.headerButton}>
                 <Bell size={24} color="#FFFFFF" />
-                <View style={styles.notificationBadge} />
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationText}>3</Text>
+                </View>
               </TouchableOpacity>
-            </Animated.View>
-          </View>
-
+              <TouchableOpacity style={styles.headerButton}>
+                <Settings size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          ),
+        }}
+      />
+      
+      <ImageBackground 
+        source={require('@assets/images/pling_confetti_bg.png')} 
+        style={styles.confettiBg}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay} />
+        
+        <SafeAreaView style={styles.container}>
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true }
+            )}
+            scrollEventThrottle={16}
           >
-            <Animated.View style={{ opacity: overviewFade, marginBottom: 24 }}>
-              <Text style={styles.sectionTitle}>God morgon, {firstName}!</Text>
-              <View style={styles.overviewNewGrid}>
-                <GlassEffect style={styles.overviewCard} intensity={30} borderGlow highlightTop highlightColor="rgba(250, 204, 21, 0.1)">
-                   <View style={styles.overviewCardHeader}>
-                     <TrendingUpIcon size={20} color="#FACC15" />
-                     <Text style={styles.overviewCardTitle}>Sålt idag</Text>
-                   </View>
-                   <Text style={styles.overviewCardValue}>{mockTodaysOverview.todaysSales.toLocaleString()} kr</Text>
-                   <Text style={[styles.overviewCardChange, { color: mockTodaysOverview.salesChangePercent >= 0 ? '#10B981' : '#EF4444' }]}>
-                       {mockTodaysOverview.salesChangePercent >= 0 ? '+' : ''}{mockTodaysOverview.salesChangePercent}%
-                   </Text>
-                </GlassEffect>
-
-                <GlassEffect style={styles.overviewCard} intensity={30} borderGlow highlightTop highlightColor="rgba(167, 139, 250, 0.1)">
-                   <View style={styles.overviewCardHeader}>
-                     <Target size={20} color="#A78BFA" />
-                     <Text style={styles.overviewCardTitle}>Dagens Mål</Text>
-                   </View>
-                   <View style={styles.circularProgressContainer}>
-                    <Progress.Circle
-                        size={80}
-                        progress={mockTodaysOverview.goalProgress}
-                        color="#A78BFA"
-                        unfilledColor="rgba(255, 255, 255, 0.1)"
-                        borderWidth={0}
-                        thickness={8}
-                        showsText={true}
-                        formatText={() => `${Math.round(mockTodaysOverview.goalProgress * 100)}%`}
-                        textStyle={styles.circularProgressText}
-                      />
-                   </View>
-                </GlassEffect>
-
-                <GlassEffect style={styles.overviewCard} intensity={30} borderGlow highlightTop highlightColor="rgba(251, 191, 36, 0.1)">
-                  <View style={styles.overviewCardHeader}>
-                     <AwardIcon size={20} color="#FBBF24" />
-                     <Text style={styles.overviewCardTitle}>Din Rank</Text>
-                   </View>
-                   <View style={styles.rankContainer}>
-                      <Text style={styles.rankValue}>{mockTodaysOverview.currentRank}</Text>
-                      <Text style={styles.rankTotal}> / {mockTodaysOverview.totalRanked}</Text>
-                   </View>
-                </GlassEffect>
+            {/* Welcome Banner */}
+            <Animated.View 
+              style={[
+                styles.welcomeBanner,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }]
+                }
+              ]}
+            >
+              <LinearGradient
+                colors={['rgba(91, 33, 182, 0.8)', 'rgba(124, 58, 237, 0.8)']}
+                style={styles.welcomeGradient}
+              >
+                <View style={styles.welcomeContent}>
+                  <View>
+                    <Text style={styles.welcomeText}>
+                      Välkommen tillbaka
+                    </Text>
+                    <Text style={styles.nameText}>
+                      {firstName}!
+                    </Text>
+                  </View>
+                  
+                  <Avatar.Text 
+                    size={50} 
+                    label={initials}
+                    style={{ backgroundColor: "#EC4899"}}
+                    color="#FFFFFF"
+                  />
+                </View>
+              </LinearGradient>
+            </Animated.View>
+            
+            {/* Stats Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Dina resultat</Text>
+              
+              <View style={styles.statsGrid}>
+                <GlassCard style={styles.statCard}>
+                  <View style={styles.statIconContainer}>
+                    <LinearGradient
+                      colors={['#FACC15', '#F59E0B']}
+                      style={styles.statIconGradient}
+                    >
+                      <TrendingUp size={20} color="#1E1B4B" />
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.statValue}>{mockData.stats.dailySales}</Text>
+                  <Text style={styles.statLabel}>Dagens försäljning</Text>
+                </GlassCard>
+                
+                <GlassCard style={styles.statCard}>
+                  <View style={styles.statIconContainer}>
+                    <LinearGradient
+                      colors={['#EC4899', '#DB2777']}
+                      style={styles.statIconGradient}
+                    >
+                      <Award size={20} color="#FFFFFF" />
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.statValue}>#{mockData.stats.rank}</Text>
+                  <Text style={styles.statLabel}>Din ranking</Text>
+                </GlassCard>
+                
+                <GlassCard style={styles.statCard}>
+                  <View style={styles.statIconContainer}>
+                    <LinearGradient
+                      colors={['#6366F1', '#4F46E5']}
+                      style={styles.statIconGradient}
+                    >
+                      <BarChart3 size={20} color="#FFFFFF" />
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.statValue}>{mockData.stats.weeklySales}</Text>
+                  <Text style={styles.statLabel}>Veckans försäljning</Text>
+                </GlassCard>
+                
+                <GlassCard style={styles.statCard}>
+                  <View style={styles.statIconContainer}>
+                    <LinearGradient
+                      colors={['#5B21B6', '#7C3AED']}
+                      style={styles.statIconGradient}
+                    >
+                      <Bell size={20} color="#FFFFFF" />
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.statValue}>{mockData.stats.plingCount}</Text>
+                  <Text style={styles.statLabel}>Antal pling</Text>
+                </GlassCard>
               </View>
-            </Animated.View>
-
-            <Animated.View style={{ opacity: focusFade, marginBottom: 24 }}>
-              <TouchableOpacity activeOpacity={0.9} onPress={() => console.log('Focus')}>
-                <GlassEffect style={styles.focusCardNew} intensity={35} borderGlow highlightTop highlightColor="rgba(250, 204, 21, 0.15)">
-                    <View style={styles.focusIconContainer}>
-                       {mockFocusToday.type === 'contest' ? <TrophyIcon size={24} color="#FACC15"/> : <Info size={24} color="#A78BFA"/>}
+            </View>
+            
+            {/* Active Competition */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Aktiv tävling</Text>
+                <TouchableOpacity style={styles.seeAllButton}>
+                  <Text style={styles.seeAllText}>Se alla</Text>
+                  <ChevronRight size={16} color="#FACC15" />
+                </TouchableOpacity>
+              </View>
+              
+              <GlassCard style={styles.competitionCard}>
+                <View style={styles.competitionHeader}>
+                  <View>
+                    <Text style={styles.competitionTitle}>{mockData.activeCompetition.title}</Text>
+                    <Text style={styles.competitionGoal}>{mockData.activeCompetition.goal}</Text>
+                  </View>
+                  <Award size={24} color="#FACC15" />
+                </View>
+                
+                <View style={styles.competitionImageContainer}>
+                  <Image 
+                    source={require('@assets/images/splash-icon.png')} 
+                    style={styles.competitionImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                
+                <View style={styles.competitionFooter}>
+                  <View>
+                    <Text style={styles.competitionEndLabel}>Slutar</Text>
+                    <Text style={styles.competitionEndDate}>{mockData.activeCompetition.endDate}</Text>
+                  </View>
+                  
+                  <View>
+                    <View style={styles.progressLabelContainer}>
+                      <Text style={styles.progressLabel}>Din framgång</Text>
+                      <Text style={styles.progressPercentage}>{mockData.activeCompetition.progress}%</Text>
                     </View>
-                    <View style={styles.focusTextContainer}>
-                        <Text style={styles.focusTitleNew}>{mockFocusToday.title}</Text>
-                        <Text style={styles.focusDescriptionNew}>{mockFocusToday.description}</Text>
+                    <View style={styles.progressBarContainer}>
+                      <View 
+                        style={[
+                          styles.progressBar, 
+                          { width: `${mockData.activeCompetition.progress}%` }
+                        ]} 
+                      />
                     </View>
-                    <ChevronRight size={22} color="rgba(255, 255, 255, 0.7)" style={styles.focusChevron} />
-                </GlassEffect>
-              </TouchableOpacity>
-            </Animated.View>
-
-            <Animated.View style={{ opacity: listFade }}>
-                {/* Här kan framtida kompakta listor för leaderboard, tävlingar etc. läggas in */}
-            </Animated.View>
+                  </View>
+                </View>
+              </GlassCard>
+            </View>
+            
+            {/* Top Sellers */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Topplista</Text>
+                <TouchableOpacity style={styles.seeAllButton}>
+                  <Text style={styles.seeAllText}>Se alla</Text>
+                  <ChevronRight size={16} color="#FACC15" />
+                </TouchableOpacity>
+              </View>
+              
+              <GlassCard style={styles.leaderboardCard}>
+                <View style={styles.leaderboardHeader}>
+                  <Image 
+                    source={require('@assets/images/logo.png')} 
+                    style={styles.trophyImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.leaderboardTitle}>Veckans toppsäljare</Text>
+                </View>
+                
+                <Divider style={styles.divider} />
+                
+                {mockData.topSellers.map((seller, index) => (
+                  <View 
+                    key={seller.id} 
+                    style={[
+                      styles.leaderboardItem,
+                      seller.isCurrentUser && styles.currentUserItem,
+                      index < mockData.topSellers.length - 1 && styles.itemWithBorder
+                    ]}
+                  >
+                    <View style={styles.rankContainer}>
+                      {index < 3 ? (
+                        <LinearGradient
+                          colors={
+                            index === 0 ? ['#FACC15', '#F59E0B'] : // Gold
+                            index === 1 ? ['#E2E8F0', '#94A3B8'] : // Silver
+                                          ['#D97706', '#B45309']   // Bronze
+                          }
+                          style={styles.rankBadge}
+                        >
+                          <Crown size={14} color={index === 0 ? '#1E1B4B' : '#FFFFFF'} />
+                        </LinearGradient>
+                      ) : (
+                        <View style={[styles.rankBadge, styles.regularRank]}>
+                          <Text style={styles.rankText}>{index + 1}</Text>
+                        </View>
+                      )}
+                    </View>
+                    
+                    <Avatar.Text 
+                      size={40} 
+                      label={seller.name.split(' ').map(n => n[0]).join('')} 
+                      style={{
+                        backgroundColor: 
+                          index === 0 ? '#FACC15' : // Gold
+                          index === 1 ? '#94A3B8' : // Silver
+                          index === 2 ? '#B45309' : // Bronze
+                          seller.isCurrentUser ? '#EC4899' : // Pink for current user
+                          'rgba(255, 255, 255, 0.2)' // Default
+                      }}
+                      color={index < 3 ? '#1E1B4B' : '#FFFFFF'}
+                    />
+                    
+                    <View style={styles.sellerInfo}>
+                      <Text style={[styles.sellerName, seller.isCurrentUser && styles.currentUserText]}>
+                        {seller.name}
+                        {seller.isCurrentUser && ' (Du)'}
+                      </Text>
+                      <Text style={styles.sellerAmount}>{seller.amount}</Text>
+                    </View>
+                    
+                    <ChevronRight size={16} color="rgba(255, 255, 255, 0.5)" />
+                  </View>
+                ))}
+              </GlassCard>
+            </View>
+            
+            {/* Recent Plings */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Senaste pling</Text>
+                <TouchableOpacity style={styles.seeAllButton}>
+                  <Text style={styles.seeAllText}>Se alla</Text>
+                  <ChevronRight size={16} color="#FACC15" />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.plingList}>
+                {mockData.recentPlings.map((pling, index) => (
+                  <GlassCard key={pling.id} style={styles.plingCard}>
+                    <View style={styles.plingHeader}>
+                      <Avatar.Text 
+                        size={40} 
+                        label={pling.user.split(' ').map(n => n[0]).join('')} 
+                        style={{
+                          backgroundColor: index === 0 ? '#FACC15' : 'rgba(255, 255, 255, 0.2)'
+                        }}
+                        color={index === 0 ? '#1E1B4B' : '#FFFFFF'}
+                      />
+                      
+                      <View style={styles.plingInfo}>
+                        <Text style={styles.plingUser}>{pling.user}</Text>
+                        <Text style={styles.plingTime}>{pling.timeAgo}</Text>
+                      </View>
+                      
+                      {index === 0 && (
+                        <View style={styles.newBadge}>
+                          <Text style={styles.newBadgeText}>Ny</Text>
+                        </View>
+                      )}
+                    </View>
+                    
+                    <View style={styles.plingContent}>
+                      <View style={styles.plingAmount}>
+                        <Text style={styles.plingAmountValue}>{pling.amount}</Text>
+                        <Text style={styles.plingProduct}>{pling.product}</Text>
+                      </View>
+                    </View>
+                  </GlassCard>
+                ))}
+              </View>
+            </View>
+            
+            {/* Quick Actions */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Snabbåtgärder</Text>
+              
+              <View style={styles.actionsGrid}>
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={handleNewPling}
+                >
+                  <LinearGradient
+                    colors={['#FACC15', '#F59E0B']} // Yellow gradient
+                    style={styles.actionGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Bell size={24} color="#1E1B4B" />
+                  </LinearGradient>
+                  <Text style={styles.actionText}>Nytt Pling</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.actionButton}>
+                  <LinearGradient
+                    colors={['#EC4899', '#DB2777']} // Pink gradient
+                    style={styles.actionGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Award size={24} color="#FFFFFF" />
+                  </LinearGradient>
+                  <Text style={styles.actionText}>Tävlingar</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.actionButton}>
+                  <LinearGradient
+                    colors={['#6366F1', '#4F46E5']} // Indigo gradient
+                    style={styles.actionGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <BarChart3 size={24} color="#FFFFFF" />
+                  </LinearGradient>
+                  <Text style={styles.actionText}>Statistik</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.actionButton}>
+                  <LinearGradient
+                    colors={['#5B21B6', '#7C3AED']} // Purple gradient
+                    style={styles.actionGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Users size={24} color="#FFFFFF" />
+                  </LinearGradient>
+                  <Text style={styles.actionText}>Team</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </ScrollView>
         </SafeAreaView>
-
-        <PlingModal
-          visible={isPlingModalVisible}
-          onClose={() => setIsPlingModalVisible(false)}
-        />
-      </View>
-    </PaperProvider>
+        
+        {/* Floating Action Button */}
+        <TouchableOpacity 
+          style={styles.fab}
+          onPress={handleNewPling}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={['#FACC15', '#F59E0B']}
+            style={styles.fabGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Plus size={24} color="#1E1B4B" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </ImageBackground>
+    </>
   );
 }
 
-const { width, height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
-  container: {
+  confettiBg: {
     flex: 1,
-  },
-  background: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  gradientAccent1: {
-    position: 'absolute',
-    width: 350,
-    height: 350,
-    borderRadius: 175,
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
-    top: -120,
-    right: -70,
-    opacity: 0.7,
-  },
-  gradientAccent2: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(236, 72, 153, 0.12)',
-    bottom: 100,
-    left: -120,
-    opacity: 0.5,
-  },
-  gradientAccent3: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(250, 204, 21, 0.07)',
-    top: height * 0.3,
-    right: -60,
-    opacity: 0.7,
-  },
-  gradientAccent4: {
-    position: 'absolute',
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    top: height * 0.5,
-    left: -80,
-    opacity: 0.5,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  glassWeb: {
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    backdropFilter: 'blur(12px)',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderRadius: 16,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  glassNative: {
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderRadius: 16,
-    position: 'relative',
-  },
-  glassGlowBorder: {
-    ...(IS_WEB ? {
-      boxShadow: '0 0 15px 1px rgba(255, 255, 255, 0.1), 0 8px 30px rgba(0, 0, 0, 0.2)',
-    } : {
-      shadowColor: '#FFFFFF',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.1,
-      shadowRadius: 15,
-      elevation: 10,
-    }),
-  },
-  glassHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-  },
-  newHeaderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    height: 64,
-  },
-  newHeaderAvatarButton: {
-    padding: 4,
-  },
-  newHeaderAvatar: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-  },
-  newHeaderPlingButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    elevation: 8,
-    shadowColor: '#FACC15',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    overflow: 'visible',
-  },
-  newHeaderPlingButtonGradient: {
     width: '100%',
     height: '100%',
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  newHeaderNotificationButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    position: 'relative',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(30, 27, 75, 0.85)', // Dark blue with opacity
   },
-  notificationBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: '#EC4899',
-    borderWidth: 1.5,
-    borderColor: '#0F0E2A',
+  container: {
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 80,
+    paddingBottom: 80, // Extra padding for FAB
   },
-  sectionTitle: {
+  headerButtons: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  welcomeBanner: {
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  welcomeGradient: {
+    padding: 16,
+    paddingBottom: 0,
+  },
+  welcomeContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 15,
+  },
+  welcomeText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 16,
+  },
+  nameText: {
+    color: '#FFFFFF',
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 20,
   },
-  overviewNewGrid: {
+  welcomeImage: {
+    width: '100%',
+    height: 120,
+    marginTop: 16,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
-  },
-  overviewCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 16,
-    minHeight: 150,
-    justifyContent: 'space-between',
-  },
-  overviewCardHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    opacity: 0.8,
+    marginBottom: 12,
   },
-  overviewCardTitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginLeft: 8,
-  },
-  overviewCardValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
+  sectionTitle: {
     color: '#FFFFFF',
-    marginTop: 8,
-  },
-  overviewCardChange: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  circularProgressContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    marginTop: 8,
-  },
-  circularProgressText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    marginBottom: 12,
   },
-  rankContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 8,
-  },
-  rankValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  rankTotal: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginLeft: 4,
-  },
-  focusCardNew: {
-    padding: 20,
-    borderRadius: 16,
+  seeAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  focusIconContainer: {
-     width: 48,
-     height: 48,
-     borderRadius: 24,
-     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-     justifyContent: 'center',
-     alignItems: 'center',
-     marginRight: 16,
-     borderWidth: 1,
-     borderColor: 'rgba(255, 255, 255, 0.2)',
+  seeAllText: {
+    color: '#FACC15',
+    fontSize: 14,
   },
-  focusTextContainer: {
-    flex: 1,
-    marginRight: 12,
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
-  focusTitleNew: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  statCard: {
+    width: '48%',
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  statIconContainer: {
+    marginBottom: 12,
+  },
+  statIconGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statValue: {
     color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
     marginBottom: 4,
   },
-  focusDescriptionNew: {
+  statLabel: {
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
+    textAlign: 'center',
+  },
+  glassCardContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  glassCardContent: {
+    padding: 16,
+  },
+  webGlassCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(91, 33, 182, 0.15)',
+    backdropFilter: 'blur(10px)',
+    padding: 16,
+  },
+  competitionCard: {
+    marginBottom: 8,
+  },
+  competitionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  competitionTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  competitionGoal: {
     color: 'rgba(255, 255, 255, 0.8)',
-    lineHeight: 20,
+    fontSize: 14,
   },
-  focusChevron: {
-    opacity: 0.7,
+  competitionImageContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  modalOuterContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalInnerContainer: { width: Platform.OS === 'web' ? '60%' : '90%', maxWidth: Platform.OS === 'web' ? 500 : undefined, borderRadius: 16, overflow: 'hidden' },
-  modalContent: { padding: 24 },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 20, textAlign: 'center' },
-  inputContainer: { marginBottom: 16 },
-  inputLabel: { fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginBottom: 8 },
-  textInput: { backgroundColor: 'rgba(0, 0, 0, 0.2)', height: 50 },
-  dropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.2)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 8, height: 50, paddingHorizontal: 16 },
-  dropdownButtonText: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 16 },
-  menuContent: { backgroundColor: 'rgba(30, 27, 75, 0.95)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 8, marginTop: Platform.OS === 'web' ? 4 : 0, ...(Platform.OS === 'web' && { backdropFilter: 'blur(10px)' }) },
-  plingButton: { width: 180, height: 56, borderRadius: 28, overflow: 'hidden', ...(IS_WEB ? { boxShadow: '0 8px 20px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255,255,255,0.1)' } : { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 20, elevation: 10 }) },
-  plingButtonGradient: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
-  plingButtonContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  plingButtonText: { fontSize: 18, fontWeight: 'bold', color: '#0F0E2A', letterSpacing: 1 },
-  confettiContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 14, 42, 0.85)', borderRadius: 16, ...(Platform.OS === 'web' && { backdropFilter: 'blur(4px)' }) },
-  successIconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(16, 185, 129, 0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.4)' },
-  successText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center' },
+  competitionImage: {
+    width: '80%',
+    height: 120,
+  },
+  competitionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  competitionEndLabel: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  competitionEndDate: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  progressLabelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    width: 150,
+  },
+  progressLabel: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+  },
+  progressPercentage: {
+    color: '#FACC15',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    overflow: 'hidden',
+    width: 150,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#FACC15',
+    borderRadius: 4,
+  },
+  leaderboardCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  leaderboardHeader: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  trophyImage: {
+    width: 60,
+    height: 60,
+    marginBottom: 8,
+  },
+  leaderboardTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  divider: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  leaderboardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  itemWithBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  currentUserItem: {
+    backgroundColor: 'rgba(236, 72, 153, 0.1)', // Pink background for current user
+  },
+  rankContainer: {
+    marginRight: 12,
+  },
+  rankBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  regularRank: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  rankText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  sellerInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  sellerName: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  currentUserText: {
+    color: '#EC4899', // Pink for current user
+  },
+  sellerAmount: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+  },
+  plingList: {
+    marginBottom: 8,
+  },
+  plingCard: {
+    marginBottom: 12,
+  },
+  plingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  plingInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  plingUser: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  plingTime: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+  },
+  newBadge: {
+    backgroundColor: '#FACC15',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  newBadgeText: {
+    color: '#1E1B4B',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  plingContent: {
+    marginTop: 8,
+  },
+  plingAmount: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  plingAmountValue: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  plingProduct: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    width: '48%',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  actionGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  actionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    borderRadius: 30,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  fabGradient: {
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 }); 

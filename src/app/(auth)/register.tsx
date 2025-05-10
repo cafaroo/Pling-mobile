@@ -274,7 +274,7 @@ export default function RegisterScreen() {
         ]}
       >
         <ImageBackground 
-          source={require('../../../assets/images/pling_confetti_bg.png')} 
+          source={require('@assets/images/pling_confetti_bg.png')} 
           style={styles.background}
           resizeMode="cover"
         >
@@ -300,7 +300,7 @@ export default function RegisterScreen() {
           >
             <View style={styles.logoWrapper}>
               <Image 
-                source={require('../../../assets/images/logo.png')} 
+                source={require('@assets/images/logo.png')} 
                 style={styles.logo} 
                 resizeMode="contain"
               />

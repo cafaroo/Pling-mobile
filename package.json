@@ -32,6 +32,7 @@
     "@hookform/resolvers": "^5.0.1",
     "@lottiefiles/dotlottie-react": "^0.6.5",
     "@react-native-community/slider": "4.5.5",
+    "@react-native-masked-view/masked-view": "^0.3.2",
     "@react-native-picker/picker": "2.9.0",
     "@shopify/flash-list": "1.7.3",
     "@supabase/auth-helpers-react": "^0.5.0",

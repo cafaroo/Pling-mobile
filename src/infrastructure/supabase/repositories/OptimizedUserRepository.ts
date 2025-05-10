@@ -56,52 +56,113 @@ export class OptimizedUserRepository implements UserRepository {
       OperationType.DATABASE_READ,
       'findUserById',
       async () => {
-        const { data, error } = await this.supabase
-          .from('users')
-          .select(`
-            id,
-            email,
-            phone,
-            created_at,
-            updated_at,
-            profiles:user_profiles(*),
-            settings:user_settings(*),
-            team_ids,
-            role_ids,
-            status
-          `)
-          .eq('id', idStr)
-          .single();
+        try {
+          // Försök först med standardapproachen
+          const { data, error } = await this.supabase
+            .from('users')
+            .select(`
+              id,
+              email,
+              created_at,
+              updated_at,
+              profiles:user_profiles(*),
+              settings:user_settings(*),
+              team_ids,
+              role_ids,
+              status
+            `)
+            .eq('id', idStr)
+            .single();
 
-        if (error) {
-          const errorMsg = `Databasfel: ${error.message}`;
-          this.logger.error(errorMsg, { userId: idStr, code: error.code });
+          if (error) {
+            this.logger.warning(`Fel vid hämtning från optimerat repository, provar standard: [${error.message}]`);
+            
+            // Om standardapproachen misslyckas, prova med en alternativ strategi
+            const { data: userData, error: userError } = await this.supabase
+              .from('users')
+              .select('id, email, created_at, updated_at, team_ids, role_ids, status')
+              .eq('id', idStr)
+              .single();
+              
+            if (userError) {
+              const errorMsg = `Databasfel vid hämtning av användare: ${userError.message}`;
+              this.logger.error(errorMsg, { userId: idStr, code: userError.code });
+              return err(errorMsg);
+            }
+            
+            // Hämta profil i separata anrop
+            const { data: profileData, error: profileError } = await this.supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('user_id', idStr)
+              .single();
+              
+            if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = ingen post hittades
+              const errorMsg = `Databasfel vid hämtning av profil: ${profileError.message}`;
+              this.logger.error(errorMsg, { userId: idStr, code: profileError.code });
+              return err(errorMsg);
+            }
+            
+            // Hämta inställningar i separata anrop
+            const { data: settingsData, error: settingsError } = await this.supabase
+              .from('user_settings')
+              .select('*')
+              .eq('user_id', idStr)
+              .single();
+              
+            if (settingsError && settingsError.code !== 'PGRST116') {
+              const errorMsg = `Databasfel vid hämtning av inställningar: ${settingsError.message}`;
+              this.logger.error(errorMsg, { userId: idStr, code: settingsError.code });
+              return err(errorMsg);
+            }
+            
+            // Kombinera resultaten
+            const dto: UserDTO = {
+              ...userData,
+              profile: profileData || {},
+              settings: settingsData || {}
+            };
+            
+            const result = toUser(dto);
+            
+            // Cacha resultatet
+            if (result.isOk()) {
+              this.cacheService.set(cacheKey, result).catch(error => {
+                this.logger.error(`Fel vid cachning: ${error}`);
+              });
+            }
+            
+            return result;
+          }
+
+          if (!data) {
+            const errorMsg = 'Användaren hittades inte';
+            this.logger.warning(errorMsg, { userId: idStr });
+            return err(errorMsg);
+          }
+
+          // Omstrukturera data för att matcha UserDTO
+          const dto: UserDTO = {
+            ...data,
+            profile: data.profiles,
+            settings: data.settings,
+          };
+
+          const result = toUser(dto);
+          
+          // Cacha resultatet
+          if (result.isOk()) {
+            this.cacheService.set(cacheKey, result).catch(error => {
+              this.logger.error(`Fel vid cachning: ${error}`);
+            });
+          }
+          
+          return result;
+        } catch (unexpectedError) {
+          const errorMsg = `Oväntat fel: ${unexpectedError}`;
+          this.logger.error(errorMsg, { userId: idStr });
           return err(errorMsg);
         }
-
-        if (!data) {
-          const errorMsg = 'Användaren hittades inte';
-          this.logger.warning(errorMsg, { userId: idStr });
-          return err(errorMsg);
-        }
-
-        // Omstrukturera data för att matcha UserDTO
-        const dto: UserDTO = {
-          ...data,
-          profile: data.profiles,
-          settings: data.settings,
-        };
-
-        const result = toUser(dto);
-        
-        // Cacha resultatet
-        if (result.isOk()) {
-          this.cacheService.set(cacheKey, result).catch(error => {
-            this.logger.error(`Fel vid cachning: ${error}`);
-          });
-        }
-        
-        return result;
       },
       { userId: idStr }
     );
@@ -130,57 +191,119 @@ export class OptimizedUserRepository implements UserRepository {
       OperationType.DATABASE_READ,
       'findUserByEmail',
       async () => {
-        const { data, error } = await this.supabase
-          .from('users')
-          .select(`
-            id,
-            email,
-            phone,
-            created_at,
-            updated_at,
-            profiles:user_profiles(*),
-            settings:user_settings(*),
-            team_ids,
-            role_ids,
-            status
-          `)
-          .eq('email', email)
-          .single();
+        try {
+          // Försök först med standardapproachen
+          const { data, error } = await this.supabase
+            .from('users')
+            .select(`
+              id,
+              email,
+              created_at,
+              updated_at,
+              profiles:user_profiles(*),
+              settings:user_settings(*),
+              team_ids,
+              role_ids,
+              status
+            `)
+            .eq('email', email)
+            .single();
 
-        if (error) {
-          const errorMsg = `Databasfel: ${error.message}`;
-          this.logger.error(errorMsg, { email, code: error.code });
-          return err(errorMsg);
-        }
-
-        if (!data) {
-          const errorMsg = 'Användaren hittades inte';
-          this.logger.warning(errorMsg, { email });
-          return err(errorMsg);
-        }
-
-        const dto: UserDTO = {
-          ...data,
-          profile: data.profiles,
-          settings: data.settings,
-        };
-
-        const result = toUser(dto);
-        
-        // Cacha resultatet
-        if (result.isOk()) {
-          this.cacheService.set(cacheKey, result).catch(error => {
-            this.logger.error(`Fel vid cachning: ${error}`);
-          });
+          if (error) {
+            this.logger.warning(`Fel vid hämtning från optimerat repository, provar standard: [${error.message}]`);
+            
+            // Om standardapproachen misslyckas, prova med en alternativ strategi
+            const { data: userData, error: userError } = await this.supabase
+              .from('users')
+              .select('id, email, created_at, updated_at, team_ids, role_ids, status')
+              .eq('email', email)
+              .single();
+              
+            if (userError) {
+              const errorMsg = `Databasfel vid hämtning av användare: ${userError.message}`;
+              this.logger.error(errorMsg, { email, code: userError.code });
+              return err(errorMsg);
+            }
+            
+            // Hämta profil i separata anrop
+            const { data: profileData, error: profileError } = await this.supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('user_id', userData.id)
+              .single();
+              
+            if (profileError && profileError.code !== 'PGRST116') {
+              const errorMsg = `Databasfel vid hämtning av profil: ${profileError.message}`;
+              this.logger.error(errorMsg, { email, userId: userData.id, code: profileError.code });
+              return err(errorMsg);
+            }
+            
+            // Hämta inställningar i separata anrop
+            const { data: settingsData, error: settingsError } = await this.supabase
+              .from('user_settings')
+              .select('*')
+              .eq('user_id', userData.id)
+              .single();
+              
+            if (settingsError && settingsError.code !== 'PGRST116') {
+              const errorMsg = `Databasfel vid hämtning av inställningar: ${settingsError.message}`;
+              this.logger.error(errorMsg, { email, userId: userData.id, code: settingsError.code });
+              return err(errorMsg);
+            }
+            
+            // Kombinera resultaten
+            const dto: UserDTO = {
+              ...userData,
+              profile: profileData || {},
+              settings: settingsData || {}
+            };
+            
+            const result = toUser(dto);
+            
+            // Cacha resultatet
+            if (result.isOk()) {
+              this.cacheService.set(cacheKey, result).catch(error => {
+                this.logger.error(`Fel vid cachning: ${error}`);
+              });
+              
+              // Cacha också per ID för att upprätthålla konsistens
+              const user = result.getValue();
+              this.cacheService.set(`${this.cacheKeyPrefix}_${user.id.toString()}`, result).catch(error => {
+                this.logger.error(`Fel vid cachning: ${error}`);
+              });
+            }
+            
+            return result;
+          }
           
-          // Cacha också per ID för att upprätthålla konsistens
-          const user = result.getValue();
-          this.cacheService.set(`${this.cacheKeyPrefix}_${user.id.toString()}`, result).catch(error => {
-            this.logger.error(`Fel vid cachning: ${error}`);
-          });
+          if (!data) {
+            const errorMsg = 'Användaren hittades inte';
+            this.logger.warning(errorMsg, { email });
+            return err(errorMsg);
+          }
+
+          // Omstrukturera data för att matcha UserDTO
+          const dto: UserDTO = {
+            ...data,
+            profile: data.profiles,
+            settings: data.settings,
+          };
+
+          const result = toUser(dto);
+          
+          // Cacha resultatet
+          if (result.isOk()) {
+            this.cacheService.set(cacheKey, result).catch(error => {
+              this.logger.error(`Fel vid cachning: ${error}`);
+            });
+          }
+          
+          return result;
+        } catch (unexpectedError) {
+          const errorMsg = `Oväntat fel: ${unexpectedError}`;
+          this.logger.error(errorMsg, { email });
+          return err(errorMsg);
         }
-        
-        return result;
       },
       { email }
     );
@@ -207,7 +330,6 @@ export class OptimizedUserRepository implements UserRepository {
             .upsert({
               id: dto.id,
               email: dto.email,
-              phone: dto.phone,
               team_ids: dto.team_ids,
               role_ids: dto.role_ids,
               status: dto.status
@@ -356,7 +478,6 @@ export class OptimizedUserRepository implements UserRepository {
           .select(`
             id,
             email,
-            phone,
             created_at,
             updated_at,
             profiles:user_profiles(*),

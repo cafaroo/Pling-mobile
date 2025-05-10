@@ -28,11 +28,9 @@ export default function HomeScreen() {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  const buttonPulseAnim = useRef(new Animated.Value(1)).current;
   
   // Entry animations
   useEffect(() => {
-    // Fade and slide animations for content
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -45,24 +43,6 @@ export default function HomeScreen() {
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
-    
-    // Pulse animation for action buttons
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(buttonPulseAnim, {
-          toValue: 1.05,
-          duration: 1500,
-          easing: Easing.ease,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.timing(buttonPulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.ease,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-      ])
-    ).start();
   }, []);
 
   // Mock data for the dashboard
@@ -113,7 +93,7 @@ export default function HomeScreen() {
       />
       
       <ImageBackground 
-        source={require('../../../assets/images/pling_confetti_bg.png')}
+        source={{ uri: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pling_confetti_bg-JiUBL2n4f0s9arHXG1spHXfnBCVCMH.png' }}
         style={styles.backgroundImage}
       >
         <View style={styles.overlay} />
@@ -145,7 +125,7 @@ export default function HomeScreen() {
                 <Avatar.Text 
                   size={50} 
                   label={user.profile.firstName.charAt(0) + (user.profile.lastName ? user.profile.lastName.charAt(0) : '')} 
-                  backgroundColor="#EC4899" // Pink accent color
+                  style={{ backgroundColor: "#EC4899" }} // Pink accent color
                   color="#FFFFFF"
                 />
               </View>
@@ -233,12 +213,13 @@ export default function HomeScreen() {
                     <Avatar.Text 
                       size={40} 
                       label={seller.name.split(' ').map(n => n[0]).join('')} 
-                      backgroundColor={
-                        index === 0 ? '#FACC15' : // Gold for #1
-                        index === 1 ? '#94A3B8' : // Silver for #2
-                        index === 2 ? '#B45309' : // Bronze for #3
-                        '#6B7280' // Gray for others
-                      }
+                      style={{
+                        backgroundColor: 
+                          index === 0 ? '#FACC15' : // Gold for #1
+                          index === 1 ? '#94A3B8' : // Silver for #2
+                          index === 2 ? '#B45309' : // Bronze for #3
+                          '#6B7280' // Gray for others
+                      }}
                       color="#1E1B4B"
                     />
                     <View style={styles.sellerInfo}>
@@ -258,19 +239,17 @@ export default function HomeScreen() {
               </View>
               
               <View style={styles.actionsContainer}>
-                <Animated.View style={{ transform: [{ scale: buttonPulseAnim }] }}>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <LinearGradient
-                      colors={['#FACC15', '#F59E0B']} // Yellow gradient
-                      style={styles.actionGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Bell size={24} color="#1E1B4B" />
-                    </LinearGradient>
-                    <Text style={styles.actionText}>Nytt Pling</Text>
-                  </TouchableOpacity>
-                </Animated.View>
+                <TouchableOpacity style={styles.actionButton}>
+                  <LinearGradient
+                    colors={['#FACC15', '#F59E0B']} // Yellow gradient
+                    style={styles.actionGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Bell size={24} color="#1E1B4B" />
+                  </LinearGradient>
+                  <Text style={styles.actionText}>Nytt Pling</Text>
+                </TouchableOpacity>
                 
                 <TouchableOpacity style={styles.actionButton}>
                   <LinearGradient
@@ -499,7 +478,7 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     alignItems: 'center',
-    width: width / 3 - 20,
+    width: '30%',
   },
   actionGradient: {
     width: 56,

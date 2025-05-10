@@ -11,10 +11,24 @@ interface TeamActivityDTO {
   id: string;
   team_id: string;
   performed_by: string;
+  performer_name?: string;
   activity_type: string;
   target_id?: string;
+  target_name?: string;
   metadata: Record<string, any>;
   timestamp: string;
+  total_count?: number;
+}
+
+interface ActivitySearchResult {
+  activities: TeamActivity[];
+  total: number;
+  hasMore: boolean;
+}
+
+interface ActivityStatDTO {
+  activity_type: string;
+  activity_count: number;
 }
 
 /**
@@ -51,6 +65,15 @@ export class SupabaseTeamActivityRepository implements TeamActivityRepository {
         metadata: dto.metadata || {},
         timestamp: new Date(dto.timestamp),
       };
+
+      // Lägg till performer_name och target_name i metadata om de finns
+      if (dto.performer_name) {
+        props.metadata.performer_name = dto.performer_name;
+      }
+      
+      if (dto.target_name) {
+        props.metadata.target_name = dto.target_name;
+      }
 
       return TeamActivity.create({
         ...props,
@@ -111,66 +134,54 @@ export class SupabaseTeamActivityRepository implements TeamActivityRepository {
   }
 
   /**
-   * Hitta aktiviteter för ett specifikt team
+   * Hitta aktiviteter för ett specifikt team med optimerad databasfunktion
    */
   async findByTeamId(
     teamId: UniqueId,
     options?: Omit<ActivityFilterOptions, 'teamId'>
-  ): Promise<Result<TeamActivity[], string>> {
+  ): Promise<Result<ActivitySearchResult, string>> {
     try {
-      let query = this.supabaseClient
-        .from('team_activities')
-        .select('*')
-        .eq('team_id', teamId.toString())
-        .order('timestamp', { ascending: false });
+      const limit = options?.limit || 20;
+      const offset = options?.offset || 0;
       
-      // Applicera filter baserat på options
-      if (options) {
-        if (options.performedBy) {
-          query = query.eq('performed_by', options.performedBy.toString());
+      // Använd den optimerade RPC-funktionen
+      const { data, error } = await this.supabaseClient.rpc(
+        'get_paginated_team_activities', 
+        {
+          p_team_id: teamId.toString(),
+          p_limit: limit,
+          p_offset: offset,
+          p_activity_types: options?.activityTypes,
+          p_user_id: options?.performedBy?.toString(),
+          p_start_date: options?.startDate?.toISOString(),
+          p_end_date: options?.endDate?.toISOString(),
+          p_user_is_target: options?.userIsTarget || false
         }
-        
-        if (options.targetId) {
-          query = query.eq('target_id', options.targetId.toString());
-        }
-        
-        if (options.activityTypes && options.activityTypes.length > 0) {
-          query = query.in('activity_type', options.activityTypes);
-        }
-        
-        if (options.startDate) {
-          query = query.gte('timestamp', options.startDate.toISOString());
-        }
-        
-        if (options.endDate) {
-          query = query.lte('timestamp', options.endDate.toISOString());
-        }
-        
-        if (options.limit) {
-          query = query.limit(options.limit);
-        }
-        
-        if (options.offset) {
-          query = query.range(options.offset, options.offset + (options.limit || 20) - 1);
-        }
-      }
-      
-      const { data, error } = await query;
+      );
       
       if (error) {
         return err(`Kunde inte hämta teamaktiviteter: ${error.message}`);
       }
       
       const activities: TeamActivity[] = [];
+      let totalCount = 0;
       
-      for (const dto of data as TeamActivityDTO[]) {
-        const activityResult = this.toDomain(dto);
-        if (activityResult.isOk()) {
-          activities.push(activityResult.value);
+      if (data && data.length > 0) {
+        totalCount = data[0].total_count;
+        
+        for (const dto of data as TeamActivityDTO[]) {
+          const activityResult = this.toDomain(dto);
+          if (activityResult.isOk()) {
+            activities.push(activityResult.value);
+          }
         }
       }
       
-      return ok(activities);
+      return ok({
+        activities,
+        total: totalCount,
+        hasMore: offset + limit < totalCount
+      });
     } catch (error) {
       return err(`Fel vid hämtning av teamaktiviteter: ${error}`);
     }
@@ -182,210 +193,78 @@ export class SupabaseTeamActivityRepository implements TeamActivityRepository {
   async findByPerformedBy(
     userId: UniqueId,
     options?: Omit<ActivityFilterOptions, 'performedBy'>
-  ): Promise<Result<TeamActivity[], string>> {
+  ): Promise<Result<ActivitySearchResult, string>> {
     try {
-      let query = this.supabaseClient
-        .from('team_activities')
-        .select('*')
-        .eq('performed_by', userId.toString())
-        .order('timestamp', { ascending: false });
-      
-      // Applicera filter baserat på options
-      if (options) {
-        if (options.teamId) {
-          query = query.eq('team_id', options.teamId.toString());
-        }
-        
-        if (options.targetId) {
-          query = query.eq('target_id', options.targetId.toString());
-        }
-        
-        if (options.activityTypes && options.activityTypes.length > 0) {
-          query = query.in('activity_type', options.activityTypes);
-        }
-        
-        if (options.startDate) {
-          query = query.gte('timestamp', options.startDate.toISOString());
-        }
-        
-        if (options.endDate) {
-          query = query.lte('timestamp', options.endDate.toISOString());
-        }
-        
-        if (options.limit) {
-          query = query.limit(options.limit);
-        }
-        
-        if (options.offset) {
-          query = query.range(options.offset, options.offset + (options.limit || 20) - 1);
-        }
+      // Använd get_paginated_team_activities med userId som filter
+      const teamId = options?.teamId;
+      if (!teamId) {
+        return err('teamId krävs för att söka efter aktiviteter utförda av en användare');
       }
       
-      const { data, error } = await query;
-      
-      if (error) {
-        return err(`Kunde inte hämta teamaktiviteter: ${error.message}`);
-      }
-      
-      const activities: TeamActivity[] = [];
-      
-      for (const dto of data as TeamActivityDTO[]) {
-        const activityResult = this.toDomain(dto);
-        if (activityResult.isOk()) {
-          activities.push(activityResult.value);
-        }
-      }
-      
-      return ok(activities);
+      return this.findByTeamId(teamId, {
+        ...options,
+        performedBy: userId
+      });
     } catch (error) {
-      return err(`Fel vid hämtning av teamaktiviteter: ${error}`);
+      return err(`Fel vid hämtning av användaraktiviteter: ${error}`);
     }
   }
 
   /**
-   * Hitta aktiviteter som har en specifik användare som mål
+   * Hitta aktiviteter där en användare är målperson
    */
   async findByTargetId(
     targetId: UniqueId,
     options?: Omit<ActivityFilterOptions, 'targetId'>
-  ): Promise<Result<TeamActivity[], string>> {
+  ): Promise<Result<ActivitySearchResult, string>> {
     try {
-      let query = this.supabaseClient
-        .from('team_activities')
-        .select('*')
-        .eq('target_id', targetId.toString())
-        .order('timestamp', { ascending: false });
-      
-      // Applicera filter baserat på options
-      if (options) {
-        if (options.teamId) {
-          query = query.eq('team_id', options.teamId.toString());
-        }
-        
-        if (options.performedBy) {
-          query = query.eq('performed_by', options.performedBy.toString());
-        }
-        
-        if (options.activityTypes && options.activityTypes.length > 0) {
-          query = query.in('activity_type', options.activityTypes);
-        }
-        
-        if (options.startDate) {
-          query = query.gte('timestamp', options.startDate.toISOString());
-        }
-        
-        if (options.endDate) {
-          query = query.lte('timestamp', options.endDate.toISOString());
-        }
-        
-        if (options.limit) {
-          query = query.limit(options.limit);
-        }
-        
-        if (options.offset) {
-          query = query.range(options.offset, options.offset + (options.limit || 20) - 1);
-        }
+      // Använd get_paginated_team_activities med userIsTarget-flaggan
+      const teamId = options?.teamId;
+      if (!teamId) {
+        return err('teamId krävs för att söka efter aktiviteter med en målperson');
       }
       
-      const { data, error } = await query;
-      
-      if (error) {
-        return err(`Kunde inte hämta teamaktiviteter: ${error.message}`);
-      }
-      
-      const activities: TeamActivity[] = [];
-      
-      for (const dto of data as TeamActivityDTO[]) {
-        const activityResult = this.toDomain(dto);
-        if (activityResult.isOk()) {
-          activities.push(activityResult.value);
-        }
-      }
-      
-      return ok(activities);
+      return this.findByTeamId(teamId, {
+        ...options,
+        userIsTarget: true,
+        performedBy: targetId // Använd performedBy som användar-ID för målet
+      });
     } catch (error) {
-      return err(`Fel vid hämtning av teamaktiviteter: ${error}`);
+      return err(`Fel vid hämtning av målaktiviteter: ${error}`);
     }
   }
 
   /**
-   * Söka aktiviteter med filter
+   * Sök efter aktiviteter med flera filtreringskriterier
    */
-  async search(options: ActivityFilterOptions): Promise<Result<TeamActivity[], string>> {
+  async search(options: ActivityFilterOptions): Promise<Result<ActivitySearchResult, string>> {
     try {
-      let query = this.supabaseClient
-        .from('team_activities')
-        .select('*')
-        .order('timestamp', { ascending: false });
-      
-      // Applicera alla filter från options
-      if (options.teamId) {
-        query = query.eq('team_id', options.teamId.toString());
+      if (!options.teamId) {
+        return err('teamId krävs för aktivitetssökning');
       }
       
-      if (options.performedBy) {
-        query = query.eq('performed_by', options.performedBy.toString());
-      }
-      
-      if (options.targetId) {
-        query = query.eq('target_id', options.targetId.toString());
-      }
-      
-      if (options.activityTypes && options.activityTypes.length > 0) {
-        query = query.in('activity_type', options.activityTypes);
-      }
-      
-      if (options.startDate) {
-        query = query.gte('timestamp', options.startDate.toISOString());
-      }
-      
-      if (options.endDate) {
-        query = query.lte('timestamp', options.endDate.toISOString());
-      }
-      
-      if (options.limit) {
-        query = query.limit(options.limit);
-      }
-      
-      if (options.offset) {
-        query = query.range(options.offset, options.offset + (options.limit || 20) - 1);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) {
-        return err(`Kunde inte söka teamaktiviteter: ${error.message}`);
-      }
-      
-      const activities: TeamActivity[] = [];
-      
-      for (const dto of data as TeamActivityDTO[]) {
-        const activityResult = this.toDomain(dto);
-        if (activityResult.isOk()) {
-          activities.push(activityResult.value);
-        }
-      }
-      
-      return ok(activities);
+      return this.findByTeamId(options.teamId, options);
     } catch (error) {
-      return err(`Fel vid sökning av teamaktiviteter: ${error}`);
+      return err(`Fel vid sökning av aktiviteter: ${error}`);
     }
   }
 
   /**
-   * Hämta de senaste aktiviteterna i ett team
+   * Hämta de senaste aktiviteterna för ett team
    */
   async getLatestForTeam(
     teamId: UniqueId,
     limit: number
   ): Promise<Result<TeamActivity[], string>> {
     try {
-      const { data, error } = await this.supabaseClient
-        .from('team_activities')
-        .select('*')
-        .eq('team_id', teamId.toString())
-        .order('timestamp', { ascending: false })
-        .limit(limit);
+      // Använd den optimerade RPC-funktionen för senaste aktiviteter
+      const { data, error } = await this.supabaseClient.rpc(
+        'get_latest_team_activities', 
+        {
+          p_team_id: teamId.toString(),
+          p_limit: limit
+        }
+      );
       
       if (error) {
         return err(`Kunde inte hämta senaste teamaktiviteter: ${error.message}`);
@@ -427,48 +306,29 @@ export class SupabaseTeamActivityRepository implements TeamActivityRepository {
   }
 
   /**
-   * Räkna aktiviteter som matchar filter
+   * Räkna antalet aktiviteter som matchar sökfiltren
    */
   async count(options: ActivityFilterOptions): Promise<Result<number, string>> {
     try {
-      let query = this.supabaseClient
-        .from('team_activities')
-        .select('*', { count: 'exact', head: true });
-      
-      // Applicera alla filter från options
-      if (options.teamId) {
-        query = query.eq('team_id', options.teamId.toString());
+      if (!options.teamId) {
+        return err('teamId krävs för att räkna aktiviteter');
       }
       
-      if (options.performedBy) {
-        query = query.eq('performed_by', options.performedBy.toString());
+      // Använd den optimerade RPC-funktionen för paginerade resultat med limit=1
+      // för att få reda på totalCount effektivt
+      const result = await this.findByTeamId(options.teamId, {
+        ...options,
+        limit: 1,
+        offset: 0
+      });
+      
+      if (result.isErr()) {
+        return err(result.error);
       }
       
-      if (options.targetId) {
-        query = query.eq('target_id', options.targetId.toString());
-      }
-      
-      if (options.activityTypes && options.activityTypes.length > 0) {
-        query = query.in('activity_type', options.activityTypes);
-      }
-      
-      if (options.startDate) {
-        query = query.gte('timestamp', options.startDate.toISOString());
-      }
-      
-      if (options.endDate) {
-        query = query.lte('timestamp', options.endDate.toISOString());
-      }
-      
-      const { count, error } = await query;
-      
-      if (error) {
-        return err(`Kunde inte räkna teamaktiviteter: ${error.message}`);
-      }
-      
-      return ok(count || 0);
+      return ok(result.value.total);
     } catch (error) {
-      return err(`Fel vid räkning av teamaktiviteter: ${error}`);
+      return err(`Fel vid räkning av aktiviteter: ${error}`);
     }
   }
 
@@ -480,59 +340,35 @@ export class SupabaseTeamActivityRepository implements TeamActivityRepository {
     options?: Omit<ActivityFilterOptions, 'teamId'>
   ): Promise<Result<Record<ActivityType, number>, string>> {
     try {
-      let query = this.supabaseClient
-        .from('team_activities')
-        .select('activity_type, count')
-        .eq('team_id', teamId.toString())
-        .group('activity_type');
-      
-      // Applicera filter baserat på options
-      if (options) {
-        if (options.performedBy) {
-          query = query.eq('performed_by', options.performedBy.toString());
+      // Använd den optimerade RPC-funktionen för aktivitetsstatistik
+      const { data, error } = await this.supabaseClient.rpc(
+        'get_team_activity_stats', 
+        {
+          p_team_id: teamId.toString(),
+          p_start_date: options?.startDate?.toISOString(),
+          p_end_date: options?.endDate?.toISOString()
         }
-        
-        if (options.targetId) {
-          query = query.eq('target_id', options.targetId.toString());
-        }
-        
-        if (options.activityTypes && options.activityTypes.length > 0) {
-          query = query.in('activity_type', options.activityTypes);
-        }
-        
-        if (options.startDate) {
-          query = query.gte('timestamp', options.startDate.toISOString());
-        }
-        
-        if (options.endDate) {
-          query = query.lte('timestamp', options.endDate.toISOString());
-        }
-      }
-      
-      const { data, error } = await query;
+      );
       
       if (error) {
-        return err(`Kunde inte hämta grupperade teamaktiviteter: ${error.message}`);
+        return err(`Kunde inte hämta aktivitetsstatistik: ${error.message}`);
       }
       
-      const result: Record<ActivityType, number> = {} as Record<ActivityType, number>;
+      const groupedData: Record<ActivityType, number> = {} as Record<ActivityType, number>;
       
-      // Initiera alla aktivitetstyper med 0
-      Object.values(ActivityType).forEach(type => {
-        result[type as ActivityType] = 0;
-      });
-      
-      // Fyll i faktiska värden
-      for (const item of data) {
-        result[item.activity_type as ActivityType] = item.count;
+      for (const stat of data as ActivityStatDTO[]) {
+        groupedData[stat.activity_type as ActivityType] = stat.activity_count;
       }
       
-      return ok(result);
+      return ok(groupedData);
     } catch (error) {
-      return err(`Fel vid hämtning av grupperade teamaktiviteter: ${error}`);
+      return err(`Fel vid hämtning av grupperad aktivitetsstatistik: ${error}`);
     }
   }
 
+  /**
+   * Hämta teamstatistik baserad på aktiviteter
+   */
   async getStatistics(
     teamId: UniqueId,
     period: StatisticsPeriod = StatisticsPeriod.WEEKLY
@@ -555,8 +391,12 @@ export class SupabaseTeamActivityRepository implements TeamActivityRepository {
     }
   }
 
+  /**
+   * Beräkna startdatum baserat på vald period
+   */
   private getStartDateForPeriod(now: Date, period: StatisticsPeriod): Date {
     const startDate = new Date(now);
+    
     switch (period) {
       case StatisticsPeriod.DAILY:
         startDate.setDate(startDate.getDate() - 1);
@@ -571,6 +411,7 @@ export class SupabaseTeamActivityRepository implements TeamActivityRepository {
         startDate.setFullYear(startDate.getFullYear() - 1);
         break;
     }
+    
     return startDate;
   }
 } 

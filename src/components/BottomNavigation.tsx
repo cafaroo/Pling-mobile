@@ -35,36 +35,46 @@ const TABS: TabItem[] = [
     key: 'competitions',
     label: 'Tävlingar',
     icon: Award,
-    route: '/competitions/index',
+    route: '/competition',
   },
   {
     key: 'goals',
     label: 'Mål',
     icon: Target,
-    route: '/goals/index',
+    route: '/goals',
   },
   {
     key: 'team',
     label: 'Team',
     icon: Users,
-    route: '/team/index',
+    route: '/team',
   },
   {
     key: 'profile',
     label: 'Profil',
     icon: User,
-    route: '/profile/index',
+    route: '/profile',
   },
 ];
 
 export default function BottomNavigation() {
   const pathname = usePathname();
-  // Matcha även mot huvudsökvägen utan /index i slutet
-  const normalizedPath = pathname.endsWith('/index') ? pathname : pathname + '/index';
-  const activeTabIndex = TABS.findIndex(tab => 
-    tab.route === pathname || tab.route === normalizedPath
-  ) !== -1 
-    ? TABS.findIndex(tab => tab.route === pathname || tab.route === normalizedPath) 
+  
+  // FIX: Normalisera sökvägar korrekt utan att lägga till /index
+  // Om sökvägen slutar med /index, ta bort det. Annars använd sökvägen som den är.
+  const normalizedPath = pathname.endsWith('/index') ? pathname.replace('/index', '') : pathname;
+  
+  // FIX: Anpassa hur aktiv flik hittas - matcha på basicPath (utan /index om det finns)
+  const findTabIndex = (path: string) => {
+    return TABS.findIndex(tab => {
+      // Jämför normaliserade sökvägar (utan /index om det finns)
+      const tabPath = tab.route.endsWith('/index') ? tab.route.replace('/index', '') : tab.route;
+      return tabPath === path;
+    });
+  };
+  
+  const activeTabIndex = findTabIndex(normalizedPath) !== -1 
+    ? findTabIndex(normalizedPath) 
     : 0;
   
   // Animation values

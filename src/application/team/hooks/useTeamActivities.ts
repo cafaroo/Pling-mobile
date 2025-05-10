@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { ActivityType } from '@/domain/team/value-objects/ActivityType';
 import { GetTeamActivitiesUseCase, TeamActivityDTO } from '../useCases/getTeamActivities';
 import { CreateTeamActivityUseCase } from '../useCases/createTeamActivity';
@@ -14,6 +14,34 @@ interface UseTeamActivitiesOptions {
   offset?: number;
   userIsTarget?: boolean;
   enabled?: boolean;
+  useLazyLoading?: boolean;
+}
+
+interface UseTeamActivitiesResult {
+  activities: TeamActivityDTO[];
+  total: number;
+  hasMore: boolean;
+  latestActivities: TeamActivityDTO[];
+  activityStats: Record<ActivityType, number>;
+  isLoading: boolean;
+  isLoadingLatest: boolean;
+  isLoadingStats: boolean;
+  isLoadingMore: boolean;
+  error: Error | null;
+  refetch: () => Promise<any>;
+  createActivity: (data: {
+    activityType: ActivityType;
+    performedBy: string;
+    targetId?: string;
+    metadata?: Record<string, any>;
+  }) => void;
+  createActivityFromEvent: (
+    performedBy: string, 
+    eventName: string, 
+    eventPayload: Record<string, any>
+  ) => Promise<any>;
+  fetchNextPage: () => Promise<any>;
+  filterByType: (type: ActivityType) => UseTeamActivitiesResult;
 }
 
 /**
@@ -28,13 +56,44 @@ export function useTeamActivities({
   limit = 20,
   offset = 0,
   userIsTarget = false,
-  enabled = true
-}: UseTeamActivitiesOptions) {
+  enabled = true,
+  useLazyLoading = false
+}: UseTeamActivitiesOptions): UseTeamActivitiesResult {
   const queryClient = useQueryClient();
   const { teamActivityRepository } = useInfrastructure();
   
-  // Hämta aktiviteter med filtrering och paginering
-  const { data, isLoading, error, refetch } = useQuery({
+  // Använd infinite query för lazy loading
+  const infiniteQueryResult = useInfiniteQuery({
+    queryKey: ['teamActivitiesInfinite', teamId, userId, activityTypes, startDate, endDate, limit, userIsTarget],
+    queryFn: async ({ pageParam = 0 }) => {
+      const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
+      const result = await getTeamActivitiesUseCase.execute({
+        teamId,
+        userId,
+        activityTypes,
+        startDate,
+        endDate,
+        limit,
+        offset: pageParam,
+        userIsTarget
+      });
+      
+      if (result.isErr()) {
+        throw new Error(result.error);
+      }
+      
+      return result.getValue();
+    },
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.hasMore) return undefined;
+      return lastPage.offset + limit;
+    },
+    initialPageParam: 0,
+    enabled: enabled && useLazyLoading
+  });
+  
+  // Standard query för när vi inte använder lazy loading
+  const standardQueryResult = useQuery({
     queryKey: ['teamActivities', teamId, userId, activityTypes, startDate, endDate, limit, offset, userIsTarget],
     queryFn: async () => {
       const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
@@ -55,8 +114,23 @@ export function useTeamActivities({
       
       return result.getValue();
     },
-    enabled
+    enabled: enabled && !useLazyLoading
   });
+  
+  // Kombinera data baserat på vilket query-läge som används
+  const queryResult = useLazyLoading ? infiniteQueryResult : standardQueryResult;
+  
+  const activities = useLazyLoading
+    ? (infiniteQueryResult.data?.pages.flatMap(page => page.activities) || [])
+    : (standardQueryResult.data?.activities || []);
+    
+  const total = useLazyLoading
+    ? (infiniteQueryResult.data?.pages[0]?.total || 0)
+    : (standardQueryResult.data?.total || 0);
+    
+  const hasMore = useLazyLoading
+    ? !!infiniteQueryResult.hasNextPage
+    : (standardQueryResult.data?.hasMore || false);
   
   // Hämta de senaste aktiviteterna (förkortad lista)
   const { data: latestActivities, isLoading: isLoadingLatest } = useQuery({
@@ -121,6 +195,7 @@ export function useTeamActivities({
     onSuccess: () => {
       // Invalidera relevanta queries för att uppdatera data
       queryClient.invalidateQueries({ queryKey: ['teamActivities', teamId] });
+      queryClient.invalidateQueries({ queryKey: ['teamActivitiesInfinite', teamId] });
       queryClient.invalidateQueries({ queryKey: ['teamActivitiesLatest', teamId] });
       queryClient.invalidateQueries({ queryKey: ['teamActivityStats', teamId] });
     }
@@ -143,6 +218,7 @@ export function useTeamActivities({
     if (result.isOk()) {
       // Invalidera queries för att uppdatera data
       queryClient.invalidateQueries({ queryKey: ['teamActivities', teamId] });
+      queryClient.invalidateQueries({ queryKey: ['teamActivitiesInfinite', teamId] });
       queryClient.invalidateQueries({ queryKey: ['teamActivitiesLatest', teamId] });
       queryClient.invalidateQueries({ queryKey: ['teamActivityStats', teamId] });
     }
@@ -151,25 +227,39 @@ export function useTeamActivities({
   };
   
   // Hjälpfunktion för att hämta nästa sida av aktiviteter
-  const fetchNextPage = () => {
-    if (data && data.hasMore) {
-      return useTeamActivities({
-        teamId,
-        userId,
-        activityTypes,
-        startDate,
-        endDate,
-        limit,
-        offset: (offset || 0) + limit,
-        userIsTarget,
-        enabled: true
+  const fetchNextPage = async () => {
+    if (useLazyLoading) {
+      return infiniteQueryResult.fetchNextPage();
+    } else if (hasMore) {
+      return queryClient.fetchQuery({
+        queryKey: ['teamActivities', teamId, userId, activityTypes, startDate, endDate, limit, offset + limit, userIsTarget],
+        queryFn: async () => {
+          const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
+          const result = await getTeamActivitiesUseCase.execute({
+            teamId,
+            userId,
+            activityTypes,
+            startDate,
+            endDate,
+            limit,
+            offset: offset + limit,
+            userIsTarget
+          });
+          
+          if (result.isErr()) {
+            throw new Error(result.error);
+          }
+          
+          return result.getValue();
+        }
       });
     }
-    return null;
+    
+    return Promise.resolve(null);
   };
   
   // Hjälpfunktion för att filtrera aktiviteter efter typ
-  const filterByType = (type: ActivityType) => {
+  const filterByType = (type: ActivityType): UseTeamActivitiesResult => {
     return useTeamActivities({
       teamId,
       userId,
@@ -179,21 +269,25 @@ export function useTeamActivities({
       limit,
       offset: 0,
       userIsTarget,
-      enabled: true
+      enabled: true,
+      useLazyLoading
     });
   };
   
   return {
-    activities: data?.activities || [],
-    total: data?.total || 0,
-    hasMore: data?.hasMore || false,
+    activities,
+    total,
+    hasMore,
     latestActivities: latestActivities || [],
     activityStats: activityStats || {},
-    isLoading,
+    isLoading: useLazyLoading ? infiniteQueryResult.isLoading : standardQueryResult.isLoading,
+    isLoadingMore: useLazyLoading ? infiniteQueryResult.isFetchingNextPage : false,
     isLoadingLatest,
     isLoadingStats,
-    error,
-    refetch,
+    error: useLazyLoading 
+      ? infiniteQueryResult.error as Error | null 
+      : standardQueryResult.error as Error | null,
+    refetch: useLazyLoading ? infiniteQueryResult.refetch : standardQueryResult.refetch,
     createActivity: createActivityMutation.mutate,
     createActivityFromEvent,
     fetchNextPage,

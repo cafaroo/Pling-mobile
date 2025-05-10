@@ -11,6 +11,7 @@ interface TeamActivityListProps {
   teamId: string;
   limit?: number;
   showFilters?: boolean;
+  useLazyLoading?: boolean;
   onSelectActivity?: (activity: TeamActivityDTO) => void;
 }
 
@@ -66,8 +67,9 @@ const getColorForActivityType = (type: ActivityType): string => {
 
 const TeamActivityList: React.FC<TeamActivityListProps> = ({
   teamId,
-  limit = 10,
+  limit = 20,
   showFilters = true,
+  useLazyLoading = true,
   onSelectActivity
 }) => {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
@@ -83,20 +85,34 @@ const TeamActivityList: React.FC<TeamActivityListProps> = ({
     total, 
     hasMore, 
     isLoading, 
+    isLoadingMore,
     error,
     refetch,
-    activityStats
+    activityStats,
+    fetchNextPage
   } = useTeamActivities({
     teamId,
     activityTypes: activeTypes || undefined,
     limit,
-    offset: currentPage * limit
+    offset: currentPage * limit,
+    useLazyLoading
   });
   
   // Hantera filterbyte
   const handleFilterChange = (category: string | null) => {
     setSelectedFilter(category === selectedFilter ? null : category);
     setCurrentPage(0);
+  };
+  
+  // Hantera tryck på "Ladda mer"
+  const handleLoadMore = async () => {
+    if (hasMore && !isLoadingMore) {
+      if (useLazyLoading) {
+        await fetchNextPage();
+      } else {
+        setCurrentPage(prev => prev + 1);
+      }
+    }
   };
   
   // Rendera filterknappar för aktivitetstyper
@@ -155,9 +171,39 @@ const TeamActivityList: React.FC<TeamActivityListProps> = ({
         <Text style={styles.activityTimestamp}>
           {format(new Date(item.timestamp), 'PPP, HH:mm', { locale: sv })}
         </Text>
+        {item.metadata?.performer_name && (
+          <Text style={styles.activityPerformer}>
+            Av: {item.metadata.performer_name}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
+  
+  // Rendera footer med ladda mer-knapp eller slutmeddelande
+  const renderFooter = () => {
+    if (isLoadingMore) {
+      return <ActivityIndicator style={styles.footerLoader} size="small" color="#0000ff" />;
+    }
+    
+    if (hasMore) {
+      return (
+        <TouchableOpacity style={styles.loadMoreButton} onPress={handleLoadMore}>
+          <Text style={styles.loadMoreText}>Ladda fler</Text>
+        </TouchableOpacity>
+      );
+    }
+    
+    if (activities.length > 0) {
+      return (
+        <Text style={styles.endListText}>
+          Visar {activities.length} av {total} aktiviteter
+        </Text>
+      );
+    }
+    
+    return null;
+  };
   
   // Visar laddning
   if (isLoading && activities.length === 0) {
@@ -208,21 +254,9 @@ const TeamActivityList: React.FC<TeamActivityListProps> = ({
         renderItem={renderActivityItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
-        onEndReached={() => {
-          if (hasMore) {
-            setCurrentPage(prev => prev + 1);
-          }
-        }}
+        onEndReached={useLazyLoading ? handleLoadMore : undefined}
         onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          hasMore ? (
-            <ActivityIndicator style={styles.footerLoader} size="small" color="#0000ff" />
-          ) : activities.length > 0 ? (
-            <Text style={styles.endListText}>
-              Visar {activities.length} av {total} aktiviteter
-            </Text>
-          ) : null
-        }
+        ListFooterComponent={renderFooter}
       />
     </View>
   );
@@ -360,6 +394,12 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
   },
+  activityPerformer: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
   footerLoader: {
     marginVertical: 16,
   },
@@ -368,6 +408,19 @@ const styles = StyleSheet.create({
     padding: 16,
     color: '#999',
     fontSize: 12,
+  },
+  loadMoreButton: {
+    marginVertical: 16,
+    marginHorizontal: 32,
+    paddingVertical: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

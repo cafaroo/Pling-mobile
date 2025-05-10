@@ -1,10 +1,17 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/domain/core/UniqueId';
-import { TeamStatistics, StatisticsPeriod } from '@/domain/team/value-objects/TeamStatistics';
+import { TeamStatistics, StatisticsPeriod, ActivityTrend } from '@/domain/team/value-objects/TeamStatistics';
 import { TeamStatisticsRepository } from '@/domain/team/repositories/TeamStatisticsRepository';
 import { TeamGoal } from '@/domain/team/entities/TeamGoal';
 import { TeamActivity } from '@/domain/team/entities/TeamActivity';
+
+interface DailyStatDTO {
+  date: string;
+  activity_count: number;
+  active_members: number;
+  activity_breakdown: Record<string, number>;
+}
 
 export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -14,62 +21,48 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
     period: StatisticsPeriod
   ): Promise<Result<TeamStatistics, string>> {
     try {
-      // Hämta alla mål för teamet
-      const { data: goals, error: goalsError } = await this.supabase
-        .from('team_goals')
-        .select('*')
-        .eq('team_id', teamId.toString());
-
-      if (goalsError) throw goalsError;
-
-      // Hämta alla aktiviteter för teamet
-      const { data: activities, error: activitiesError } = await this.supabase
-        .from('team_activities')
-        .select('*')
-        .eq('team_id', teamId.toString())
-        .gte('created_at', this.getStartDateForPeriod(period).toISOString());
-
-      if (activitiesError) throw activitiesError;
-
-      // Konvertera data till domänmodeller
-      const teamGoalsResults = goals.map(goal => TeamGoal.create({
-        id: new UniqueId(goal.id),
-        teamId: new UniqueId(goal.team_id),
-        title: goal.title,
-        description: goal.description,
-        startDate: new Date(goal.start_date),
-        dueDate: goal.due_date ? new Date(goal.due_date) : undefined,
-        status: goal.status,
-        progress: goal.progress,
-        createdBy: new UniqueId(goal.created_by),
-        createdAt: new Date(goal.created_at),
-        updatedAt: new Date(goal.updated_at)
-      }));
+      // Beräkna start- och slutdatum baserat på period
+      const { startDate, endDate } = this.getDateRangeForPeriod(period);
       
-      const teamGoals = teamGoalsResults
-        .filter(result => result.isOk())
-        .map(result => result.value);
-
-      const teamActivitiesResults = activities.map(activity => TeamActivity.create({
-        id: new UniqueId(activity.id),
-        teamId: new UniqueId(activity.team_id),
-        type: activity.type,
-        userId: new UniqueId(activity.user_id),
-        timestamp: new Date(activity.created_at),
-        metadata: activity.metadata
-      }));
-      
-      const teamActivities = teamActivitiesResults
-        .filter(result => result.isOk())
-        .map(result => result.value);
-
-      // Beräkna statistik
-      return TeamStatistics.calculateFromGoals(
-        teamId,
-        teamGoals,
-        teamActivities,
-        period
+      // Hämta statistik från materialized view via RPC-funktionen
+      const { data: dailyStats, error } = await this.supabase.rpc(
+        'get_team_statistics',
+        {
+          p_team_id: teamId.toString(),
+          p_start_date: startDate.toISOString(),
+          p_end_date: endDate.toISOString()
+        }
       );
+
+      if (error) throw error;
+
+      // Om det inte finns några data, hämta mål för att fortsätta beräkningen
+      if (!dailyStats || dailyStats.length === 0) {
+        // Hämta grundläggande teamdata för att skapa en tom statistikinstans
+        const { data: teamData, error: teamError } = await this.supabase
+          .from('teams')
+          .select('id, created_at')
+          .eq('id', teamId.toString())
+          .single();
+
+        if (teamError) throw teamError;
+
+        return ok(new TeamStatistics({
+          teamId,
+          period,
+          activityCount: 0,
+          completedGoals: 0,
+          activeGoals: 0,
+          memberParticipation: 0,
+          averageGoalProgress: 0,
+          goalsByStatus: {},
+          activityTrend: [],
+          lastUpdated: new Date()
+        }));
+      }
+
+      // Beräkna statistik från dagliga data
+      return this.calculateStatisticsFromDailyStats(teamId, period, dailyStats);
     } catch (error) {
       return err(`Kunde inte hämta teamstatistik: ${error.message}`);
     }
@@ -80,26 +73,80 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
     period: StatisticsPeriod
   ): Promise<Result<TeamStatistics[], string>> {
     try {
-      const results = await Promise.all(
-        teamIds.map(teamId => this.getStatistics(teamId, period))
-      );
-
-      const errors = results.filter(result => result.isErr());
-      if (errors.length > 0) {
-        return err(
-          `Kunde inte hämta statistik för alla team: ${errors
-            .map(e => e.error)
-            .join(', ')}`
-        );
+      if (teamIds.length === 0) {
+        return ok([]);
       }
 
-      const validStats = results
-        .filter(result => result.isOk())
-        .map(result => result.value);
+      const { startDate, endDate } = this.getDateRangeForPeriod(period);
+      
+      // Använd den optimerade RPC-funktionen för flera team
+      const { data: dailyStatsByTeam, error } = await this.supabase.rpc(
+        'get_teams_activity_trend',
+        {
+          p_team_ids: teamIds.map(id => id.toString()),
+          p_start_date: startDate.toISOString(),
+          p_end_date: endDate.toISOString()
+        }
+      );
+
+      if (error) throw error;
+
+      // Gruppera statistiken per team
+      const statsByTeamId: Record<string, DailyStatDTO[]> = {};
+      
+      dailyStatsByTeam.forEach(stat => {
+        const teamIdStr = stat.team_id;
+        if (!statsByTeamId[teamIdStr]) {
+          statsByTeamId[teamIdStr] = [];
+        }
+        statsByTeamId[teamIdStr].push({
+          date: stat.date,
+          activity_count: stat.activity_count,
+          active_members: stat.active_members,
+          activity_breakdown: stat.activity_breakdown
+        });
+      });
+      
+      // Beräkna statistik för varje team
+      const teamStats: TeamStatistics[] = [];
+      
+      for (const teamIdStr in statsByTeamId) {
+        const teamId = new UniqueId(teamIdStr);
+        const result = await this.calculateStatisticsFromDailyStats(
+          teamId, 
+          period, 
+          statsByTeamId[teamIdStr]
+        );
         
-      return ok(validStats);
+        if (result.isOk()) {
+          teamStats.push(result.value);
+        }
+      }
+      
+      // Skapa tom statistik för team utan aktiviteter
+      const teamsWithStats = new Set(Object.keys(statsByTeamId));
+      
+      for (const teamId of teamIds) {
+        const teamIdStr = teamId.toString();
+        if (!teamsWithStats.has(teamIdStr)) {
+          teamStats.push(new TeamStatistics({
+            teamId,
+            period,
+            activityCount: 0,
+            completedGoals: 0,
+            activeGoals: 0,
+            memberParticipation: 0,
+            averageGoalProgress: 0,
+            goalsByStatus: {},
+            activityTrend: [],
+            lastUpdated: new Date()
+          }));
+        }
+      }
+      
+      return ok(teamStats);
     } catch (error) {
-      return err(`Kunde inte hämta teamstatistik: ${error.message}`);
+      return err(`Kunde inte hämta statistik för alla team: ${error.message}`);
     }
   }
 
@@ -154,54 +201,188 @@ export class SupabaseTeamStatisticsRepository implements TeamStatisticsRepositor
     endDate: Date
   ): Promise<Result<TeamStatistics[], string>> {
     try {
-      const { data, error } = await this.supabase
-        .from('team_statistics')
-        .select('*')
-        .eq('team_id', teamId.toString())
-        .eq('period', period)
-        .gte('last_updated', startDate.toISOString())
-        .lte('last_updated', endDate.toISOString())
-        .order('last_updated', { ascending: true });
+      // Använd den optimerade RPC-funktionen för att hämta trenddata
+      const { data, error } = await this.supabase.rpc(
+        'get_team_statistics',
+        {
+          p_team_id: teamId.toString(),
+          p_start_date: startDate.toISOString(),
+          p_end_date: endDate.toISOString()
+        }
+      );
 
       if (error) throw error;
 
-      const stats = data.map(stats => 
-        new TeamStatistics({
-          teamId: new UniqueId(stats.team_id),
-          period: stats.period,
-          activityCount: stats.activity_count,
-          completedGoals: stats.completed_goals,
-          activeGoals: stats.active_goals,
-          memberParticipation: stats.member_participation,
-          averageGoalProgress: stats.average_goal_progress,
-          goalsByStatus: stats.goals_by_status,
-          activityTrend: stats.activity_trend,
-          lastUpdated: new Date(stats.last_updated)
-        })
-      );
+      if (!data || data.length === 0) {
+        return ok([]);
+      }
+
+      // Gruppera statistik per period (dag/vecka/månad) beroende på önskad granularitet
+      const statsByPeriod = this.groupStatsByPeriod(data, period);
+      
+      // Konvertera varje period till TeamStatistics-objekt
+      const trendStats: TeamStatistics[] = [];
+      
+      for (const periodKey in statsByPeriod) {
+        const periodStats = statsByPeriod[periodKey];
+        const periodStartDate = new Date(periodKey);
         
-      return ok(stats);
+        // Beräkna statistik för perioden
+        const result = await this.calculateStatisticsFromDailyStats(
+          teamId,
+          period,
+          periodStats,
+          periodStartDate
+        );
+        
+        if (result.isOk()) {
+          trendStats.push(result.value);
+        }
+      }
+      
+      // Sortera efter datum
+      trendStats.sort((a, b) => 
+        a.lastUpdated.getTime() - b.lastUpdated.getTime()
+      );
+      
+      return ok(trendStats);
     } catch (error) {
       return err(`Kunde inte hämta statistiktrend: ${error.message}`);
     }
   }
 
-  private getStartDateForPeriod(period: StatisticsPeriod): Date {
-    const now = new Date();
+  private getDateRangeForPeriod(period: StatisticsPeriod): { startDate: Date, endDate: Date } {
+    const endDate = new Date();
+    let startDate = new Date();
+
     switch (period) {
       case StatisticsPeriod.DAILY:
-        now.setDate(now.getDate() - 1);
+        startDate.setDate(startDate.getDate() - 1);
         break;
       case StatisticsPeriod.WEEKLY:
-        now.setDate(now.getDate() - 7);
+        startDate.setDate(startDate.getDate() - 7);
         break;
       case StatisticsPeriod.MONTHLY:
-        now.setMonth(now.getMonth() - 1);
+        startDate.setMonth(startDate.getMonth() - 1);
         break;
       case StatisticsPeriod.YEARLY:
-        now.setFullYear(now.getFullYear() - 1);
+        startDate.setFullYear(startDate.getFullYear() - 1);
         break;
     }
-    return now;
+
+    return { startDate, endDate };
+  }
+
+  private groupStatsByPeriod(dailyStats: DailyStatDTO[], period: StatisticsPeriod): Record<string, DailyStatDTO[]> {
+    const statsByPeriod: Record<string, DailyStatDTO[]> = {};
+    
+    dailyStats.forEach(stat => {
+      const date = new Date(stat.date);
+      let periodKey: string;
+      
+      switch (period) {
+        case StatisticsPeriod.DAILY:
+          // Använd datum som nyckel
+          periodKey = date.toISOString().split('T')[0];
+          break;
+        case StatisticsPeriod.WEEKLY:
+          // Använd första dagen i veckan som nyckel
+          const dayOfWeek = date.getDay();
+          const firstDayOfWeek = new Date(date);
+          firstDayOfWeek.setDate(date.getDate() - dayOfWeek);
+          periodKey = firstDayOfWeek.toISOString().split('T')[0];
+          break;
+        case StatisticsPeriod.MONTHLY:
+          // Använd första dagen i månaden som nyckel
+          periodKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-01`;
+          break;
+        case StatisticsPeriod.YEARLY:
+          // Använd första dagen i året som nyckel
+          periodKey = `${date.getFullYear()}-01-01`;
+          break;
+      }
+      
+      if (!statsByPeriod[periodKey]) {
+        statsByPeriod[periodKey] = [];
+      }
+      
+      statsByPeriod[periodKey].push(stat);
+    });
+    
+    return statsByPeriod;
+  }
+
+  private async calculateStatisticsFromDailyStats(
+    teamId: UniqueId,
+    period: StatisticsPeriod,
+    dailyStats: DailyStatDTO[],
+    referenceDate: Date = new Date()
+  ): Promise<Result<TeamStatistics, string>> {
+    try {
+      if (dailyStats.length === 0) {
+        return ok(new TeamStatistics({
+          teamId,
+          period,
+          activityCount: 0,
+          completedGoals: 0,
+          activeGoals: 0,
+          memberParticipation: 0,
+          averageGoalProgress: 0,
+          goalsByStatus: {},
+          activityTrend: [],
+          lastUpdated: referenceDate
+        }));
+      }
+
+      // Hämta målstatistik för teamet
+      const { data: goalStats, error: goalError } = await this.supabase.rpc(
+        'get_team_goal_stats',
+        { p_team_id: teamId.toString() }
+      );
+
+      if (goalError) throw goalError;
+
+      // Beräkna aktivitetsantal
+      const activityCount = dailyStats.reduce((sum, day) => sum + day.activity_count, 0);
+      
+      // Beräkna antal aktiva medlemmar (approximation - kan behöva förbättras om vi vill ha exakt unika medlemmar)
+      const maxActiveMembers = Math.max(...dailyStats.map(day => day.active_members));
+      
+      // Beräkna aktivitetsfördelning
+      const activityBreakdown = dailyStats.reduce((breakdown, day) => {
+        Object.entries(day.activity_breakdown).forEach(([type, count]) => {
+          breakdown[type] = (breakdown[type] || 0) + count;
+        });
+        return breakdown;
+      }, {} as Record<string, number>);
+
+      // Beräkna aktivitetstrend
+      const activityTrend: ActivityTrend[] = dailyStats
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .map(day => ({
+          date: new Date(day.date),
+          count: day.activity_count
+        }));
+
+      // Skapa team statistics objekt
+      return ok(new TeamStatistics({
+        teamId,
+        period,
+        activityCount,
+        completedGoals: goalStats?.completed_goals || 0,
+        activeGoals: goalStats?.active_goals || 0,
+        memberParticipation: maxActiveMembers,
+        averageGoalProgress: goalStats?.average_completion || 0,
+        goalsByStatus: {
+          active: goalStats?.active_goals || 0,
+          completed: goalStats?.completed_goals || 0
+          // Lägg till fler statusar om det behövs
+        },
+        activityTrend,
+        lastUpdated: referenceDate
+      }));
+    } catch (error) {
+      return err(`Kunde inte beräkna statistik från dagliga data: ${error.message}`);
+    }
   }
 } 

@@ -130,9 +130,10 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
 - Förbättra team-statistik och beräkningar 🚧
 - Implementera mer detaljerade domänhändelser 🚧
 - Utöka testning för domänhändelser till andra domäner 🚧
+- ✅ Implementera TeamGoal-entitet och GoalMilestone-typ
 
 #### Infrastrukturlager
-- Optimera SQL-frågor för statistikberäkningar 🚧
+- Optimera SQL-frågor för statistikberäkningar ✅
 - ✅ Implementera caching för tunga dataoperationer
   - ✅ Tvånivåcaching med React Query och Supabase
   - ✅ Optimistisk uppdatering för alla mutationer
@@ -144,17 +145,29 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
   - ✅ Omfattande testsvit för cachning
   - ✅ Optimerad React Query konfiguration
   - ✅ Standardiserade cachenycklar
+- ✅ Skapa tabeller, index och RLS-policyer för team_goals och goal_milestones
 
 #### Applikationslager
 - Integrera med activity-domänen 🚧
 - ✅ Förbättra statistikberäkningar för olika tidsperioder
 - Implementera e2e-testers för händelseflöden genom alla lager 🚧
+- ✅ Implementera TeamGoalRepository och Supabase-implementation
+- ✅ Skapa och integrera useTeamGoals-hook
 
 #### UI-lager
 - ✅ Utveckla avancerade visualiseringskomponenter för team-statistik
-- Förbättra användargränssnittet för teamhantering 🚧
-- Utveckla teamkommunikationsgränssnitt 🚧
-- Integrera händelselyssnare i UI-komponenter 🚧
+- 🚧 Förbättra användargränssnittet för teamhantering
+- ✅ Utveckla teamkommunikationsgränssnitt
+  - ✅ Implementerat TeamChatContainer för realtidskommunikation
+  - ✅ Skapat TeamMessageList för att visa chatmeddelanden
+  - ✅ Skapat MessageComposer för att skriva meddelanden
+  - ✅ Integrerat teamchat i TeamDashboard med fliknavigering (src/components/team/TeamDashboard.tsx)
+  - ✅ Implementerat stöd för reaktioner på meddelanden
+  - ✅ Implementerat trådning i meddelanden
+  - ✅ Lagt till realtidsuppdateringar via Supabase
+  - ✅ Verifierat att chattfunktionalitet fungerar korrekt med React Query hooks och Supabase-integration
+- 🚧 Integrera händelselyssnare i UI-komponenter
+- ✅ Skapa TeamGoalList och UI-integration för mål
 
 #### Integration med Användardomänen
 - ✅ Uppdaterat teamkomponenter för kompatibilitet med ny användarprofilhantering
@@ -591,139 +604,65 @@ describe('TeamRepository', () => {
   - Implementerat OptimizedTeamActivityRepository med CacheService
   - Lagt till React Query integration i useTeamStatistics
   - Konfigurerat TTL och invalidering för olika datatyper
+- [x] Databasoptimering för statistik och aktiviteter
+  - Skapat materialized view team_daily_statistics
+  - Skapat index för vanliga sökningar
+  - Skapat och testat get_team_statistics, get_teams_activity_trend, get_paginated_team_activities, get_team_activity_stats, get_latest_team_activities
+  - Implementerat triggers för automatisk uppdatering av statistik
+  - Justerat funktioner för att använda display_name/first_name/last_name från profiles
 - [ ] Nästa optimering...
 
-Legender:
-✅ Implementerat och testat
-🚧 Under utveckling
-📋 Planerat 
+## Senaste prestandaoptimering
 
-## Prioriterade uppgifter nästa sprint
+### Sammanfattning
+- Skapat materialized view för daglig teamstatistik (`team_daily_statistics`)
+- Skapat index för effektiv filtrering och sökning på team_activities
+- Implementerat och testat:
+  - `get_team_statistics` (statistik för period)
+  - `get_teams_activity_trend` (trenddata för flera team)
+  - `get_paginated_team_activities` (paginering och filtrering)
+  - `get_team_activity_stats` (statistik per aktivitetstyp)
+  - `get_latest_team_activities` (senaste aktiviteter)
+- Lagt till triggers för automatisk uppdatering av statistik
+- Justerat funktioner för att använda rätt namn från profiles-tabellen
+- Verifierat att all funktionalitet fungerar med testdata
 
-1. ✅ Utveckla TeamStatistics-funktion
-   - ✅ Skapa TeamStatistics värde-objekt för beräkningslogik
-   - ✅ Implementera statistikberäkningar baserade på aktiviteter
-   - ✅ Skapa databasstruktur för statistik
-   - ✅ Implementera repository och hooks
-   - ✅ Utveckla visualiseringskomponenter för statistik
-   - ✅ Skapa testers för statistikberäkningar
-   - ✅ Implementera TeamStatisticsDashboard med period-jämförelse
-   - ✅ Integrera TeamDashboard med fliknavigering
+### Fördelar
+- Betydligt snabbare statistik- och aktivitetsfrågor
+- Skalbarhet för stora team och mycket data
+- Robust cache- och indexhantering
+- Förbättrad användarupplevelse i UI
 
-2. 🚧 Implementera team-kommunikation (Påbörjat med databasimplementation för trådning)
-   - Designa meddelandestruktur ✅
-   - Skapa TeamMessage entitet ✅
-   - Implementerat CreateThreadReplyUseCase ✅
-   - Utveckla realtidskommunikation med Supabase 🚧
-   - Implementera chattgränssnitt 🚧
+## Nästa steg
 
-3. 🚧 Optimera prestanda
-   - Förbättra databasfrågor med materialized views
-   - Implementera lazy loading för stora datamängder
-   - Optimera realtidsuppdateringar
-   - Förbättra cacheinvalidering för specifika scenarier
+- [!] Nuvarande mål- och milstolpefunktionalitet hålls enkel tills fullständig goals-domän byggs
+- Implementera grundläggande GoalMilestone-CRUD och UI (endast det nödvändigaste)
+- Utöka progress- och statistiklogik för mål endast vid behov
+- Skapa enkel målstatistik och visualisering (avancerat skjuts upp)
+- Integrera mål med aktivitetsflöde och statistikdashboard på basnivå
 
-4. 🚧 Implementera team-mål
-   - Utveckla komplett TeamGoal-entitet
-   - Skapa gränssnitt för målhantering
-   - Implementera måluppföljning och framstegstracking
-   - Integrera mål med statistik och aktiviteter
-   - Implementera påminnelser och notifieringar
+## Senaste team-mål-implementation
 
-### Tekniska noteringar
+### Sammanfattning
+- Skapat och migrerat tabellerna team_goals och goal_milestones med index och RLS-policyer
+- Implementerat TeamGoal-entitet, GoalStatus/GoalCategory-enums och GoalMilestone-typ i domänlagret
+- Skapat och integrerat TeamGoalRepository och SupabaseTeamGoalRepository
+- Skapat och dokumenterat hooken useTeamGoals för all CRUD och status/progress-hantering
+- Utvecklat TeamGoalList-komponent för att visa mål i UI
+- Allt är typat och dokumenterat på svenska
 
-#### TeamStatisticsDashboard Implementation
-- ✅ Implementerat TeamStatisticsDashboard med:
-  - Stöd för jämförelse mellan olika tidsperioder
-  - Grafisk visualisering av trender
-  - Målstatistik per status
-  - Aktivitetsfördelning per kategori
-  - Förändringsindikatorer för nyckeltal
-  - Interaktiva period-väljare
-  - Responsiv design anpassad för mobila enheter
-- ✅ Integrerat med React Query för effektiv datahämtning:
-  - Automatisk cache-hantering
-  - Optimistiska uppdateringar
-  - Stöd för olika tidsperioder
-  - Felhantering med ErrorBoundary
+> **Notering:** Nuvarande implementation av mål och milstolpar är grundläggande och avsedd för team-modulen. En fullständig, fristående goals-domän planeras framöver. Avancerad statistik, visualisering och komplex logik skjuts upp tills dess.
 
-#### TeamDashboard Implementation
-- ✅ Skapat TeamDashboard med fliknavigering:
-  - Översiktsflik med sammanfattad information
-  - Statistikflik med TeamStatisticsDashboard
-  - Aktivitetsflik med TeamActivityList
-  - Medlemsflik med TeamMemberList
-- ✅ Robusta och återanvändbara komponenter:
-  - Header med team-metadata
-  - Kortkomponenter för olika datatyper
-  - Integrering med befintliga komponenter
+### Fördelar
+- Fullt stöd för målhantering i hela stacken
+- Optimerad prestanda och cachehantering
+- Robust felhantering och optimistisk UI-upplevelse
+- Skalbart och utbyggbart för framtida funktioner
 
-#### Nästa implementation: Teamkommunikation
+## Nästa steg
 
-För att implementera team-kommunikationsfunktionen behöver vi:
-
-### Domänmodell
-```typescript
-interface TeamMessageProps {
-  id: UniqueId;
-  teamId: UniqueId;
-  senderId: UniqueId;
-  content: string;
-  attachments?: Attachment[];
-  mentions?: Mention[];
-  reactions?: Reaction[];
-  createdAt: Date;
-}
-
-interface Attachment {
-  type: 'image' | 'file' | 'link';
-  url: string;
-  name?: string;
-  size?: number;
-  mimeType?: string;
-}
-
-interface Mention {
-  userId: UniqueId;
-  index: number;
-  length: number;
-}
-
-interface Reaction {
-  emoji: string;
-  userIds: UniqueId[];
-}
-```
-
-### Planerade komponenter
-- TeamChat
-- TeamChatMessageList
-- TeamChatComposer
-- TeamChatMessage
-- TeamChatAttachment
-- TeamChatReactions
-- TeamChatMentions
-- TeamChatNotifications
-
-### Databasändringar
-- Ny team_messages-tabell för meddelandelagring
-- Ny team_message_reactions-tabell för reaktioner
-- Ny team_message_mentions-tabell för omnämnanden
-- Real-time subscriptions för livechatfunktionalitet
-- Notifikationsintegrering för omnämnanden och viktiga meddelanden
-
-### Nyligen slutförda ✅
-
-#### Bugfixar och förbättringar
-- ✅ Åtgärdat dublettinstanser av Supabase GoTrueClient
-  - ✅ Konsoliderat Supabase-klientkonfigurationen till en enda källa
-  - ✅ Undviker varningen "Multiple GoTrueClient instances detected"
-  - ✅ Förhindrar potentiellt odefinierat beteende i autentiseringsprocessen
-- ✅ Fixat Row Level Security (RLS) för profiles-tabellen
-  - ✅ Lagt till INSERT-policy för användarprofilskapande
-  - ✅ Lagt till servicerole-behörigheter för administratörsoperationer
-  - ✅ Löst "violates row-level security policy for table profiles"-felet
-- ✅ Förbättrat integrationerna med Supabase
-  - ✅ Standardiserat autentiseringshanteringen
-  - ✅ Förbättrat felhantering vid profilskapande
-  - ✅ Säkerställt korrekt separation av auth.users och profiles
+- [!] Nuvarande mål- och milstolpefunktionalitet hålls enkel tills fullständig goals-domän byggs
+- Implementera grundläggande GoalMilestone-CRUD och UI (endast det nödvändigaste)
+- Utöka progress- och statistiklogik för mål endast vid behov
+- Skapa enkel målstatistik och visualisering (avancerat skjuts upp)
+- Integrera mål med aktivitetsflöde och statistikdashboard på basnivå

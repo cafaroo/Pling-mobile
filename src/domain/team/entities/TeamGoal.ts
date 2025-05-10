@@ -2,52 +2,107 @@ import { Result, ok, err } from '@/shared/core/Result';
 import { AggregateRoot } from '@/shared/core/AggregateRoot';
 import { UniqueId } from '@/domain/core/UniqueId';
 
-export enum GoalStatus {
-  NOT_STARTED = 'not_started',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  DELAYED = 'delayed',
-  CANCELLED = 'cancelled'
-}
-
-export interface GoalAssignment {
-  userId: UniqueId;
-  assignedAt: Date;
-  role?: string;
-}
-
+/**
+ * TeamGoalProps beskriver egenskaper för ett team-mål.
+ */
 export interface TeamGoalProps {
   id: UniqueId;
   teamId: UniqueId;
   title: string;
-  description: string;
+  description?: string;
+  targetValue: number;
+  currentValue: number;
   startDate: Date;
   dueDate?: Date;
   status: GoalStatus;
-  progress: number;
+  category: GoalCategory;
+  assignedTo?: UniqueId[];
   createdBy: UniqueId;
-  assignments: GoalAssignment[];
   createdAt: Date;
   updatedAt: Date;
+  milestones?: GoalMilestone[];
 }
 
+/**
+ * Enum för status på mål.
+ */
+export enum GoalStatus {
+  ACTIVE = 'active',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  ARCHIVED = 'archived',
+}
+
+/**
+ * Enum för mål-kategorier.
+ */
+export enum GoalCategory {
+  HEALTH = 'health',
+  FITNESS = 'fitness',
+  PRODUCTIVITY = 'productivity',
+  TEAM_BUILDING = 'team_building',
+  LEARNING = 'learning',
+  OTHER = 'other',
+}
+
+/**
+ * Typ för milstolpe kopplad till ett mål.
+ */
+export interface GoalMilestone {
+  id: UniqueId;
+  goalId: UniqueId;
+  title: string;
+  targetValue?: number;
+  isCompleted: boolean;
+  dueDate?: Date;
+  createdAt: Date;
+}
+
+/**
+ * TeamGoal representerar ett mål för ett team.
+ */
 export class TeamGoal {
-  private constructor(private readonly props: TeamGoalProps) {}
+  public readonly props: TeamGoalProps;
 
-  static create(props: TeamGoalProps): Result<TeamGoal, string> {
-    if (!props.title.trim()) {
-      return err('Måltitel kan inte vara tom');
-    }
+  constructor(props: TeamGoalProps) {
+    this.props = props;
+  }
 
-    if (props.progress < 0 || props.progress > 100) {
-      return err('Framsteg måste vara mellan 0 och 100');
-    }
+  /**
+   * Skapa ett nytt team-mål.
+   */
+  static create(props: Omit<TeamGoalProps, 'id' | 'createdAt' | 'updatedAt'> & { id?: UniqueId; createdAt?: Date; updatedAt?: Date }): TeamGoal {
+    return new TeamGoal({
+      ...props,
+      id: props.id ?? new UniqueId(),
+      createdAt: props.createdAt ?? new Date(),
+      updatedAt: props.updatedAt ?? new Date(),
+    });
+  }
 
-    if (props.dueDate && props.startDate > props.dueDate) {
-      return err('Startdatum kan inte vara efter slutdatum');
-    }
+  /**
+   * Uppdatera målstatus.
+   */
+  updateStatus(status: GoalStatus) {
+    this.props.status = status;
+    this.props.updatedAt = new Date();
+  }
 
-    return ok(new TeamGoal(props));
+  /**
+   * Lägg till en milstolpe.
+   */
+  addMilestone(milestone: GoalMilestone) {
+    if (!this.props.milestones) this.props.milestones = [];
+    this.props.milestones.push(milestone);
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Uppdatera progress.
+   */
+  updateProgress(value: number) {
+    this.props.currentValue = value;
+    this.props.updatedAt = new Date();
   }
 
   get id(): UniqueId {
@@ -62,8 +117,16 @@ export class TeamGoal {
     return this.props.title;
   }
 
-  get description(): string {
+  get description(): string | undefined {
     return this.props.description;
+  }
+
+  get targetValue(): number {
+    return this.props.targetValue;
+  }
+
+  get currentValue(): number {
+    return this.props.currentValue;
   }
 
   get startDate(): Date {
@@ -78,16 +141,16 @@ export class TeamGoal {
     return this.props.status;
   }
 
-  get progress(): number {
-    return this.props.progress;
+  get category(): GoalCategory {
+    return this.props.category;
+  }
+
+  get assignedTo(): UniqueId[] | undefined {
+    return this.props.assignedTo;
   }
 
   get createdBy(): UniqueId {
     return this.props.createdBy;
-  }
-
-  get assignments(): GoalAssignment[] {
-    return [...this.props.assignments];
   }
 
   get createdAt(): Date {
@@ -98,25 +161,29 @@ export class TeamGoal {
     return new Date(this.props.updatedAt);
   }
 
+  get milestones(): GoalMilestone[] | undefined {
+    return this.props.milestones;
+  }
+
   updateProgress(progress: number): Result<void, string> {
     if (progress < 0 || progress > 100) {
       return err('Framsteg måste vara mellan 0 och 100');
     }
 
-    this.props.progress = progress;
+    this.props.currentValue = progress;
     this.props.updatedAt = new Date();
 
     if (progress === 100 && this.status !== GoalStatus.COMPLETED) {
       this.props.status = GoalStatus.COMPLETED;
     } else if (progress < 100 && this.status === GoalStatus.COMPLETED) {
-      this.props.status = GoalStatus.IN_PROGRESS;
+      this.props.status = GoalStatus.ACTIVE;
     }
 
     return ok(void 0);
   }
 
   updateStatus(status: GoalStatus): Result<void, string> {
-    if (status === GoalStatus.COMPLETED && this.progress < 100) {
+    if (status === GoalStatus.COMPLETED && this.currentValue < this.targetValue) {
       return err('Kan inte markera som slutfört när framsteg är mindre än 100%');
     }
 
@@ -126,28 +193,24 @@ export class TeamGoal {
     return ok(void 0);
   }
 
-  assignMember(userId: UniqueId, role?: string): Result<void, string> {
-    if (this.props.assignments.some(a => a.userId.equals(userId))) {
+  assignMember(userId: UniqueId): Result<void, string> {
+    if (this.props.assignedTo && this.props.assignedTo.includes(userId)) {
       return err('Medlemmen är redan tilldelad detta mål');
     }
 
-    this.props.assignments.push({
-      userId,
-      assignedAt: new Date(),
-      role
-    });
-
+    if (!this.props.assignedTo) this.props.assignedTo = [];
+    this.props.assignedTo.push(userId);
     this.props.updatedAt = new Date();
     return ok(void 0);
   }
 
   unassignMember(userId: UniqueId): Result<void, string> {
-    const index = this.props.assignments.findIndex(a => a.userId.equals(userId));
+    const index = this.props.assignedTo?.findIndex(u => u.equals(userId)) ?? -1;
     if (index === -1) {
       return err('Medlemmen är inte tilldelad detta mål');
     }
 
-    this.props.assignments.splice(index, 1);
+    this.props.assignedTo?.splice(index, 1);
     this.props.updatedAt = new Date();
     return ok(void 0);
   }

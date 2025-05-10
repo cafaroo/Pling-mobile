@@ -1007,3 +1007,8 @@ Dessa förbättringar bibehåller applikationens designspråk samtidigt som de f
 - Skapa datavisualiseringskomponenter
 - Integrera med befintlig måldata
 - Testa och optimera prestanda 
+
+## Förbättringsområden / Råd
+
+- Tjänster som TransactionGoalService och liknande ska placeras i ett separat orchestration-lager, inte i domänen själv.
+- Domänen ska hållas ren från cross-domain-logik. 

@@ -477,6 +477,13 @@ export class AnalyticsService {
 
 ## Implementationsstatus
 
+### Färdiga komponenter
+
+### Förbättringsområden / Råd
+
+- Analytics-domänen ska endast konsumera domänhändelser (event sourcing/projections).
+- Analytics får inte innehålla affärsregler, bara aggregera, visualisera och rapportera.
+
 ### Implementerade komponenter
 - ⏳ Databasstruktur
 - ⏳ Grundläggande services

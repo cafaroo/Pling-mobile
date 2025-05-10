@@ -124,6 +124,12 @@ Detta dokument beskriver strukturen och implementationen av team-domänen i Plin
 - Omfattande testning av olika tidsperioder och aktivitetstrender ✅
 - Testning av felhantering i statistikberäkningar ✅
 
+### Förbättringsområden / Råd
+
+- Teamroller kan ärva eller begränsa organisationens roller (policy baseline).
+- Tydliggör relationen mellan organization_members och team_members.
+- Det ska finnas ett enkelt sätt att lista alla team i en organisation som en användare har access till.
+
 ### Pågående arbete 🚧
 
 #### Domänlager

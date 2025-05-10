@@ -16,7 +16,7 @@ Detta dokument beskriver strukturen och implementationen av användardomänen i 
 
 ## Implementationsstatus
 
-### Nyligen slutförda ✅
+### Färdiga komponenter
 
 #### Autentisering & Profilhantering
 - Förbättrat AuthContext för korrekt separering mellan auth.users och profiles ✅
@@ -109,6 +109,12 @@ Detta dokument beskriver strukturen och implementationen av användardomänen i 
   - updatePrivacySettings: För att uppdatera privacyinställningar ✅
 - Utökat testningen med nya event-relaterade testfall ✅
 - Implementerat robusta tester för komplexa événtsekvenser ✅
+
+### Förbättringsområden / Råd
+
+- All domänlogik kring användare ska ligga i user-domänen, aldrig auth.
+- Skapa ett adapterlager/gateway som översätter auth-användare (Supabase) till domänmodellen.
+- Eliminera duplicering (t.ex. email) och komposition av namn sker i user-domänen.
 
 ### Pågående arbete 🚧
 

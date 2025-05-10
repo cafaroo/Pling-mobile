@@ -9,7 +9,7 @@ Detta dokument beskriver prenumerationsmodellen för Pling-applikationen, inklus
 ### 1. Pling Basic (Gratis)
 - **Målgrupp**: Små team och testanvändare
 - **Funktioner**:
-  - Upp till 5 teammedlemmar
+  - Upp till 3 teammedlemmar
   - Grundläggande målhantering
   - Begränsad statistik
   - Grundläggande tävlingsfunktioner
@@ -18,7 +18,7 @@ Detta dokument beskriver prenumerationsmodellen för Pling-applikationen, inklus
 ### 2. Pling Pro
 - **Målgrupp**: Medelstora team och aktiva användare
 - **Funktioner**:
-  - Upp till 25 teammedlemmar
+  - Upp till 10 teammedlemmar
   - Avancerad målhantering
   - Fullständig statistik och rapporter
   - Alla tävlingsfunktioner
@@ -29,11 +29,11 @@ Detta dokument beskriver prenumerationsmodellen för Pling-applikationen, inklus
 ### 3. Pling Enterprise
 - **Målgrupp**: Stora organisationer och företag
 - **Funktioner**:
-  - Obegränsat antal teammedlemmar
+  - 25 teammedlemmar ingår med möjlighet betala för extra users
   - Enterprise-funktioner för målhantering
   - Avancerad analys och prediktiv statistik
   - Anpassade tävlingar och belöningar
-  - 5GB medialagring
+  - 15GB medialagring
   - Dedikerad support
   - API-tillgång
   - SSO-integration

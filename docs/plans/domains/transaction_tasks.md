@@ -411,20 +411,12 @@ export class TransactionService {
 
 ## Implementationsstatus
 
-### Implementerade komponenter
-- ⏳ Databasstruktur
-- ⏳ Grundläggande services
-- ⏳ TypeScript-interfaces
+### Färdiga komponenter
 
-### Pågående arbete
-- 📝 UI-komponenter
-- 📝 Mål-integration
-- 📝 Tävlings-integration
+### Förbättringsområden / Råd
 
-### Kommande arbete
-- 📝 Externa systemintegrationer
-- 📝 Avancerade metriker
-- 📝 Rapportering och analys
+- Tjänster som TransactionGoalService och TransactionCompetitionService ska placeras i ett separat orchestration-lager, inte i domänen själv.
+- Domänen ska hållas ren från cross-domain-logik.
 
 ## Nästa steg
 

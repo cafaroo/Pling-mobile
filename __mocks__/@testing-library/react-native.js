@@ -34,13 +34,55 @@ const render = (component, options = {}) => {
 
 // Mock av fireEvent för att simulera användarinteraktioner
 const fireEvent = {
-  press: jest.fn(),
-  changeText: jest.fn(),
-  scroll: jest.fn(),
-  focus: jest.fn(),
-  blur: jest.fn(),
+  press: jest.fn((element) => {
+    // Om elementet har en onPress-funktion, anropa den
+    if (element && element.props && typeof element.props.onPress === 'function') {
+      element.props.onPress();
+      return true;
+    }
+    return false;
+  }),
+  changeText: jest.fn((element, text) => {
+    // Anropa onChangeText på elementet om det finns
+    if (element && element.props && typeof element.props.onChangeText === 'function') {
+      element.props.onChangeText(text);
+      return true;
+    }
+    return false;
+  }),
+  scroll: jest.fn((element, eventData) => {
+    // Anropa onScroll på elementet om det finns
+    if (element && element.props && typeof element.props.onScroll === 'function') {
+      element.props.onScroll(eventData);
+      return true;
+    }
+    return false;
+  }),
+  focus: jest.fn((element) => {
+    // Anropa onFocus på elementet om det finns
+    if (element && element.props && typeof element.props.onFocus === 'function') {
+      element.props.onFocus();
+      return true;
+    }
+    return false;
+  }),
+  blur: jest.fn((element) => {
+    // Anropa onBlur på elementet om det finns
+    if (element && element.props && typeof element.props.onBlur === 'function') {
+      element.props.onBlur();
+      return true;
+    }
+    return false;
+  }),
   // Hjälpfunktion för att skapa generiska händelser
-  _custom: jest.fn(),
+  _custom: jest.fn((element, eventName, eventData) => {
+    const handlerName = `on${eventName.charAt(0).toUpperCase()}${eventName.slice(1)}`;
+    if (element && element.props && typeof element.props[handlerName] === 'function') {
+      element.props[handlerName](eventData);
+      return true;
+    }
+    return false;
+  }),
 };
 
 // Mock av waitFor för att vänta på asynkrona operationer

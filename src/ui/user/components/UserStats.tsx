@@ -25,6 +25,11 @@ interface UserStatsProps {
    * Funktion som anropas när användaren klickar på en statistik
    */
   onStatClick?: (statType: string) => void;
+
+  /**
+   * Test ID för att underlätta testning
+   */
+  testID?: string;
 }
 
 /**
@@ -34,7 +39,8 @@ export const UserStats: React.FC<UserStatsProps> = ({
   user,
   statistics,
   compact = false,
-  onStatClick
+  onStatClick,
+  testID
 }) => {
   const theme = useTheme();
   
@@ -73,7 +79,7 @@ export const UserStats: React.FC<UserStatsProps> = ({
   // Kompakt vy som visar endast de viktigaste statistiken
   if (compact) {
     return (
-      <Card style={styles.compactCard}>
+      <Card testID={testID} style={styles.compactCard}>
         <Card.Content style={styles.compactContent}>
           <View style={styles.levelContainer}>
             <Avatar.Text 
@@ -114,7 +120,7 @@ export const UserStats: React.FC<UserStatsProps> = ({
   
   // Fullständig vy
   return (
-    <ScrollView>
+    <ScrollView testID={testID}>
       <Card style={styles.card}>
         <Card.Title title="Användarstatistik" />
         <Card.Content>

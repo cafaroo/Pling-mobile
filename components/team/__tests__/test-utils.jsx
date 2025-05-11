@@ -2,12 +2,21 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+// Hjälpfunktion för att direkt anropa en komponents onPress
+export function simulatePress(element) {
+  if (element && element.props && typeof element.props.onPress === 'function') {
+    element.props.onPress();
+    return true;
+  }
+  return false;
+}
+
 // Skapar en ny queryClient för varje test
 export function renderWithProviders(ui) {
   const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
+    defaultOptions: {
+      queries: {
+        retry: false,
         staleTime: Infinity,
       },
     },
@@ -17,9 +26,35 @@ export function renderWithProviders(ui) {
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
   );
 
+  // Utökad fireEvent-hantering
+  const enhancedFireEvent = {
+    ...utils.fireEvent,
+    press: (element) => {
+      const result = utils.fireEvent.press(element);
+      
+      // Om standardmetoden inte fungerar, prova direkt anrop
+      if (element && element.props && typeof element.props.onPress === 'function') {
+        element.props.onPress();
+      }
+      
+      return result;
+    }
+  };
+
+  // Ersätt fireEvent med vår utökade version
+  utils.fireEvent = enhancedFireEvent;
+
   // Hitta alla DOM-element inklusive deras props/barn
   const findAllElements = () => {
-    return utils.UNSAFE_root.findAll((node) => node.props !== undefined);
+    try {
+      if (utils.UNSAFE_root && typeof utils.UNSAFE_root.findAll === 'function') {
+        return utils.UNSAFE_root.findAll((node) => node.props !== undefined);
+      }
+      return [];
+    } catch (error) {
+      console.warn('Kunde inte hitta element med UNSAFE_root:', error);
+      return [];
+    }
   };
 
   // Specialversion som hittar text oavsett om det är via text-innehåll eller props
@@ -30,6 +65,7 @@ export function renderWithProviders(ui) {
   return {
     ...utils,
     queryClient,
+    simulatePress,
     // Utökade selektorer för att hantera både text och testID
     getByText: (text) => {
       try {

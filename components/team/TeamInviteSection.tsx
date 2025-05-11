@@ -62,9 +62,13 @@ export function TeamInviteSection({
     }
   };
 
+  // Om inget team är valt, visa "gå med i team"-formulär
   if (!selectedTeam) {
     return (
-      <View style={[styles.container, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }, style]}>
+      <View 
+        testID="team-invite-section"
+        style={[styles.container, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }, style]}
+      >
         <Text style={[styles.title, { color: colors.text.main }]}>
           Gå med i ett team
         </Text>
@@ -93,10 +97,15 @@ export function TeamInviteSection({
     );
   }
 
+  // Om användaren inte är ledare, visa inget
   if (!isLeader) return null;
 
+  // För team-ledare, visa antingen generera-knapp eller befintlig inbjudningskod
   return (
-    <View style={[styles.container, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }, style]}>
+    <View 
+      testID="team-invite-section"
+      style={[styles.container, { backgroundColor: 'rgba(0, 0, 0, 0.2)' }, style]}
+    >
       <Text style={[styles.title, { color: colors.text.main }]}>
         Bjud in medlemmar
       </Text>

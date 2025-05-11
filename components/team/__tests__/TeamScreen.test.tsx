@@ -193,7 +193,7 @@ const queryClient = new QueryClient({
 
 describe('TeamScreen', () => {
   beforeEach(() => {
-    queryClient.clear();
+    queryClient.resetQueries();
     jest.clearAllMocks();
     (getTeam as jest.Mock).mockResolvedValue({ success: true, data: mockTeam });
   });

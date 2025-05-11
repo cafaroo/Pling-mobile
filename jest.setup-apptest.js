@@ -126,4 +126,138 @@ afterEach(() => {
 // Global error handling
 process.on('unhandledRejection', (error) => {
   console.error('Unhandled Promise Rejection in UI Test:', error);
+});
+
+// jest-dom adds custom jest matchers for asserting on DOM nodes.
+// allows you to do things like:
+// expect(element).toHaveTextContent(/react/i)
+// learn more: https://github.com/testing-library/jest-dom
+require('@testing-library/jest-native/extend-expect');
+
+// Mock react-native-reanimated
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
+// Polyfill for timers
+global.setImmediate = (callback, ...args) => global.setTimeout(callback, 0, ...args);
+global.queueMicrotask = global.queueMicrotask || ((callback) => Promise.resolve().then(callback));
+
+// Mock useWindowDimensions
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => {
+  return {
+    __esModule: true,
+    default: () => ({
+      width: 375,
+      height: 667,
+      scale: 1,
+      fontScale: 1,
+    }),
+  };
+});
+
+// Mock NativeModules
+jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
+jest.mock('react-native/Libraries/EventEmitter/NativeEventEmitter');
+
+// Mock useColorScheme
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => {
+  return {
+    __esModule: true,
+    default: () => 'light',
+  };
+});
+
+// Mock Platform.OS
+jest.mock('react-native/Libraries/Utilities/Platform', () => ({
+  OS: 'ios',
+  select: jest.fn(obj => obj.ios || obj.default),
+}));
+
+// Mute LogBox warnings
+jest.mock('react-native/Libraries/LogBox/LogBox', () => ({
+  ignoreLogs: jest.fn(),
+  ignoreAllLogs: jest.fn(),
+}));
+
+// Mock expo-font
+jest.mock('expo-font');
+
+// Mock expo constants
+jest.mock('expo-constants', () => ({
+  expoConfig: {
+    extra: {
+      supabaseUrl: 'https://example.supabase.co',
+      supabaseKey: 'mock-key',
+      auth0ClientId: 'mock-client-id',
+      auth0Domain: 'mock-domain.eu.auth0.com',
+    },
+  },
+  manifest: {
+    extra: {
+      supabaseUrl: 'https://example.supabase.co',
+      supabaseKey: 'mock-key',
+      auth0ClientId: 'mock-client-id',
+      auth0Domain: 'mock-domain.eu.auth0.com',
+    },
+  },
+}));
+
+// Mock expo-secure-store
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn().mockResolvedValue('mock-token'),
+  setItemAsync: jest.fn().mockResolvedValue(true),
+  deleteItemAsync: jest.fn().mockResolvedValue(true),
+}));
+
+// Mock expo-clipboard
+jest.mock('expo-clipboard', () => ({
+  setStringAsync: jest.fn().mockResolvedValue(true),
+  getStringAsync: jest.fn().mockResolvedValue('mocked-clipboard-content'),
+}));
+
+// Direkt mocka moduler utan custom implementering
+jest.mock('expo-image-picker');
+jest.mock('expo-linear-gradient');
+jest.mock('react-native-paper');
+jest.mock('react-native-safe-area-context');
+jest.mock('react-native-gesture-handler');
+jest.mock('lucide-react-native');
+jest.mock('@expo/vector-icons');
+jest.mock('react-hook-form');
+jest.mock('expo-router');
+jest.mock('zod');
+jest.mock('react-native-calendars');
+
+// Mock async-storage
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  setItem: jest.fn().mockResolvedValue(null),
+  getItem: jest.fn().mockResolvedValue('{}'),
+  removeItem: jest.fn().mockResolvedValue(null),
+  getAllKeys: jest.fn().mockResolvedValue([]),
+  multiGet: jest.fn().mockResolvedValue([]),
+  clear: jest.fn().mockResolvedValue(null),
+}));
+
+// Konfiguration för debugging
+global.JEST_TEST_RUNNING = true;
+global.__DEV__ = true;
+
+// Jest timers för asynkrona operationer
+jest.setTimeout(30000);
+
+// Rensa mockar mellan tester
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+// Lägg till för att hantera CORS-problem i tester
+global.fetch = jest.fn().mockImplementation((url, options) => {
+  return Promise.resolve({
+    json: () => Promise.resolve({}),
+    text: () => Promise.resolve(""),
+    status: 200,
+    ok: true,
+    headers: {
+      get: () => 'application/json',
+    },
+  });
 }); 

@@ -15,6 +15,7 @@ Efter övergången till React Native 0.76+ och ESM har vi genomfört omfattande 
 | [Domäntestprinciper](./domain-testing-principles.md) | Principer för domänlogiktester |
 | [UI-testprinciper](./ui-testing-principles.md) | Principer för komponenttester |
 | [Domäntest av hooks](./domain-test-hooks.md) | Speciell guide för hooks i domäntestmiljö |
+| [UI-testfixar](./ui_testing_fixes.md) | Praktiska lösningar för vanliga UI-testproblem |
 
 ## Testkommandon
 
@@ -48,6 +49,12 @@ Efter övergången till React Native 0.76+ och ESM har vi genomfört omfattande 
 5. **Stöd för kontinuerlig integration**
    - Skript för clean-cache och olika testkategorier
    - Batch-filer för Windows-miljö
+   
+6. **Lösta UI-test problem**
+   - Robust hantering av nullvärden i React Hook Form
+   - Förbättrade zod-mockar som hanterar form-validering
+   - Användning av testID för att hitta element konsekvent
+   - Förenklad testmetodik med fokus på resultat, inte implementation
 
 ## Återstående uppgifter
 
@@ -60,9 +67,9 @@ Efter övergången till React Native 0.76+ och ESM har vi genomfört omfattande 
    - Ersätt `queryClient.clear()` med `queryClient.resetQueries()`
    - Uppdatera tester som förlitar sig på denna metod
 
-3. **Åtgärda återstående testfel**
-   - Fixa TeamStatistics testerna (ok vs err resultat)
-   - Förbättra mock-implementation av React Query
+3. **Åtgärda integrationstester**
+   - Fixa importsökvägar för moduler som useSupabase
+   - Skapa mockstrategier för API-integrationer
 
 4. **Öka testprestanda**
    - Optimera mockningar

@@ -164,15 +164,15 @@ jest.mock('../useOptimizedUserDependencies', () => ({
   })
 }));
 
-// Mocka useAuthState - fixa sökväg
-jest.mock('@/infrastructure/auth', () => ({
-  useAuthState: jest.fn().mockReturnValue({
-    user: { id: 'test-user-id', email: 'test@example.com' },
-    session: { access_token: 'mock-token' },
-    isLoading: false,
-    isSignedIn: true
-  })
-}));
+// Mocka useAuthState - sökvägen är fel så vi kommenterar bort detta
+// jest.mock('@/infrastructure/auth', () => ({
+//   useAuthState: jest.fn().mockReturnValue({
+//     user: { id: 'test-user-id', email: 'test@example.com' },
+//     session: { access_token: 'mock-token' },
+//     isLoading: false,
+//     isSignedIn: true
+//   })
+// }));
 
 // Direkt mock för useUser
 jest.mock('../useUser', () => ({

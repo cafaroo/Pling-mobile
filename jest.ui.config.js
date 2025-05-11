@@ -11,7 +11,7 @@ module.exports = {
     ]
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(jest-)?react-native|@react-native|@react-native-community|@react-navigation|@testing-library|react-native-paper|react-native-gesture-handler|react-native-toast-message|@react-native-async-storage|expo|expo-.*|@expo.*|sentry-expo|native-base|@tanstack)/',
+    'node_modules/(?!(jest-)?react-native|@react-native|@react-native-community|@react-navigation|@testing-library|react-native-paper|react-native-gesture-handler|react-native-toast-message|@react-native-async-storage|expo|expo-.*|@expo.*|sentry-expo|native-base|@tanstack|react-hook-form|zod|react-native-calendars|lucide-react-native)/',
   ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup-apptest.js'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
@@ -40,7 +40,12 @@ module.exports = {
     '^@/infrastructure/events/eventBus$': '<rootDir>/src/infrastructure/events/__mocks__/eventBus.ts',
     '^@/infrastructure/monitoring/PerformanceMonitor$': '<rootDir>/src/infrastructure/monitoring/__mocks__/PerformanceMonitor.ts',
     'react-native-toast-message': '<rootDir>/__mocks__/react-native-toast-message.js',
-    '@testing-library/react-native': '<rootDir>/__mocks__/@testing-library/react-native.js'
+    '@testing-library/react-native': '<rootDir>/__mocks__/@testing-library/react-native.js',
+    'react-hook-form': '<rootDir>/__mocks__/react-hook-form.js',
+    'expo-router': '<rootDir>/__mocks__/expo-router.js',
+    'zod': '<rootDir>/__mocks__/zod.js',
+    'react-native-calendars': '<rootDir>/__mocks__/react-native-calendars.js',
+    'expo-linear-gradient': '<rootDir>/__mocks__/expo-linear-gradient.js'
   },
   testMatch: [
     '<rootDir>/components/**/*.test.{ts,tsx,js,jsx}',

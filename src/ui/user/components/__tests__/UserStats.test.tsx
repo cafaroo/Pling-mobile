@@ -39,7 +39,6 @@ const mockStatistics = {
 
 // Mocka react-native-paper komponenter
 jest.mock('react-native-paper', () => {
-  const RealModule = jest.requireActual('react-native-paper');
   const mockComponent = (name) => {
     const component = ({ children, ...props }) => {
       return (
@@ -53,7 +52,6 @@ jest.mock('react-native-paper', () => {
   };
   
   return {
-    ...RealModule,
     useTheme: () => ({
       colors: {
         primary: '#000',
@@ -62,13 +60,11 @@ jest.mock('react-native-paper', () => {
       }
     }),
     Card: {
-      ...RealModule.Card,
       Title: ({ title, ...props }) => <mock-card-title>{title}</mock-card-title>,
       Content: ({ children, ...props }) => <mock-card-content>{children}</mock-card-content>,
     },
     Text: ({ children, ...props }) => <mock-text>{children}</mock-text>,
     List: {
-      ...RealModule.List,
       Section: ({ children, ...props }) => <mock-list-section>{children}</mock-list-section>,
       Subheader: ({ children, ...props }) => <mock-list-subheader>{children}</mock-list-subheader>,
       Item: ({ title, ...props }) => <mock-list-item>{title}</mock-list-item>,
@@ -81,6 +77,17 @@ jest.mock('react-native-paper', () => {
     },
     Chip: ({ children, ...props }) => <mock-chip>{children}</mock-chip>,
     Badge: mockComponent('Badge'),
+    DataTable: {
+      Header: mockComponent('DataTable.Header'),
+      Title: mockComponent('DataTable.Title'),
+      Row: mockComponent('DataTable.Row'),
+      Cell: mockComponent('DataTable.Cell'),
+      Pagination: mockComponent('DataTable.Pagination'),
+    },
+    Surface: mockComponent('Surface'),
+    Button: mockComponent('Button'),
+    Menu: mockComponent('Menu'),
+    Provider: ({ children, ...props }) => <mock-provider>{children}</mock-provider>,
   };
 });
 
@@ -93,30 +100,32 @@ jest.mock('@expo/vector-icons', () => ({
 
 describe('UserStats', () => {
   it('ska rendera kompakt vy korrekt', () => {
-    const { root } = render(
+    const { getByTestId } = render(
       <UserStats
         user={mockUser}
         statistics={mockStatistics}
         compact={true}
+        testID="user-stats"
       />
     );
     
     // Notera: Vi kan inte använda getByText med mockade komponenter på samma sätt,
     // så vi skippar de specifika kontrollerna för denna mocking-strategi
     // Istället bekräftar vi bara att komponenten renderas utan fel
-    expect(root).toBeTruthy();
+    expect(getByTestId('user-stats')).toBeTruthy();
   });
   
   it('ska rendera fullständig vy korrekt', () => {
-    const { root } = render(
+    const { getByTestId } = render(
       <UserStats
         user={mockUser}
         statistics={mockStatistics}
+        testID="user-stats"
       />
     );
     
     // Bekräfta att komponenten renderas utan fel
-    expect(root).toBeTruthy();
+    expect(getByTestId('user-stats')).toBeTruthy();
   });
   
   it('ska anropa onStatClick när man klickar på en statistik', () => {
@@ -125,15 +134,16 @@ describe('UserStats', () => {
     // Med vår nuvarande mocking-strategi är det svårt att testa klickhändelser
     // Detta är ett känt problem med mockade komponenter
     // Vi bekräftar bara att komponenten renderas utan fel
-    const { root } = render(
+    const { getByTestId } = render(
       <UserStats
         user={mockUser}
         statistics={mockStatistics}
         onStatClick={mockOnStatClick}
+        testID="user-stats"
       />
     );
     
-    expect(root).toBeTruthy();
+    expect(getByTestId('user-stats')).toBeTruthy();
   });
   
   it('ska visa rätt nivåinformation baserat på statistik', () => {
@@ -148,10 +158,10 @@ describe('UserStats', () => {
     };
     
     // Renderas utan fel även med låga poäng
-    const { root: lowStatsRoot } = render(
-      <UserStats user={mockUser} statistics={mockLowStats} />
+    const { getByTestId: getLowTestId } = render(
+      <UserStats user={mockUser} statistics={mockLowStats} testID="user-stats-low" />
     );
-    expect(lowStatsRoot).toBeTruthy();
+    expect(getLowTestId('user-stats-low')).toBeTruthy();
     
     // Höga poäng
     const mockHighStats = {
@@ -161,9 +171,9 @@ describe('UserStats', () => {
     };
     
     // Renderas utan fel även med höga poäng
-    const { root: highStatsRoot } = render(
-      <UserStats user={mockUser} statistics={mockHighStats} />
+    const { getByTestId: getHighTestId } = render(
+      <UserStats user={mockUser} statistics={mockHighStats} testID="user-stats-high" />
     );
-    expect(highStatsRoot).toBeTruthy();
+    expect(getHighTestId('user-stats-high')).toBeTruthy();
   });
 }); 

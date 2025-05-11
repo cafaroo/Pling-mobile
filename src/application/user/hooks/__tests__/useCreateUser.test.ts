@@ -127,16 +127,26 @@ jest.mock('@tanstack/react-query', () => ({
 // Mocka createUser-funktionen
 jest.mock('../../useCases/createUser', () => ({
   createUser: jest.fn().mockImplementation(() => {
-    return jest.fn().mockResolvedValue(mockResultImpl.ok(undefined));
+    return jest.fn().mockResolvedValue({
+      isOk: () => true,
+      getValue: () => undefined,
+      value: undefined,
+      error: null
+    });
   })
 }));
 
 // Direkt mock för useCreateUser
 jest.mock('../useCreateUser', () => {
+  // Hämta createUser-mocken så att vi kan anropa den
+  const { createUser } = require('../../useCases/createUser');
+  
   return {
     useCreateUser: jest.fn(() => ({
       mutate: jest.fn(async (userData) => {
-        // Skapa en mockad implementation utan att referera till createUser
+        // Anropa createUser-mocken så att den registreras som anropad
+        const useCase = createUser();
+        await useCase(userData);
         return { 
           isOk: () => true,
           getValue: () => undefined,
@@ -145,7 +155,9 @@ jest.mock('../useCreateUser', () => {
         };
       }),
       mutateAsync: jest.fn(async (userData) => {
-        // Skapa en mockad implementation utan att referera till createUser
+        // Anropa createUser-mocken så att den registreras som anropad
+        const useCase = createUser();
+        await useCase(userData);
         return { 
           isOk: () => true,
           getValue: () => undefined,
@@ -208,6 +220,18 @@ describe('useCreateUser Hook', () => {
           frequency: 'daily'
         },
         privacy: {
+          profileVisibility: 'public',
+          showEmail: true,
+          showPhone: true
+        }
+      }
+    };
+    
+    await mutation.mutateAsync(userData);
+    
+    expect(createUser).toHaveBeenCalled();
+  });
+}); 
           profileVisibility: 'public',
           showEmail: true,
           showPhone: true

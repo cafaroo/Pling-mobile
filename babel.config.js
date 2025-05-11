@@ -3,6 +3,7 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
+      '@babel/plugin-transform-modules-commonjs',
       [
         'module-resolver',
         {
@@ -24,6 +25,11 @@ module.exports = function (api) {
           }
         }
       ]
-    ]
+    ],
+    env: {
+      test: {
+        plugins: ['@babel/plugin-transform-modules-commonjs']
+      }
+    }
   };
 }; 

@@ -7,6 +7,8 @@ import { PerformanceMonitor } from './monitoring/PerformanceMonitor';
 import { SupabaseTeamActivityRepository } from './supabase/repositories/SupabaseTeamActivityRepository';
 import { TeamActivityRepository } from '@/domain/team/repositories/TeamActivityRepository';
 import { OptimizedTeamActivityRepository } from './supabase/repositories/OptimizedTeamActivityRepository';
+import { OrganizationRepository } from '@/domain/organization/repositories/OrganizationRepository';
+import { SupabaseOrganizationRepository } from './repositories/organization/SupabaseOrganizationRepository';
 
 /**
  * Konfigurationsalternativ för infrastruktur
@@ -81,6 +83,7 @@ export class InfrastructureFactory {
   private userRepository?: OptimizedUserRepository;
   private cacheService?: CacheService;
   private teamActivityRepository?: SupabaseTeamActivityRepository;
+  private organizationRepository?: SupabaseOrganizationRepository;
   
   private constructor(
     supabase: SupabaseClient,
@@ -198,6 +201,27 @@ export class InfrastructureFactory {
     }
     
     return this.teamActivityRepository;
+  }
+  
+  /**
+   * Hämta OrganizationRepository
+   */
+  public getOrganizationRepository(): OrganizationRepository {
+    if (!this.organizationRepository) {
+      const cache = this.getCacheService('organization');
+      const logger = this.getLogger();
+      const performanceMonitor = this.getPerformanceMonitor();
+      
+      this.organizationRepository = new SupabaseOrganizationRepository(
+        this.supabase,
+        this.eventBus,
+        cache,
+        logger,
+        performanceMonitor
+      );
+    }
+    
+    return this.organizationRepository;
   }
   
   /**

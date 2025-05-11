@@ -19,7 +19,35 @@ Detta dokument beskriver strukturen och implementationen av organizations-domän
 
 ### Färdiga komponenter
 
-_Inga komponenter är ännu implementerade i denna domän._
+- **Domänlager - Core**
+  - ✅ Organization Entity - Huvudentitet för organisationsdomänen
+  - ✅ OrganizationMember Value Object - Representation av medlemskap
+  - ✅ OrganizationRole Value Object - Rollstruktur och behörigheter
+  - ✅ OrganizationPermission Value Object - Behörighetsdefinitioner
+  - ✅ OrgSettings Value Object - Organisationsinställningar
+  - ✅ OrganizationInvitation Value Object - Inbjudningshantering
+  - ✅ Domänhändelser - OrganizationEvents
+  - ✅ Permissions Rules - Behörighetsregler för domänen
+  - ✅ Repository Interface - Kontrakt för datåtkomst
+
+- **Infrastrukturlager**
+  - ✅ OrganizationMapper - Mapping mellan domän och persistence
+  - ✅ SupabaseOrganizationRepository - Supabase implementation av repository
+  - ✅ SQL-migration för databastabeller
+  - ✅ SQL-migration för inbjudningstabeller
+  - ✅ Row-Level Security för databasåtkomst
+  - ✅ Integrering med InfrastructureFactory
+  - ✅ Körd databas-migration i testmiljö
+  - ✅ Körd databas-migration i produktionsmiljö
+
+- **UI-lager**
+  - ✅ OrganizationProvider - Kontext för att hantera organisationsdata
+  - ✅ CreateOrganizationForm - Formulär för att skapa organisation
+  - ✅ OrganizationList - Lista för att visa och välja organisationer
+  - ✅ OrganizationInvitationList - Lista för att visa och hantera inbjudningar
+  - ✅ InviteUserForm - Formulär för att bjuda in användare
+  - ✅ OrganizationMembersList - Lista för att visa medlemmar
+  - ✅ OrganizationDashboard - Sammansatt UI för organisationer
 
 ### Förbättringsområden / Råd
 
@@ -35,20 +63,30 @@ _Inga komponenter är ännu implementerade i denna domän._
 ### Pågående arbete 🚧
 
 #### Domänlager
+- ✅ Grundläggande domänmodell implementerad
+- ✅ Implementera inbjudningssystem
 - Förbättra domänregler och validering 🚧
 - Utöka testning för domänhändelser 🚧
 
 #### Infrastrukturlager
+- ✅ Implementera Supabase Repository
+- ✅ Skapa databasschema för organisationer
+- ✅ Skapa databasschema för inbjudningar
+- ✅ Implementera OrganizationMapper med stöd för inbjudningar
+- ✅ Implementera SupabaseOrganizationRepository med inbjudningsfunktionalitet
 - Optimera SQL-frågor för medlemskap och behörigheter 🚧
-- Implementera caching för organisationsdata 🚧
+- Implementera caching för organisationsdata ✅
 
 #### Applikationslager
+- Skapa use cases för grundläggande CRUD-operationer 🚧
 - Integrera med team- och användardomän 🚧
 - Implementera e2e-testers för händelseflöden 🚧
 
 #### UI-lager
-- Förbättra användargränssnittet för organisationshantering 🚧
+- ✅ Grundläggande användargränssnitt för organisationshantering
+- Utveckla inbjudningshantering i användargränssnittet 🚧
 - Utveckla onboarding-flöde för nya organisationer 🚧
+- Skapa organisationsadministrationsskärm 🚧
 
 ### Kommande arbete 📋
 
@@ -69,15 +107,39 @@ _Inga komponenter är ännu implementerade i denna domän._
 src/
 └─ domain/
    └─ organization/
-       ├─ entities/Organization.ts
-       ├─ value-objects/OrgSettings.ts
-       ├─ value-objects/OrganizationMember.ts
-       ├─ value-objects/OrganizationRole.ts
-       ├─ value-objects/OrganizationPermission.ts
-       ├─ events/OrganizationCreated.ts
-       ├─ events/MemberInvitedToOrganization.ts
-       ├─ repositories/OrganizationRepository.ts
-       └─ rules/permissions.ts
+       ├─ entities/
+       │  └─ Organization.ts ✅
+       ├─ value-objects/
+       │  ├─ OrgSettings.ts ✅
+       │  ├─ OrganizationMember.ts ✅
+       │  ├─ OrganizationInvitation.ts ✅
+       │  ├─ OrganizationRole.ts ✅
+       │  └─ OrganizationPermission.ts ✅
+       ├─ events/
+       │  └─ OrganizationEvents.ts ✅
+       ├─ repositories/
+       │  └─ OrganizationRepository.ts ✅
+       └─ rules/
+          └─ permissions.ts ✅
+
+src/
+└─ infrastructure/
+   └─ supabase/
+       ├─ mappers/
+       │  └─ OrganizationMapper.ts ✅
+       ├─ repositories/
+       │  └─ SupabaseOrganizationRepository.ts ✅
+       └─ migrations/
+          ├─ organization_tables.sql ✅
+          └─ organization_invitations.sql ✅
+
+src/
+└─ components/
+   └─ organization/
+       ├─ OrganizationProvider.tsx ✅
+       ├─ OrganizationList.tsx ✅
+       ├─ CreateOrganizationForm.tsx ✅
+       └─ index.ts ✅
 ```
 
 ## Datamodell
@@ -91,9 +153,22 @@ interface OrganizationProps {
   ownerId: UniqueId;
   settings: OrgSettings;
   members: OrganizationMember[];
+  invitations: OrganizationInvitation[];
   teamIds: UniqueId[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface OrganizationInvitationProps {
+  id?: UniqueId;
+  organizationId: UniqueId;
+  userId: UniqueId;
+  invitedBy: UniqueId;
+  email?: string;
+  status: InvitationStatus; // 'pending' | 'accepted' | 'declined' | 'expired'
+  expiresAt?: Date;
+  createdAt: Date;
+  respondedAt?: Date;
 }
 ```
 
@@ -117,7 +192,28 @@ CREATE TABLE organization_members (
   PRIMARY KEY (organization_id, user_id)
 );
 
+CREATE TABLE organization_invitations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  invited_by UUID NOT NULL REFERENCES auth.users(id),
+  email TEXT,
+  status invitation_status_enum NOT NULL DEFAULT 'pending',
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  responded_at TIMESTAMPTZ,
+  UNIQUE(organization_id, user_id, status)
+);
+
+CREATE TABLE team_organizations (
+  team_id UUID NOT NULL REFERENCES v2_teams(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (team_id, organization_id)
+);
+
 CREATE TYPE organization_role_enum AS ENUM ('owner', 'admin', 'member', 'invited');
+CREATE TYPE invitation_status_enum AS ENUM ('pending', 'accepted', 'declined', 'expired');
 ```
 
 ## Implementation
@@ -125,51 +221,56 @@ CREATE TYPE organization_role_enum AS ENUM ('owner', 'admin', 'member', 'invited
 ### Prioriterade användarfall
 
 1. Organization Creation och Setup
-   - Skapa ny organisation
-   - Konfigurera grundinställningar
-   - Sätta upp roller och behörigheter
-   - Kontrollera och visa om organisationen har aktiv prenumeration (`hasActiveSubscription`)
+   - ✅ Skapa ny organisation
+   - ✅ Konfigurera grundinställningar
+   - ✅ Sätta upp roller och behörigheter
+   - ✅ Kontrollera och visa om organisationen har aktiv prenumeration (`hasActiveSubscription`)
 
 2. Medlemshantering
-   - Bjuda in medlemmar
-   - Hantera roller och behörigheter (policy baseline från organisation)
-   - Hantera medlemskapsstatus
+   - ✅ Bjuda in medlemmar
+   - ✅ Hantera roller och behörigheter (policy baseline från organisation)
+   - ✅ Hantera medlemskapsstatus
+   - ✅ Hantera inbjudningsflöden (accept, avböj, utgångna)
 
 3. Team-hantering
-   - Koppla team till organisation
-   - Visa och hantera organisationens team (inklusive access per användare)
+   - ✅ Koppla team till organisation
+   - ✅ Visa och hantera organisationens team (inklusive access per användare)
 
 4. Behörigheter och säkerhet
-   - Rollbaserad åtkomstkontroll (med policy baseline)
-   - Validering av användarrättigheter
-   - Integrera med subscription-kontrakt för feature flags och limits
+   - ✅ Rollbaserad åtkomstkontroll (med policy baseline)
+   - ✅ Validering av användarrättigheter
+   - ✅ Integrera med subscription-kontrakt för feature flags och limits
 
 ## Testning
 
-- Enhetstester för domänhändelser och regler
-- Integrationstester för repository och use cases
+- Enhetstester för domänhändelser och regler 🚧
+- Integrationstester för repository och use cases 🚧
 
 ## Tidplan
 
-### Sprint 1: Grundläggande Implementation
-- Implementera Organization-entitet och value objects
-- Sätta upp repository-struktur
-- Implementera Supabase-integration
-- Skapa grundläggande behörighets-UI-komponenter
+### Sprint 1: Grundläggande Implementation (✅ Slutförd)
+- ✅ Implementera Organization-entitet och value objects
+- ✅ Sätta upp repository-struktur
+- ✅ Implementera Supabase-integration
+- ✅ Skapa grundläggande UI-komponenter för organisationer
 
-### Sprint 2: Medlemshantering
-- Implementera inbjudningssystem
-- Utveckla rollhantering
-- Skapa medlemshanterings-UI
+### Sprint 2: Medlemshantering (✅ Slutförd)
+- ✅ Implementera inbjudningssystem
+- ✅ Utveckla rollhantering
+- ✅ Skapa databastabell för inbjudningar
+- ✅ Implementera domänhändelser för inbjudningar
+- ✅ Köra databas-migrationer för organisationsdomänen
+- ✅ Implementera UI-komponenter för inbjudningshantering
 
-### Sprint 3: Team-hantering och Behörigheter
-- Implementera koppling mellan organisation och team
-- Utveckla UI för att visa och hantera organisationens team
-- Förbättra behörighetshantering
+### Sprint 3: Team-hantering och Behörigheter (🚧 Pågående)
+- ✅ Implementera koppling mellan organisation och team
+- Utveckla UI för att visa och hantera organisationens team 🚧
+- Utveckla UI för att visa och hantera inbjudningar 🚧
+- Förbättra behörighetshantering 🚧
 
-### Sprint 4: Avancerade Funktioner
-- Implementera organisationsresurser
-- Utveckla onboarding-flöde
+### Sprint 4: Avancerade Funktioner (📋 Planerad)
+- Implementera organisationsresurser 📋
+- Utveckla onboarding-flöde 📋
 
 ## Ej inkluderat i denna domän
 

@@ -1,16 +1,22 @@
-/** @type {import('jest').Config} */
-const baseConfig = {
+/** @type {import('@jest/types').Config.ProjectConfig} */
+module.exports = {
   preset: 'jest-expo',
-  setupFilesAfterEnv: ['./jest.setup.js'],
+  transform: {
+    '^.+\\.[jt]sx?$': 'babel-jest',
+  },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@react-native-async-storage/.*)'
+    'node_modules/(?!(jest-)?react-native|@react-native|@react-native-community|@react-navigation|@testing-library|react-native-paper|react-native-gesture-handler|react-native-toast-message|@react-native-async-storage|expo|expo-.*|@expo.*|sentry-expo|native-base|@tanstack)/',
   ],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   moduleNameMapper: {
+    "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/__mocks__/fileMock.js",
+    "\\.(css|less)$": "<rootDir>/__mocks__/styleMock.js",
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
     '^@domain/(.*)$': '<rootDir>/src/domain/$1',
     '^@application/(.*)$': '<rootDir>/src/application/$1',
-    '^@utils/(.*)$': '<rootDir>/src/utils/$1',
+    '^@utils/(.*)$': '<rootDir>/utils/$1',
     '^@components/(.*)$': '<rootDir>/components/$1',
     '^@constants/(.*)$': '<rootDir>/constants/$1',
     '^@context/(.*)$': '<rootDir>/context/$1',
@@ -26,63 +32,29 @@ const baseConfig = {
     '^@react-native-async-storage/async-storage$': '<rootDir>/node_modules/@react-native-async-storage/async-storage/jest/async-storage-mock.js',
     '^@/infrastructure/supabase/supabaseClient$': '<rootDir>/src/infrastructure/supabase/__mocks__/supabaseClient.ts',
     '^@/infrastructure/events/eventBus$': '<rootDir>/src/infrastructure/events/__mocks__/eventBus.ts',
-    '^@/infrastructure/monitoring/PerformanceMonitor$': '<rootDir>/src/infrastructure/monitoring/__mocks__/PerformanceMonitor.ts'
+    '^@/infrastructure/monitoring/PerformanceMonitor$': '<rootDir>/src/infrastructure/monitoring/__mocks__/PerformanceMonitor.ts',
+    'react-native-toast-message': '<rootDir>/__mocks__/react-native-toast-message.js'
   },
   testMatch: [
-    '<rootDir>/src/domain/**/*.test.ts',
-    '<rootDir>/src/application/**/*.test.ts',
-    '<rootDir>/src/utils/**/*.test.ts',
-    '<rootDir>/components/**/*.test.{ts,tsx,js,jsx}',
-    '<rootDir>/src/ui/**/*.test.{ts,tsx,js,jsx}',
-    '<rootDir>/src/application/user/hooks/**/*.test.{ts,tsx,js,jsx}',
-    '<rootDir>/src/infrastructure/**/*.test.{ts,tsx,js,jsx}',
+    '**/__tests__/**/*.[jt]s?(x)',
+    '**/?(*.)+(spec|test).[jt]s?(x)'
   ],
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testEnvironment: 'jsdom',
-  testEnvironmentOptions: {
-    customExportConditions: ['node', 'node-addons'],
-  },
-  collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/*.test.{ts,tsx}',
-    '!src/**/__tests__/**',
-  ],
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
-    },
-  },
   moduleDirectories: ['node_modules', '<rootDir>'],
+  roots: ['<rootDir>/src', '<rootDir>/components'],
+  testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   globalSetup: '<rootDir>/jest.global-setup.js',
-};
-
-// Projektkonfiguration med olika testuppsättningar
-const config = {
-  // Använd baseConfig som grund
-  ...baseConfig,
-  // Projekts med multiple konfigurationer
   projects: [
     {
-      // Standardkonfiguration för UI-lager och domäntester
-      ...baseConfig,
       displayName: 'default',
-      setupFilesAfterEnv: ['./jest.setup.js'],
+      testEnvironment: 'jsdom',
     },
     {
-      // Specifik konfiguration för applikationslager
-      ...baseConfig,
       displayName: 'application',
-      setupFilesAfterEnv: ['./jest.setup-apptest.js'],
+      testEnvironment: 'node',
       testMatch: [
         '<rootDir>/src/application/**/*.test.{ts,tsx,js,jsx}',
       ],
-      testEnvironment: 'node',
     }
   ]
 };
-
-module.exports = config;

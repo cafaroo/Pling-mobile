@@ -281,3 +281,136 @@ Vi har implementerat robusta RLS-policyer för databasåtkomst:
    - Alla ändringar i RLS-policyer måste göras genom migrationsfiler
    - Alltid testa ändringar i RLS-policyer noggrant
    - Dokumentera alla RLS-policyer i projektdokumentationen 
+
+## Organisationsinbjudningssystem
+
+### Databasoptimering för inbjudningar
+
+`SupabaseOrganizationRepository` har implementerats för att effektivt hantera organisationer och deras inbjudningar. Följande optimeringar har gjorts för inbjudningssystemet:
+
+- Indexerade tabeller för snabb åtkomst till inbjudningar
+- Triggerfunktioner för att automatiskt hantera utgångna inbjudningar
+- Optimerade JOIN-frågor för att hämta organisations- och inbjudningsdata samtidigt
+- Row-Level Security (RLS) för säkerhetsoptimerad filtrering
+- Cachningsstrategi med 5 minuters TTL och automatisk cache-invalidering vid ändringar
+
+### Databasindex för inbjudningssystemet
+
+Följande index är implementerade för att optimera prestandan för inbjudningsrelaterade operationer:
+
+- `idx_organization_invitations_org_id` - Index för organizations-ID i organization_invitations
+- `idx_organization_invitations_user_id` - Index för användar-ID i organization_invitations
+- `idx_organization_invitations_status` - Index för status i organization_invitations
+
+Dessa index förbättrar prestandan för:
+
+1. Hämtning av alla inbjudningar för en organisation
+2. Hämtning av alla inbjudningar för en användare
+3. Filtrering baserat på inbjudningsstatus (pending, accepted, etc.)
+
+### Databastriggers för inbjudningshantering
+
+För att automatiskt hantera utgångna inbjudningar har följande databastriggers implementerats:
+
+```sql
+-- Trigger för att automatiskt markera utgångna inbjudningar vid uppdatering
+CREATE TRIGGER check_invitation_expiration
+BEFORE UPDATE ON organization_invitations
+FOR EACH ROW
+EXECUTE FUNCTION handle_expired_invitations();
+```
+
+Triggerfunktionen kontrollerar utgångsdatum och uppdaterar status automatiskt:
+
+```sql
+CREATE OR REPLACE FUNCTION handle_expired_invitations()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Om vi försöker uppdatera en inbjudan men den har gått ut, markera den som utgången
+  IF OLD.status = 'pending' AND NEW.status = 'pending' AND NEW.expires_at < NOW() THEN
+    NEW.status = 'expired';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Cachningsstrategier för organisationsdata
+
+`SupabaseOrganizationRepository` implementerar nu följande cachningsstrategier:
+
+1. **Entitets-caching**:
+   - Hela organisationsobjekt med medlemmar, inbjudningar och team cachas
+   - TTL på 5 minuter för balans mellan prestanda och datafräschhet
+   - Automatisk cache-invalidering vid uppdateringar
+
+2. **Cache-hantering**:
+   - Selektiv invalidering vid ändringar: endast påverkade organisationer invalideras
+   - Versionshantering av cache tillåter global invalidering vid större ändringar
+   - Prestandaövervakning av cache-träffar och -missar
+
+3. **Cache-nyckelstruktur**:
+   ```
+   organization:{id} -> Organisation-entitet med alla relationer
+   ```
+
+### Prestandaoptimerad repository-implementation
+
+`SupabaseOrganizationRepository` implementerar flera prestandaoptimeringar:
+
+1. **Optimerade Select-frågor** med nested struktur för att minska antalet databasfrågor:
+   ```typescript
+   const { data } = await this.supabase
+     .from('organizations')
+     .select(`
+       *,
+       members:organization_members(...)
+     `)
+     .eq('id', id.toString())
+     .single();
+   ```
+
+2. **Batch-operationer** för effektivare databasuppdateringar:
+   ```typescript
+   // Uppdatera alla inbjudningar i en batch
+   const { error } = await this.supabase
+     .from('organization_invitations')
+     .upsert(invitationsToUpdate);
+   ```
+
+3. **Prestandamätning och loggning**:
+   - Alla operationer mäts och loggas för prestandaanalys
+   - Långsamma operationer flaggas automatiskt
+
+4. **Optimerad felhantering**:
+   - Strukturerad felrapportering och loggning
+   - Informativa felmeddelanden för enklare felsökning
+
+Dessa optimeringar resulterar i väsentligt förbättrad prestanda för hantering av organisationsinbjudningar, särskilt i system med många organisationer och användare.
+
+### Repository Factory och Dependency Injection
+
+Infrastrukturlagret använder factory-pattern för att skapa repository-instanser med korrekt konfigurerad caching:
+
+```typescript
+// Från InfrastructureFactory
+public getOrganizationRepository(): OrganizationRepository {
+  if (!this.organizationRepository) {
+    const cache = this.getCacheService('organization');
+    const logger = this.getLogger();
+    const performanceMonitor = this.getPerformanceMonitor();
+    
+    this.organizationRepository = new SupabaseOrganizationRepository(
+      this.supabase,
+      this.eventBus,
+      cache,
+      logger,
+      performanceMonitor
+    );
+  }
+  
+  return this.organizationRepository;
+}
+```
+
+Detta säkerställer att alla komponenter använder samma repository-instans med konsistent cachning och prestandamätning. 

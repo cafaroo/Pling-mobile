@@ -1,4 +1,9 @@
-global.__reanimatedLoggerConfig = { start: () => {}, stop: () => {} };
+/**
+ * Jest setup file för att konfigurera testmiljön
+ */
+
+import '@testing-library/jest-native/extend-expect';
+
 // Mocka miljövariabler för tester
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://mock-test-supabase.co';
 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key-for-testing';
@@ -7,6 +12,93 @@ process.env.SUPABASE_TEST_ANON_KEY = 'mock-anon-key-for-testing';
 process.env.API_URL = 'https://mock-api.pling.app/api';
 process.env.DOMAIN = 'mock.pling.app';
 process.env.ENVIRONMENT = 'test';
+
+// Konfigurera global
+global.__reanimatedLoggerConfig = { start: () => {}, stop: () => {} };
+
+// Konfigurera global.__mocks__ för tester som använder det
+global.__mocks__ = {
+  mockCacheService: {
+    get: jest.fn(),
+    set: jest.fn(),
+    remove: jest.fn(),
+    clear: jest.fn()
+  }
+};
+
+// Mocka react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaProvider: ({ children }) => children,
+  SafeAreaView: ({ children }) => children,
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
+
+// Mocka react-native-paper
+jest.mock('react-native-paper', () => {
+  const actual = jest.requireActual('react-native-paper');
+  return {
+    ...actual,
+    Portal: ({ children }) => children,
+  };
+});
+
+// Mocka react-native-toast-message
+jest.mock('react-native-toast-message', () => ({
+  __esModule: true,
+  default: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  },
+  Toast: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  },
+  toast: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  }
+}));
+
+// Mocka expo-clipboard
+jest.mock('expo-clipboard', () => ({
+  setStringAsync: jest.fn(),
+}));
+
+// Mocka expo-router
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  }),
+  useLocalSearchParams: jest.fn().mockReturnValue({}),
+  Link: 'Link',
+}));
+
+// Mocka @tanstack/react-query
+jest.mock('@tanstack/react-query', () => {
+  const actual = jest.requireActual('@tanstack/react-query');
+  return {
+    ...actual,
+    useQuery: jest.fn().mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    }),
+    useMutation: jest.fn().mockReturnValue({
+      mutate: jest.fn(),
+      isLoading: false,
+      error: null,
+      isSuccess: false,
+    }),
+  };
+});
+
+// Mocka typer som används i tester
+jest.mock('@types/shared', () => {
+  return require('./src/test-utils/__mocks__/typesMock').default;
+}, { virtual: true });
 
 // Konfigurera global
 global = {
@@ -83,6 +175,7 @@ jest.mock('react-native-safe-area-context', () => {
     SafeAreaConsumer: ({ children }) => children(inset),
     useSafeAreaInsets: () => inset,
     useSafeAreaFrame: () => ({ x: 0, y: 0, width: 390, height: 844 }),
+    SafeAreaView: ({ children }) => children,
   };
 });
 
@@ -114,17 +207,50 @@ jest.mock('react-native', () => {
       AppleLanguages: ['en'],
     },
   };
+  
+  // Mocka specifika moduler som kan orsaka problem
+  RN.Alert = {
+    alert: jest.fn()
+  };
+  
+  RN.Animated = {
+    ...RN.Animated,
+    timing: jest.fn(() => ({
+      start: jest.fn()
+    })),
+    Value: jest.fn(() => ({
+      interpolate: jest.fn(),
+      setValue: jest.fn()
+    }))
+  };
+  
   return RN;
 });
 
 // Mock för react-native-toast-message
 jest.mock('react-native-toast-message', () => ({
-  show: jest.fn(),
-  hide: jest.fn(),
+  __esModule: true,
+  default: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  },
+  Toast: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  },
+  toast: {
+    show: jest.fn(),
+    hide: jest.fn(),
+  }
 }));
 
-// Mock för AsyncStorage
-const mockAsyncStorage = {
+// Mocka Clipboard från expo
+jest.mock('expo-clipboard', () => ({
+  setStringAsync: jest.fn().mockResolvedValue(true)
+}));
+
+// Mocka AsyncStorage
+jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
@@ -135,9 +261,48 @@ const mockAsyncStorage = {
   multiRemove: jest.fn(),
   mergeItem: jest.fn(),
   multiMerge: jest.fn(),
-};
+}));
 
-jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+// Mocka react-native-paper
+jest.mock('react-native-paper', () => {
+  return {
+    Provider: ({ children }) => children,
+    DefaultTheme: {
+      colors: {
+        primary: '#6200ee',
+      },
+    },
+    Button: ({ children, onPress }) => ({ children, onPress }),
+    TextInput: ({ label, value, onChangeText }) => ({ label, value, onChangeText }),
+    Appbar: {
+      Header: ({ children }) => children,
+      BackAction: () => null,
+      Content: ({ children }) => children,
+    },
+  };
+});
+
+// Globala mockar för komponenttester
+global.mockUseNavigation = () => ({
+  navigate: jest.fn(),
+  goBack: jest.fn(),
+  push: jest.fn(),
+  setOptions: jest.fn(),
+  addListener: jest.fn(() => jest.fn()),
+  removeListener: jest.fn()
+});
+
+// Förbered för att mocka useAuth om det behövs
+global.mockUseAuth = (overrides = {}) => ({
+  user: { id: 'test-user-id', email: 'test@example.com' },
+  isAuthenticated: true,
+  isLoading: false,
+  signIn: jest.fn().mockResolvedValue({ success: true }),
+  signOut: jest.fn().mockResolvedValue({ success: true }),
+  signUp: jest.fn().mockResolvedValue({ success: true }),
+  updatePassword: jest.fn().mockResolvedValue({ success: true }),
+  ...overrides
+});
 
 // Mock LoggingService
 const mockLogger = {
@@ -192,7 +357,18 @@ jest.mock('./src/infrastructure/cache/CacheService', () => ({
 
 // Exportera mockarna för användning i tester
 global.__mocks__ = {
-  mockAsyncStorage,
+  mockAsyncStorage: {
+    getItem: jest.fn(),
+    setItem: jest.fn(),
+    removeItem: jest.fn(),
+    clear: jest.fn(),
+    getAllKeys: jest.fn(),
+    multiGet: jest.fn(),
+    multiSet: jest.fn(),
+    multiRemove: jest.fn(),
+    mergeItem: jest.fn(),
+    multiMerge: jest.fn(),
+  },
   mockCacheService,
   mockLogger,
   mockPerformance,
@@ -269,14 +445,14 @@ const mockSupabaseClient = {
               is: jest.fn().mockReturnThis(),
             };
           }),
-  eq: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
           single: jest.fn().mockResolvedValue({ 
             data: { id: 'mock-id', name: 'Mock Item' }, 
             error: null 
           }),
           match: jest.fn().mockReturnThis(),
-  in: jest.fn().mockReturnThis(),
-  order: jest.fn().mockReturnThis(),
+          in: jest.fn().mockReturnThis(),
+          order: jest.fn().mockReturnThis(),
           limit: jest.fn().mockReturnThis(),
           gt: jest.fn().mockReturnThis(),
           lt: jest.fn().mockReturnThis(),
@@ -473,33 +649,6 @@ jest.mock('expo-constants', () => ({
   }
 }));
 
-// Mock för react-native-paper
-jest.mock('react-native-paper', () => {
-  const RealComponent = jest.requireActual('react-native-paper');
-  const MockedModule = {
-    ...RealComponent,
-    Button: 'Button',
-    Text: 'Text',
-    TextInput: 'TextInput',
-    Switch: 'Switch',
-    Card: 'Card',
-    Title: 'Title',
-    Paragraph: 'Paragraph',
-    useTheme: () => ({
-      colors: {
-        primary: '#000000',
-        accent: '#ffffff',
-        background: '#ffffff',
-        text: '#000000',
-        placeholder: '#888888',
-        error: '#ff0000',
-        surface: '#ffffff'
-      }
-    })
-  };
-  return MockedModule;
-});
-
 // Mock för Expo-specifika moduler
 jest.mock('expo-font', () => ({
   useFonts: () => [true, null],
@@ -639,7 +788,7 @@ jest.mock('expo-image-picker', () => ({
   launchCameraAsync: jest.fn(),
   requestMediaLibraryPermissionsAsync: jest.fn(),
   requestCameraPermissionsAsync: jest.fn(),
-})); 
+}));
 
 // Mocka TextInput med både default export och named export
 jest.mock('@components/ui/TextInput', () => {
@@ -735,4 +884,12 @@ jest.mock('../components/team/TeamForm', () => {
   };
   
   return MockTeamForm;
-}, { virtual: true }); 
+}, { virtual: true });
+
+// Undvik varningar från React
+jest.spyOn(console, 'error').mockImplementation((...args) => {
+  if (args[0].includes('Warning:')) {
+    return;
+  }
+  console.error(...args);
+}); 

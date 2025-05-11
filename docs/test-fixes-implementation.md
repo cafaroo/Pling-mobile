@@ -219,3 +219,118 @@ För att lösa alla testproblem systematiskt bör vi:
 5. Standardisera testselektorer till att använda text eller roll istället för testID.
 6. Skapa en gemensam mock-struktur för Supabase-API och andra externa tjänster.
 7. Uppdatera alla testfiler för att använda relativa sökvägar istället för @/-alias 
+
+# Testmiljökonfiguration för React Native 0.76+
+
+## Problemet
+
+Vi har stött på ett kritiskt problem med vår testmiljö efter uppdatering till React Native 0.76+. Problemet är att React Native och många tillhörande paket nu använder ES-moduler (ESM), medan Jest är baserat på CommonJS. Detta orsakar kompabilitetsproblem som gör att våra tester inte kan köras.
+
+Specifika fel:
+- `SyntaxError: Cannot use import statement outside a module` från react-native/index.js
+- Misslyckade tester för UI-komponenter och React-hooks som använder @testing-library/react-native
+- Problem med transformIgnorePatterns som inte korrekt hanterar ES-moduler i node_modules
+
+## Lösningen
+
+För att lösa dessa problem behöver vi:
+
+1. Uppdatera Jest-konfigurationen
+   - Korrekt transformIgnorePatterns som inkluderar alla nödvändiga moduler som använder ES-moduler
+   - Rätt transform-konfiguration för att hantera ES-moduler med babel-jest
+
+2. Uppdatera Babel-konfigurationen
+   - Använda rätt preset (babel-preset-expo eller metro-react-native-babel-preset)
+   - Säkerställa att @babel/plugin-transform-modules-commonjs är korrekt konfigurerat
+
+3. Installera alla nödvändiga beroenden
+   - @testing-library/react-native och @testing-library/jest-native
+   - babel-jest och andra nödvändiga Babel-plugins
+
+4. Skapa mockar för problematiska moduler
+   - react-native-toast-message
+   - react-native-safe-area-context
+   - expo-clipboard
+   - Andra native-moduler som används i testerna
+
+5. Rensa cache och ominstallera beroenden
+   - npx jest --clearCache
+   - rm -rf node_modules
+   - npm install
+
+## Implementationsdetaljer
+
+### 1. jest.config.js
+
+```js
+/** @type {import('@jest/types').Config.ProjectConfig} */
+const config = {
+  preset: 'jest-expo',
+  transform: {
+    '^.+\\.[jt]sx?$': 'babel-jest',
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(react-native|@react-native|@react-navigation|@testing-library/react-native|react-native-paper|react-native-gesture-handler|react-native-toast-message|@react-native-async-storage/async-storage)/)',
+  ],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  moduleNameMapper: {
+    // Dina module mappers här
+  }
+  // Resten av din konfiguration
+};
+```
+
+### 2. babel.config.js
+
+```js
+module.exports = function (api) {
+  api.cache(true);
+  return {
+    presets: ['babel-preset-expo'],
+    plugins: [
+      '@babel/plugin-transform-modules-commonjs',
+      // Dina övriga plugins här
+    ],
+    env: {
+      test: {
+        plugins: ['@babel/plugin-transform-modules-commonjs']
+      }
+    }
+  };
+};
+```
+
+### 3. jest.setup.js
+
+```js
+/**
+ * Jest setup file för att konfigurera testmiljön
+ */
+
+import '@testing-library/jest-native/extend-expect';
+
+// Konfigurera miljövariabler för tester
+process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://mock-test-supabase.co';
+process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key-for-testing';
+// Fler miljövariabler
+
+// Mockningssektion för React Native komponenter
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaProvider: ({ children }) => children,
+  SafeAreaView: ({ children }) => children,
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
+
+// Fler mockar för andra moduler
+```
+
+## Steg för att åtgärda
+
+1. Uppdatera jest.config.js med korrekt transformIgnorePatterns
+2. Uppdatera babel.config.js för att använda rätt preset
+3. Installera nödvändiga testberoenden
+4. Säkerställ att alla mockar är korrekt konfigurerade
+5. Rensa cache och kör testerna igen
+
+Detta bör lösa kompatibilitetsproblemen mellan ES-moduler och CommonJS i testmiljön. 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from './supabase';
-import { Result, ok, err } from '@/shared/core/Result';
+import { Result, ok, err } from '@types/shared';
 import { decode } from 'base64-arraybuffer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

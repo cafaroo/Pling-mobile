@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { TeamMember } from '@/types/team';
+import { useTheme } from '@hooks/useTheme';
+import { Card } from '@components/ui/Card';
+import { Button } from '@components/ui/Button';
+import { TeamMember } from '@types/team';
 import { Clock, Check, X } from 'lucide-react-native';
 import { MemberItem } from './MemberItem';
 

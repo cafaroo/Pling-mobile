@@ -1,11 +1,27 @@
 import { PostgrestError, PostgrestResponse } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
-import { Team, TeamMember, TeamRole, TeamSettings, TeamInvitation, CreateTeamInvitationInput } from '@/types/team';
-import { Profile } from '@/types/profile';
-import { TeamServiceResponse } from '@/types/service';
+import { supabase as realSupabase } from '@/lib/supabase';
+// Importera typerna direkt från filerna med expliciit path
+import { 
+  Team, TeamMember, TeamRole, TeamSettings, 
+  TeamInvitation, CreateTeamInvitationInput 
+} from '../types/team';
+import { Profile } from '../types/profile';
+import { TeamServiceResponse, ServiceResponse } from '../types/service';
 import { nanoid } from 'nanoid';
-import { ServiceResponse } from '@/types/service';
-import { handleError } from '@/utils/errorUtils';
+import { handleError } from '@utils/errorUtils';
+
+// Gör supabase tillgänglig för mockning i tester
+export let supabase = realSupabase;
+
+// Funktion för att återställa supabase till dess ursprungliga värde
+export const resetSupabase = () => {
+  supabase = realSupabase;
+};
+
+// Funktion för att ersätta supabase med en mock i tester
+export const setMockSupabase = (mockClient: any) => {
+  supabase = mockClient;
+};
 
 function generateAlphaNumericCode(length = 6) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -43,7 +59,7 @@ export interface CreateTeamParams {
  * @param data Information om teamet som ska skapas
  * @returns Team-objekt om framgångsrikt, annars ett fel
  */
-const createTeam = async ({ name, description }: CreateTeamParams): Promise<ServiceResponse<Team>> => {
+export const createTeam = async ({ name, description }: CreateTeamParams): Promise<ServiceResponse<Team>> => {
   try {
     // Hämta användarens ID från den aktiva sessionen
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -78,13 +94,7 @@ const createTeam = async ({ name, description }: CreateTeamParams): Promise<Serv
     };
   } catch (error) {
     console.error('Error in createTeam:', error);
-    return {
-      success: false,
-      error: {
-        message: 'Kunde inte skapa team',
-        details: error
-      }
-    };
+    return handleError(error, 'createTeam');
   }
 };
 
@@ -226,7 +236,7 @@ export const getTeamMembers = async (teamId: string): Promise<TeamMember[]> => {
           id: member.profile_id || member.user_id || `missing-user-${index}`,
           name: hasName ? member.name : fallbackName,
           email: member.email || '',
-          avatar_url: member.avatar_url || null
+          avatar_url: member.avatar_url || undefined
         }
       };
       
@@ -386,8 +396,16 @@ export const updateTeamMemberRole = async (
       
     if (profileError) {
       console.warn('Kunde inte hämta profil efter rolluppdatering:', profileError);
-      // Returnera bara den uppdaterade medlemmen utan profildata
-      return updatedMember;
+      // Skapa ett nytt TeamMember-objekt med standard-värden istället för att försöka använda updatedMember
+      return {
+        id: memberId,
+        team_id: isThreeParamVersion ? actualTeamId || '' : '',
+        user_id: isThreeParamVersion ? actualUserId || '' : '',
+        role: actualNewRole,
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
     }
     
     console.log('Roll uppdaterad för medlem:', memberWithProfile || updatedMember);
@@ -546,7 +564,7 @@ const createTeamInviteCode = async (
       data: inviteCode
     };
   } catch (error) {
-    return handleError(error, 'Kunde inte skapa inbjudningskod');
+    return handleError(error, 'createTeamInviteCode');
   }
 };
 
@@ -788,7 +806,7 @@ const generateInviteCode = async (
   try {
     return await createTeamInviteCode(teamId);
   } catch (error) {
-    return handleError(error, 'Kunde inte generera inbjudningskod');
+    return handleError(error, 'generateInviteCode');
   }
 };
 
@@ -1109,7 +1127,20 @@ export async function getUserActiveTeam(): Promise<Team | null> {
     }
     
     // Returnera team-objektet från relationen
-    return data[0].teams as Team;
+    const teamData = data[0].teams;
+    if (!teamData || typeof teamData !== 'object') {
+      return null;
+    }
+    
+    // Explicit typkonvertering med säkerhetscheck
+    const team = teamData as unknown as Team;
+    // Validera att teamet har förväntade egenskaper
+    if (!team.id || !team.name) {
+      console.warn('Returnerat team saknar nödvändiga egenskaper');
+      return null;
+    }
+    
+    return team;
   } catch (error) {
     console.error('Error fetching active team:', error);
     throw error;
@@ -1162,6 +1193,34 @@ export const getTeamRanking = async (teamId: string) => {
   }
 };
 
+/**
+ * Hämtar användarens roll i ett team
+ * @param teamId ID för teamet
+ * @param userId ID för användaren
+ * @returns Ett löfte som innehåller användarens roll i teamet
+ */
+export const getCurrentUserRole = async (
+  teamId: string,
+  userId: string
+): Promise<ServiceResponse<TeamRole | null>> => {
+  try {
+    const { data, error } = await supabase
+      .from('team_members')
+      .select('role')
+      .match({ team_id: teamId, user_id: userId })
+      .single();
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      data: data ? data.role as TeamRole : null
+    };
+  } catch (error) {
+    return handleError(error, 'getCurrentUserRole');
+  }
+};
+
 const teamService = {
   createTeam,
   getTeam,
@@ -1187,7 +1246,8 @@ const teamService = {
   createTeamInvitation,
   getUserRole,
   getUserActiveTeam,
-  getTeamRanking
+  getTeamRanking,
+  getCurrentUserRole
 };
 
 export default teamService;

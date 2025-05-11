@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
-import { Card } from '@/components/ui/Card';
-import { PendingApprovalCard } from './PendingApprovalCard';
-import { PendingMembershipCard } from './PendingMembershipCard';
-import { PendingInviteCard } from './PendingInviteCard';
-import { Team, TeamMember } from '@/types';
+import { useTheme } from '@context/ThemeContext';
+import { Card } from '@components/ui/Card';
+import { PendingApprovalCard } from '@components/team/PendingApprovalCard';
+import { PendingMembershipCard } from '@components/team/PendingMembershipCard';
+import { PendingInviteCard } from '@components/team/PendingInviteCard';
+import { Team, TeamMember } from '@types';
 
 interface TeamPendingSectionProps {
   selectedTeam: Team | null;

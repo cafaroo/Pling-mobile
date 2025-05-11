@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { Users, ChevronRight } from 'lucide-react-native';
-import { useTheme } from '@/context/ThemeContext';
-import { Team } from '@/types/team';
-import { Card } from '@/components/ui/Card';
-import { Avatar } from '@/components/ui/Avatar';
+import { useTheme } from '@context/ThemeContext';
+import { Team } from '@types/team';
+import { Card } from '@components/ui/Card';
+import { Avatar } from '@components/ui/Avatar';
 
 interface TeamCardProps {
   team: Team;

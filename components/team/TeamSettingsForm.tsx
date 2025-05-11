@@ -1,14 +1,14 @@
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
-import { Team, TeamSettings } from '@/types/team';
-import { Card } from '@/components/ui/Card';
-import { Switch } from '@/components/ui/Switch';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Slider } from '@/components/ui/Slider';
+import { useTheme } from '@hooks/useTheme';
+import { Team, TeamSettings } from '@types/team';
+import { Card } from '@components/ui/Card';
+import { Switch } from '@components/ui/Switch';
+import { Button } from '@components/ui/Button';
+import { Input } from '@components/ui/Input';
+import { Slider } from '@components/ui/Slider';
 import { Users, Bell, Lock, Eye, RotateCcw } from 'lucide-react-native';
-import Toast from '@/components/ui/Toast';
+import Toast from '@components/ui/Toast';
 
 interface TeamSettingsFormProps {
   team: Team;

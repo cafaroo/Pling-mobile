@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme } from '@hooks/useTheme';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTeam, updateTeamMemberStatus, removeTeamMember } from '@/services/teamService';
-import { Team, TeamMember } from '@/types/team';
-import { Header } from '@/components/ui/Header';
+import { getTeam, updateTeamMemberStatus, removeTeamMember } from '@services/teamService';
+import { Team, TeamMember } from '@types/team';
+import { Header } from '@components/ui/Header';
 import { PendingApprovalCard } from './PendingApprovalCard';
 import { TeamMemberList } from './TeamMemberList';
 import { TeamSettings } from './TeamSettings';
-import { Button } from '@/components/ui/Button';
-import { useToast } from '@/hooks/useToast';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { Button } from '@components/ui/Button';
+import { ToastService } from '@components/ui/Toast';
+import { LoadingState } from '@components/ui/LoadingState';
 
 /**
  * Props för TeamScreen-komponenten
@@ -32,7 +32,6 @@ interface TeamScreenProps {
  */
 export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) => {
   const { colors } = useTheme();
-  const toast = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'members' | 'settings'>('members');
   
@@ -67,11 +66,11 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
       updateTeamMemberStatus(teamId, userId, 'active'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team', teamId] });
-      toast.show('Medlem godkänd', { type: 'success' });
+      ToastService.show({ title: 'Medlem godkänd', type: 'success' });
     },
     onError: (error) => {
       console.error('Error approving member:', error);
-      toast.show('Kunde inte godkänna medlem', { type: 'error' });
+      ToastService.show({ title: 'Kunde inte godkänna medlem', type: 'error' });
     }
   });
   
@@ -81,11 +80,11 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
       removeTeamMember(teamId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team', teamId] });
-      toast.show('Medlem avvisad', { type: 'success' });
+      ToastService.show({ title: 'Medlem avvisad', type: 'success' });
     },
     onError: (error) => {
       console.error('Error rejecting member:', error);
-      toast.show('Kunde inte avvisa medlem', { type: 'error' });
+      ToastService.show({ title: 'Kunde inte avvisa medlem', type: 'error' });
     }
   });
   
@@ -110,12 +109,7 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({ teamId, onBackPress }) =
           testID="back-button"
         />
         <View style={styles.loadingContainer} testID="team-loading-skeleton">
-          <Skeleton width="80%" height={40} style={styles.skeletonItem} />
-          <Skeleton width="60%" height={20} style={styles.skeletonItem} />
-          <Skeleton width="90%" height={120} style={styles.skeletonItem} />
-          <Skeleton width="100%" height={70} style={styles.skeletonItem} />
-          <Skeleton width="100%" height={70} style={styles.skeletonItem} />
-          <Skeleton width="100%" height={70} style={styles.skeletonItem} />
+          <LoadingState message="Laddar team..." />
         </View>
       </View>
     );

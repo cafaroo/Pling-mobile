@@ -5,9 +5,9 @@
  * 
  * Exempel:
  * ```
- * import { mockEventBus } from '@/test-utils/mocks/EventBusMock';
+ * import { mockEventBus } from '@test-utils/EventBusMock';
  * 
- * jest.mock('@/shared/core/EventBus', () => ({
+ * jest.mock('@services/EventBus', () => ({
  *   EventBus: jest.fn().mockImplementation(() => mockEventBus),
  *   useEventBus: jest.fn().mockReturnValue(mockEventBus),
  *   getEventBus: jest.fn().mockReturnValue(mockEventBus)

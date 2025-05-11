@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
-import TextInput from '@/components/ui/TextInput';
-import Button from '@/components/ui/Button';
+import { useTheme } from '@context/ThemeContext';
+import TextInput from '@components/ui/TextInput';
+import Button from '@components/ui/Button';
 
 interface TeamFormProps {
   initialValues?: {

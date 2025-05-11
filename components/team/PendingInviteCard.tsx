@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { TeamInvite, TeamMember } from '@/types/team';
+import { useTheme } from '@context/ThemeContext';
+import { Card } from '@components/ui/Card';
+import { Button } from '@components/ui/Button';
+import { TeamInvite, TeamMember } from '@types/team';
 import { Mail, Check, X } from 'lucide-react-native';
-import { MemberItem } from './MemberItem';
+import { MemberItem } from '@components/team/MemberItem';
 
 interface PendingInviteListProps {
   invites: TeamInvite[];

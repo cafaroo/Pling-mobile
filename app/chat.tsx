@@ -11,7 +11,7 @@ import { decode } from 'base64-arraybuffer';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
-import { supabase } from '@/services/supabaseClient';
+import { supabase } from '@services/supabaseClient';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
 import { Button } from '@/components/ui/Button';

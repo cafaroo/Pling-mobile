@@ -3,15 +3,16 @@ import { View, StyleSheet, Alert, ActivityIndicator, ScrollView, Keyboard, Touch
 import { Text, TextInput, Button, useTheme } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import { useForm, Controller } from 'react-hook-form';
-import { updateTeam, getTeam } from '../../services/teamService';
-import { Team } from '../../types/team';
-import useImageUpload from '../../hooks/useImageUpload';
-import TeamAvatar from './TeamAvatar';
+import * as teamService from '@services/teamService';
+import { Team } from '@types/team';
+import useImageUpload from '@hooks/useImageUpload';
+import TeamAvatar from '@components/team/TeamAvatar';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
-import ErrorBoundary from '../../components/ErrorBoundary';
+import ErrorBoundary from '@components/ErrorBoundary';
 import LottieView from 'lottie-react-native';
-import ProgressBar from '../ProgressBar';
+import ProgressBar from '@components/ProgressBar';
+import { Card } from '@components/ui/Card';
 
 type TeamSettingsProps = {
   teamId: string;
@@ -41,7 +42,7 @@ const TeamSettings: React.FC<TeamSettingsProps> = ({ teamId, initialData, onSucc
 
   const updateTeamMutation = useMutation({
     mutationFn: (data: { teamId: string, updates: Partial<Team> }) => 
-      updateTeam(data.teamId, data.updates),
+      teamService.updateTeam(data.teamId, data.updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team', teamId] });
       Toast.show({
@@ -73,7 +74,7 @@ const TeamSettings: React.FC<TeamSettingsProps> = ({ teamId, initialData, onSucc
     try {
       setLoading(true);
       setError(null);
-      const response = await getTeam(teamId);
+      const response = await teamService.getTeam(teamId);
       if (response.success && response.data) {
         setTeam(response.data);
         setValue('name', response.data.name || '');
@@ -219,7 +220,7 @@ const TeamSettings: React.FC<TeamSettingsProps> = ({ teamId, initialData, onSucc
                   style={styles.input}
                   error={!!errors.name}
                   mode="outlined"
-                  disabled={updateTeamMutation.isPending}
+                  disabled={updateTeamMutation.isLoading}
                 />
               )}
               name="name"
@@ -240,7 +241,7 @@ const TeamSettings: React.FC<TeamSettingsProps> = ({ teamId, initialData, onSucc
                   multiline
                   numberOfLines={4}
                   mode="outlined"
-                  disabled={updateTeamMutation.isPending}
+                  disabled={updateTeamMutation.isLoading}
                 />
               )}
               name="description"
@@ -251,8 +252,8 @@ const TeamSettings: React.FC<TeamSettingsProps> = ({ teamId, initialData, onSucc
                 mode="contained"
                 onPress={handleSubmit(onSubmit)}
                 style={styles.button}
-                loading={updateTeamMutation.isPending}
-                disabled={updateTeamMutation.isPending || uploading}
+                loading={updateTeamMutation.isLoading}
+                disabled={updateTeamMutation.isLoading || uploading}
               >
                 Spara ändringar
               </Button>

@@ -1,11 +1,21 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
-import { Team } from 'types/team';
+import { useTheme } from '@context/ThemeContext';
 import { Button } from '@components/ui/Button';
 import TextInput from '@components/ui/TextInput';
 import { UserPlus, Copy, Check } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
+
+// Definiera Team-typen lokalt
+interface Team {
+  id: string;
+  name: string;
+  is_private: boolean;
+  owner_id: string;
+  created_at: string;
+  description?: string;
+  team_members?: Array<any>;
+}
 
 interface TeamInviteSectionProps {
   selectedTeam: Team | null;

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@services/supabase';
 import { Alert } from 'react-native';
 
 /**

@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import teamService from '@/services/teamService';
-import { TeamRole, TeamMemberStatus } from '@/types/team';
+import teamService from '@services/teamService';
+import { TeamRole, TeamMemberStatus } from '@types/team';
 import { useTeamState } from './useTeamState';
-import { Team, TeamMember } from '@/types';
-import { supabase } from '@/lib/supabase';
-import { TeamMutations } from '@/types';
-import { ToastService } from '@/components/ui/Toast';
+import { Team, TeamMember } from '@types';
+import { supabase } from '@services/supabase';
+import { TeamMutations } from '@types';
+import { ToastService } from '@components/ui/Toast';
 
 /**
  * Hook för att hantera team-relaterade mutationer

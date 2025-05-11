@@ -21,6 +21,8 @@ const baseConfig = {
     '^@ui/(.*)$': '<rootDir>/src/ui/$1',
     '^@ui/components/(.*)$': '<rootDir>/src/ui/components/$1',
     '^@ui/user/(.*)$': '<rootDir>/src/ui/user/$1',
+    '^@/components/ui/(.*)$': '<rootDir>/components/ui/$1',
+    '^@/context/(.*)$': '<rootDir>/context/$1',
     '^@react-native-async-storage/async-storage$': '<rootDir>/node_modules/@react-native-async-storage/async-storage/jest/async-storage-mock.js',
     '^@/infrastructure/supabase/supabaseClient$': '<rootDir>/src/infrastructure/supabase/__mocks__/supabaseClient.ts',
     '^@/infrastructure/events/eventBus$': '<rootDir>/src/infrastructure/events/__mocks__/eventBus.ts',
@@ -55,6 +57,7 @@ const baseConfig = {
     },
   },
   moduleDirectories: ['node_modules', '<rootDir>'],
+  globalSetup: '<rootDir>/jest.global-setup.js',
 };
 
 // Projektkonfiguration med olika testuppsättningar

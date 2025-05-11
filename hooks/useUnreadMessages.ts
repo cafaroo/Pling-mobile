@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@/context/UserContext';
-import { supabase } from '@/services/supabaseClient';
+import { supabase } from '@services/supabaseClient';
 
 export function useUnreadMessages() {
   const { user } = useUser();

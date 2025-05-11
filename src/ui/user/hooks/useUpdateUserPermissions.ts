@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import { toast } from '@/components/ui/toast';
+import { supabase } from '@services/supabase';
+import { toast } from '@components/ui/toast';
 
 interface UpdateUserPermissionsParams {
   userId: string;

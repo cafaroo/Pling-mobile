@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Animated, ActivityIndicator } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
-import { TeamMember, TeamRole, TeamMemberStatus } from '@/types/team';
-import { Avatar } from '@/components/ui/Avatar';
-import { Badge } from '@/components/ui/Badge';
-import { Menu } from '@/components/ui/Menu';
+import { useTheme } from '@hooks/useTheme';
+import { TeamMember, TeamRole, TeamMemberStatus } from '@types/team';
+import { Avatar } from '@components/ui/Avatar';
+import { Badge } from '@components/ui/Badge';
+import { Menu } from '@components/ui/Menu';
 import { MoreVertical, Shield, UserCog, MessageSquare, User, ChevronRight } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 

@@ -1,3 +1,4 @@
+global.__reanimatedLoggerConfig = { start: () => {}, stop: () => {} };
 // Mocka miljövariabler för tester
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://mock-test-supabase.co';
 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key-for-testing';
@@ -25,7 +26,19 @@ global = {
       value: id || 'mock-id'
     };
   },
+  fetch: jest.fn(() => 
+    Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({}),
+      text: () => Promise.resolve(''),
+    })
+  ),
 };
+
+global.Error = global.Error || Error;
+
+// Lägg till Promise på global.fetch för att undvika "native promise missing" fel
+global.fetch.Promise = Promise;
 
 import 'react-native-gesture-handler/jestSetup';
 import '@testing-library/jest-native/extend-expect';
@@ -185,8 +198,24 @@ global.__mocks__ = {
   mockPerformance,
 };
 
-// Mock för ThemeContext
-jest.mock('src/context/ThemeContext', () => ({
+// Använd en mer konsistent och generisk mock för ThemeProvider
+jest.mock('@context/ThemeContext', () => ({
+  useTheme: () => ({
+    colors: {
+      primary: '#000000',
+      secondary: '#0000FF',
+      background: '#FFFFFF',
+      text: '#000000',
+      error: '#FF0000',
+      success: '#00FF00',
+      warning: '#FFA500'
+    },
+  }),
+  ThemeProvider: ({ children }) => children,
+}), { virtual: true });
+
+// Också mocka med @/-prefix för retrokompatibilitet
+jest.mock('@/context/ThemeContext', () => ({
   useTheme: () => ({
     colors: {
       primary: '#000000',
@@ -204,7 +233,10 @@ jest.mock('src/context/ThemeContext', () => ({
 // Mock för Supabase
 const mockSupabaseClient = {
   auth: {
-    getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    getUser: jest.fn().mockResolvedValue({ 
+      data: { user: { id: 'test-user-id', email: 'test@example.com' } }, 
+      error: null 
+    }),
     signInWithPassword: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
     signUp: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
     signOut: jest.fn().mockResolvedValue({ error: null }),
@@ -212,18 +244,156 @@ const mockSupabaseClient = {
       return { data: { subscription: { unsubscribe: jest.fn() } } };
     })
   },
-  from: jest.fn().mockReturnThis(),
-  select: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  delete: jest.fn().mockReturnThis(),
-  upsert: jest.fn().mockReturnThis(),
+  from: jest.fn().mockImplementation((table) => {
+    return {
+      select: jest.fn().mockImplementation((columns) => {
+        return {
+          eq: jest.fn().mockImplementation((column, value) => {
+            return {
+              single: jest.fn().mockResolvedValue({ 
+                data: { id: value, name: 'Mock Item' }, 
+                error: null 
+              }),
+              maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+              order: jest.fn().mockReturnThis(),
+              limit: jest.fn().mockReturnThis(),
+              match: jest.fn().mockReturnThis(),
+              in: jest.fn().mockReturnValue({
+                order: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+              }),
+              gt: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lte: jest.fn().mockReturnThis(),
+              is: jest.fn().mockReturnThis(),
+            };
+          }),
   eq: jest.fn().mockReturnThis(),
-  single: jest.fn().mockResolvedValue({ data: null, error: null }),
-  maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+          single: jest.fn().mockResolvedValue({ 
+            data: { id: 'mock-id', name: 'Mock Item' }, 
+            error: null 
+          }),
+          match: jest.fn().mockReturnThis(),
   in: jest.fn().mockReturnThis(),
   order: jest.fn().mockReturnThis(),
-  limit: jest.fn().mockReturnThis()
+          limit: jest.fn().mockReturnThis(),
+          gt: jest.fn().mockReturnThis(),
+          lt: jest.fn().mockReturnThis(),
+          gte: jest.fn().mockReturnThis(),
+          lte: jest.fn().mockReturnThis(),
+          is: jest.fn().mockReturnThis(),
+        };
+      }),
+      insert: jest.fn().mockImplementation((data) => {
+        return {
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ 
+              data: { id: 'new-item-id', ...data }, 
+              error: null 
+            })
+          })
+        };
+      }),
+      update: jest.fn().mockImplementation((data) => {
+        return {
+          eq: jest.fn().mockImplementation((column, value) => {
+            return {
+              select: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ 
+                  data: { id: value, ...data }, 
+                  error: null 
+                })
+              }),
+              single: jest.fn().mockResolvedValue({ 
+                data: { id: value, ...data }, 
+                error: null 
+              })
+            };
+          }),
+          match: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis()
+        };
+      }),
+      delete: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ data: null, error: null }),
+        match: jest.fn().mockResolvedValue({ data: null, error: null }),
+        in: jest.fn().mockResolvedValue({ data: null, error: null })
+      }),
+      upsert: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: { id: 'upsert-id' }, error: null })
+        })
+      })
+    };
+  }),
+  rpc: jest.fn().mockImplementation((funcName, params) => {
+    if (funcName === 'create_team_secure') {
+      return Promise.resolve({
+        data: 'test-team-id',
+        error: null
+      });
+    }
+    if (funcName === 'get_team_members_with_profiles') {
+      return Promise.resolve({
+        data: [
+          { 
+            id: 'member1', 
+            team_id: params?.team_id_param || 'team1', 
+            user_id: 'user1', 
+            role: 'owner',
+            status: 'active',
+            joined_at: new Date().toISOString(),
+            name: 'Test User',
+            email: 'test@example.com',
+            avatar_url: null,
+            profile_id: 'profile1'
+          }
+        ],
+        error: null
+      });
+    }
+    if (funcName === 'get_user_team_role') {
+      return Promise.resolve({
+        data: 'admin',
+        error: null
+      });
+    }
+    if (funcName === 'update_team_member_role') {
+      return Promise.resolve({
+        data: {
+          id: params?.p_member_id || 'member1',
+          role: params?.p_new_role || 'member'
+        },
+        error: null
+      });
+    }
+    if (funcName === 'join_team_with_code') {
+      return Promise.resolve({
+        data: {
+          success: true,
+          message: 'Gick med i teamet',
+          team_id: 'team1',
+          team_name: 'Testteam'
+        },
+        error: null
+      });
+    }
+    if (funcName === 'leave_team') {
+      return Promise.resolve({
+        data: true,
+        error: null
+      });
+    }
+    return Promise.resolve({ data: null, error: null });
+  }),
+  storage: {
+    from: jest.fn().mockReturnValue({
+      upload: jest.fn().mockResolvedValue({ error: null }),
+      getPublicUrl: jest.fn().mockReturnValue({ data: { publicUrl: 'https://test.com/image.png' } }),
+      remove: jest.fn().mockResolvedValue({ error: null })
+    })
+  }
 };
 
 // Mocka supabase för alla möjliga sökvägar
@@ -232,7 +402,7 @@ const mockSupabase = {
   createClient: jest.fn().mockReturnValue(mockSupabaseClient)
 };
 
-// Fönsätt att använda olika varianter av sökvägar för att säkerställa att alla mockas korrekt
+// Fortsätt att använda olika varianter av sökvägar för att säkerställa att alla mockas korrekt
 jest.mock('src/infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
 jest.mock('src/infrastructure/supabase/index', () => mockSupabase, { virtual: true });
 jest.mock('@/infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
@@ -241,6 +411,12 @@ jest.mock('../infrastructure/supabase/index.ts', () => mockSupabase, { virtual: 
 jest.mock('../infrastructure/supabase/index', () => mockSupabase, { virtual: true });
 jest.mock('../../infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
 jest.mock('../../infrastructure/supabase/index', () => mockSupabase, { virtual: true });
+
+// Mocka även lib/supabase och @/lib/supabase för att täcka alla tänkbara importsökvägar
+jest.mock('lib/supabase', () => mockSupabase, { virtual: true });
+jest.mock('@/lib/supabase', () => mockSupabase, { virtual: true });
+jest.mock('../lib/supabase', () => mockSupabase, { virtual: true });
+jest.mock('../../lib/supabase', () => mockSupabase, { virtual: true });
 
 // Lägg även till en mock för src/infrastructure/supabase/hooks/useSupabase.ts
 jest.mock('src/infrastructure/supabase/hooks/useSupabase.ts', () => ({
@@ -452,4 +628,111 @@ jest.mock('@expo/vector-icons', () => {
       isLoaded: jest.fn().mockReturnValue(true),
     }
   };
-}); 
+});
+
+jest.mock('expo-linear-gradient', () => ({
+  LinearGradient: 'LinearGradient',
+}));
+
+jest.mock('expo-image-picker', () => ({
+  launchImageLibraryAsync: jest.fn(),
+  launchCameraAsync: jest.fn(),
+  requestMediaLibraryPermissionsAsync: jest.fn(),
+  requestCameraPermissionsAsync: jest.fn(),
+})); 
+
+// Mocka TextInput med både default export och named export
+jest.mock('@components/ui/TextInput', () => {
+  const TextInput = ({ label, value, onChangeText, placeholder, error, autoFocus }) => (
+    <input 
+      data-testid="mock-text-input" 
+      placeholder={placeholder} 
+      value={value} 
+      onChange={(e) => onChangeText && onChangeText(e.target.value)}
+      aria-label={label}
+      data-error={error}
+    />
+  );
+  
+  return {
+    __esModule: true,
+    default: TextInput,
+    TextInput
+  };
+}, { virtual: true });
+
+// För retrokompatibilitet, också mocka @/components/ui/TextInput
+jest.mock('@/components/ui/TextInput', () => {
+  const TextInput = ({ label, value, onChangeText, placeholder, error, autoFocus }) => (
+    <input 
+      data-testid="mock-text-input" 
+      placeholder={placeholder} 
+      value={value} 
+      onChange={(e) => onChangeText && onChangeText(e.target.value)}
+      aria-label={label}
+      data-error={error}
+    />
+  );
+  
+  return {
+    __esModule: true,
+    default: TextInput,
+    TextInput
+  };
+}, { virtual: true });
+
+// Mocka både default export och named export för Button
+jest.mock('@components/ui/Button', () => {
+  const Button = ({ title, onPress, Icon, variant, size, style }) => (
+    <div 
+      onClick={onPress} 
+      data-testid="mock-button"
+    >
+      {title}
+      {Icon && <Icon data-testid="mock-icon" />}
+    </div>
+  );
+  
+  return {
+    __esModule: true,
+    default: Button,
+    Button
+  };
+}, { virtual: true });
+
+// För retrokompatibilitet, också mocka @/components/ui/Button
+jest.mock('@/components/ui/Button', () => {
+  const Button = ({ title, onPress, Icon, variant, size, style }) => (
+    <div 
+      onClick={onPress} 
+      data-testid="mock-button"
+    >
+      {title}
+      {Icon && <Icon data-testid="mock-icon" />}
+    </div>
+  );
+  
+  return {
+    __esModule: true,
+    default: Button,
+    Button
+  };
+}, { virtual: true });
+
+// Mocka även komponenten TeamForm
+jest.mock('../components/team/TeamForm', () => {
+  const MockTeamForm = ({ onSubmit, submitLabel, initialValues }) => {
+    return (
+      <div data-testid="mock-team-form" data-props={JSON.stringify({ submitLabel, initialValues })}>
+        <button
+          onClick={() => onSubmit && onSubmit(initialValues?.name || 'Test Team')}
+          data-testid="mock-submit-button"
+        >
+          {submitLabel}
+        </button>
+      </div>
+    );
+  };
+  
+  return MockTeamForm;
+}, { virtual: true }); 

@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { TeamInvitation } from '@/types/team';
+import { useTheme } from '@context/ThemeContext';
+import { Card } from '@components/ui/Card';
+import { Button } from '@components/ui/Button';
+import { TeamInvitation } from '@types/team';
 import { Mail, Calendar, Clock, Check, X, ChevronRight } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 import { sv } from 'date-fns/locale';

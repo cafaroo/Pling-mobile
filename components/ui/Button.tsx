@@ -6,7 +6,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme } from '@hooks/useTheme';
 import { Text } from './Text';
 import type { LucideIcon } from 'lucide-react-native';
 

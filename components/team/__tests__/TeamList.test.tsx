@@ -1,15 +1,16 @@
 import React from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import { TeamList } from '../TeamList';
-import { renderWithProviders, mockTeams } from './test-utils.jsx';
+import { renderWithProviders, mockTeams } from './test-utils.tsx';
 
 // Mock för TeamCard eftersom det verkar vara olika importvägar
-jest.mock('@/components/ui/TeamCard', () => ({
+jest.mock('@components/ui/TeamCard', () => ({
   TeamCard: ({ team, onPress, isSelected, testID }) => (
     <div 
       testID={testID}
       onClick={onPress}
       style={isSelected ? { backgroundColor: 'blue' } : {}}
+      data-teamid={team.id}
     >
       <div>{team.name}</div>
       {team.is_private ? <div>Privat</div> : <div>Offentlig</div>}
@@ -21,7 +22,7 @@ jest.mock('@/components/ui/TeamCard', () => ({
 
 describe('TeamList', () => {
   it('renderar en lista med team korrekt', () => {
-    const { getByTestId, getAllByText } = renderWithProviders(
+    const { getByTestId, getAllByTestId } = renderWithProviders(
       <TeamList
         teams={mockTeams}
         onSelectTeam={() => {}}
@@ -31,12 +32,13 @@ describe('TeamList', () => {
     );
 
     expect(getByTestId('team-list')).toBeTruthy();
-    expect(getAllByText(/Team \d/).length).toBe(2);
+    const teamCards = getAllByTestId(/team-card-\d/);
+    expect(teamCards.length).toBe(2);
   });
 
   it('anropar onSelectTeam med korrekt team-id vid klick', () => {
     const mockOnSelectTeam = jest.fn();
-    const { getAllByText } = renderWithProviders(
+    const { getAllByTestId } = renderWithProviders(
       <TeamList
         teams={mockTeams}
         onSelectTeam={mockOnSelectTeam}
@@ -46,7 +48,8 @@ describe('TeamList', () => {
     );
 
     // Hitta första teamet och klicka på det
-    fireEvent.press(getAllByText(/Team \d/)[0]);
+    const teamCards = getAllByTestId(/team-card-\d/);
+    fireEvent.press(teamCards[0]);
     expect(mockOnSelectTeam).toHaveBeenCalledWith('1');
   });
 

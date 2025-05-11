@@ -1,4 +1,4 @@
-import { TeamRole } from '@/types/team';
+import { TeamRole } from '@types/team';
 import { Users, Shield, Star, Crown } from 'lucide-react-native';
 
 export const ROLE_HIERARCHY: Record<TeamRole, number> = {

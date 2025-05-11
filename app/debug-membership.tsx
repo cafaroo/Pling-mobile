@@ -5,7 +5,7 @@ import { Database, Bug, ArrowLeft } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
-import { supabase } from '@/services/supabaseClient';
+import { supabase } from '@services/supabaseClient';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
 import Card from '@/components/ui/Card';

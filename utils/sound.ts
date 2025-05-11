@@ -1,6 +1,6 @@
 import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
-import { supabase } from '@/services/supabaseClient';
+import { supabase } from '@services/supabaseClient';
 
 // Define the sound types
 type SoundType = 'pling' | 'success' | 'levelUp';

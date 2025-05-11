@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CircleCheck as CheckCircle, Circle as XCircle } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
-import { supabase } from '@/services/supabaseClient';
+import { supabase } from '@services/supabaseClient';
 import Container from '@/components/ui/Container';
 import Button from '@/components/ui/Button';
 

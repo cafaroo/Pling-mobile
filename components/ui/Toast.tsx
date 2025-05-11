@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Platform } from 'react-native';
 import { X, AlertCircle, CheckCircle, Info } from 'lucide-react-native';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '@hooks/useTheme';
 
 export type ToastVariant = 'success' | 'error' | 'info' | 'warning';
 

@@ -1,5 +1,5 @@
-import { DomainEvent } from '@/shared/core/DomainEvent';
-import { MockEventBus } from '@/infrastructure/events/__mocks__/eventBus';
+import { DomainEvent } from '@types/shared';
+import { MockEventBus } from '@services/__mocks__/eventBus';
 
 export class DomainEventTestHelper {
   static expectEventPublished<T extends DomainEvent>(

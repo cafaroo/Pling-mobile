@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '@hooks/useTheme';
 import { Text } from './Text';
 
 interface AvatarProps {

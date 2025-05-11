@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Bell } from 'lucide-react-native';
-import { supabase } from '@/services/supabaseClient';
-import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@services/supabaseClient';
+import { useAuth } from '@context/AuthContext';
 import NotificationPanel from './NotificationPanel';
 import { useTheme } from '@/context/ThemeContext';
 

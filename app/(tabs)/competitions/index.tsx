@@ -5,7 +5,7 @@ import { format, differenceInDays, differenceInHours } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { getCompetitions } from '@/services/competitionService';
-import { supabase } from '@/services/supabaseClient';
+import { supabase } from '@services/supabaseClient';
 import Container from '@/components/ui/Container';
 import Header from '@/components/ui/Header';
 import Card from '@/components/ui/Card';

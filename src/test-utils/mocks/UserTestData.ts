@@ -11,12 +11,12 @@
  * ```
  */
 
-import { User } from '@/domain/user/entities/User';
-import { UserProfile } from '@/domain/user/entities/UserProfile';
-import { UserSettings } from '@/domain/user/entities/UserSettings';
-import { Email } from '@/domain/user/value-objects/Email';
-import { PhoneNumber } from '@/domain/user/value-objects/PhoneNumber';
-import { UniqueId } from '@/shared/core/UniqueId';
+import { User } from '@types/user';
+import { UserProfile } from '@types/user';
+import { UserSettings } from '@types/user';
+import { Email } from '@types/user';
+import { PhoneNumber } from '@types/user';
+import { UniqueId } from '@types/shared';
 import { mockResult } from './ResultMock';
 
 /**

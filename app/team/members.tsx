@@ -8,7 +8,7 @@ import { TeamMemberList } from '@/components/team/TeamMemberList';
 import Header from '@/components/ui/Header';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { LoadingState } from '@/components/ui/LoadingState';
+import { LoadingState } from '@components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import * as teamService from '@/services/teamService';
 import { UserPlus, Users } from 'lucide-react-native';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { ThemeProvider } from '@/context/ThemeContext';
+import { ThemeProvider } from '@context/ThemeContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Skapa en QueryClient för tester

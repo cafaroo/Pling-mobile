@@ -1,13 +1,13 @@
 import React, { useMemo, useCallback, useState } from 'react';
 import { View, StyleSheet, FlatList, Animated, Platform, Text, TouchableOpacity, Alert, Modal, TouchableWithoutFeedback } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { TeamMember, TeamRole } from '@/types/team';
-import * as teamService from '@/services/teamService';
-import { useTheme } from '@/context/ThemeContext';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { LoadingState } from '@/components/ui/LoadingState';
-import { MemberItem, getRoleLabel, getRoleIcon } from './MemberItem';
-import { useTeamMutations } from '@/hooks/useTeamMutations';
+import { TeamMember, TeamRole } from '@types/team';
+import * as teamService from '@services/teamService';
+import { useTheme } from '@context/ThemeContext';
+import { EmptyState } from '@components/ui/EmptyState';
+import { LoadingState } from '@components/ui/LoadingState';
+import { MemberItem, getRoleLabel, getRoleIcon } from '@components/team/MemberItem';
+import { useTeamMutations } from '@hooks/useTeamMutations';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MoreVertical, UserCog } from 'lucide-react-native';
 

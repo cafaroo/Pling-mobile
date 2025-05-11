@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { StatisticsPeriod } from '@/domain/team/value-objects/TeamStatistics';
+import { StatisticsPeriod } from '@types/team';
 
 /**
  * Formaterar ett datum baserat på statistikperiod

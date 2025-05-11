@@ -5,7 +5,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { Message } from '@/types/chat';
 import { Tables } from '@/types/supabase';
-import { supabase } from '@/services/supabaseClient';
+import { supabase } from '@services/supabaseClient';
 import MessageItem from './MessageItem';
 import { Button } from '@/components/ui/Button';
 import { MentionPicker } from './MentionPicker';

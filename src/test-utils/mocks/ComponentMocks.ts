@@ -5,7 +5,7 @@
  * 
  * Exempel:
  * ```
- * import { createMockComponent } from '@/test-utils/mocks/ComponentMocks';
+ * import { createMockComponent } from '@test-utils/ComponentMocks';
  * 
  * jest.mock('react-native-paper', () => ({
  *   Button: createMockComponent('Button'),

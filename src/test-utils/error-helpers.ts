@@ -5,7 +5,7 @@
  * felmeddelanden när test-assertions misslyckas.
  */
 
-import { Result } from '@/shared/core/Result';
+import { Result } from '@types/shared';
 
 /**
  * En wrapper för att testa asynkrona funktioner som kan kasta fel

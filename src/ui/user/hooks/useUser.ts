@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useSupabase } from '@/infrastructure/supabase/hooks/useSupabase';
-import { UserRepository } from '@/application/user/repositories/UserRepository';
+import { useSupabase } from '@hooks/useSupabase';
+import { UserRepository } from '@services/UserRepository';
 
 export interface User {
   id: string;

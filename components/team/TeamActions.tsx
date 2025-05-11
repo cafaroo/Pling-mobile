@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
-import { Team } from '@/types';
-import { Button } from '@/components/ui/Button';
+import { useTheme } from '@context/ThemeContext';
+import { Team } from '@types';
+import { Button } from '@components/ui/Button';
 import { Plus, Edit, UserPlus } from 'lucide-react-native';
-import { Modal } from '@/components/ui/Modal';
-import TeamForm from './TeamForm';
-import JoinTeamForm from './JoinTeamForm';
+import { Modal } from '@components/ui/Modal';
+import TeamForm from '@components/team/TeamForm';
+import JoinTeamForm from '@components/team/JoinTeamForm';
 
 interface TeamActionsProps {
   selectedTeam: Team | null;

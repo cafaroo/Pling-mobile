@@ -1,7 +1,7 @@
 import { useReducer, useCallback } from 'react';
-import { Team, TeamMember, TeamState, TeamRole } from '@/types';
+import { Team, TeamMember, TeamState, TeamRole } from '@types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@services/supabase';
 
 // Typer för TeamState
 export interface TeamState {

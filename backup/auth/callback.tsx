@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/context/ThemeContext';
-import { supabase } from '@/services/supabaseClient';
+import { supabase } from '@services/supabaseClient';
 
 export default function AuthCallbackScreen() {
   const { colors } = useTheme();

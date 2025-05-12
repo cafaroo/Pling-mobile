@@ -18,6 +18,8 @@ import {
   OrganizationInvitationAccepted,
   OrganizationInvitationDeclined
 } from '../events/OrganizationEvents';
+import { SubscriptionService } from '../interfaces/SubscriptionService';
+import { ResourceLimitType } from '../interfaces/SubscriptionService';
 
 export interface OrganizationProps {
   id: UniqueId;
@@ -42,6 +44,8 @@ export type OrganizationUpdateDTO = {
 };
 
 export class Organization extends AggregateRoot<OrganizationProps> {
+  private subscriptionService?: SubscriptionService;
+
   private constructor(props: OrganizationProps) {
     super(props);
   }
@@ -78,11 +82,51 @@ export class Organization extends AggregateRoot<OrganizationProps> {
     return new Date(this.props.updatedAt);
   }
 
-  // Metod för att kontrollera om organisationen har en aktiv prenumeration
-  // Denna metod ska anropa subscription-domänen via ett interface i den faktiska implementationen
-  public hasActiveSubscription(): boolean {
-    // Detta är en placeholder - i verklig implementation ska detta delegeras till subscription-domänen
-    return true;
+  public setSubscriptionService(service: SubscriptionService): void {
+    this.subscriptionService = service;
+  }
+
+  public async hasActiveSubscription(): Promise<boolean> {
+    if (!this.subscriptionService) {
+      return true;
+    }
+
+    return await this.subscriptionService.hasActiveSubscription(this.id);
+  }
+
+  public async canPerformResourceAction(
+    limitType: ResourceLimitType,
+    additionalUsage: number = 1
+  ): Promise<Result<boolean, string>> {
+    if (!this.subscriptionService) {
+      return Result.ok(true);
+    }
+
+    const validationResult = await this.subscriptionService.validateResourceLimit(
+      this.id,
+      limitType,
+      additionalUsage
+    );
+
+    if (validationResult.isErr()) {
+      return Result.fail(validationResult.error);
+    }
+
+    const validation = validationResult.value;
+    
+    if (!validation.isAllowed) {
+      return Result.fail(validation.message);
+    }
+
+    return Result.ok(true);
+  }
+
+  public async getSubscriptionManagementUrl(): Promise<Result<string, string>> {
+    if (!this.subscriptionService) {
+      return Result.fail('Prenumerationstjänsten är inte tillgänglig');
+    }
+
+    return await this.subscriptionService.getSubscriptionManagementUrl(this.id);
   }
 
   // Skapa en ny organisation

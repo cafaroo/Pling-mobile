@@ -42,12 +42,56 @@ För att förbättra användarupplevelsen när resursgränser närmar sig eller 
 
 ## Användargränssnitt
 
+### Resursbegränsningskomponenter
+
 För att visualisera och hantera resursbegränsningar har vi följande komponenter:
 
 1. **ResourceLimitError** - Komponent för att visa felmeddelanden när resursgränser nås.
 2. **ResourceLimitDisplay** - Generell komponent för att visa resursbegränsningar.
 3. **ResourceUsageOverview** - Dashboard-widget för att visa resursbegränsning per organisation.
 4. **ResourceManagementTab** - Dedikerad flik för att hantera olika resurstyper och deras begränsningar.
+
+### Prenumerationskomponenter
+
+1. **SubscriptionComparison** - Jämförelse av prenumerationsplaner:
+   - Visuell jämförelse av tillgängliga planer
+   - Visning av funktioner och begränsningar per plan
+   - Stöd för månadsvis och årsvis fakturering
+   - Tydliga besparingsindikationer vid årsabonnemang
+
+2. **UpgradeGuide** - Stegvis guide för uppgradering:
+   - Illustrativ presentation av uppgraderingsfördelar
+   - Jämförelse mellan nuvarande och rekommenderade planer
+   - Anpassade rekommendationer baserat på aktuell användning
+
+3. **BillingInfo** - Hantering av fakturerings- och betalningsinformation:
+   - Översikt över prenumerationsstatus
+   - Hantering av betalningsmetoder
+   - Fakturahistorik med nedladdningsmöjligheter
+   - Alternativ för automatisk förnyelse
+
+4. **PaymentProcessor** - Hantering av betalningar:
+   - Inmatning av fakturerings- och adressinformation
+   - Säker hantering av kreditkortsinformation
+   - Integrerad med Stripe API
+   - Responsiv feedback och felhantering
+
+5. **SubscriptionAdminPanel** - Administrativ kontrollpanel:
+   - Dashboard med nyckelstatistik
+   - Användarhantering med sökmöjligheter
+   - Händelselogg för prenumerationsaktiviteter
+   - Resursanvändningsvisualisering
+
+6. **SubscriptionUpgradeFlow** - Integrerat uppgraderingsflöde:
+   - Kombinerar UpgradeGuide och PaymentProcessor
+   - Stegvis progression från rekommendation till betalning
+   - Konsekvent användarupplevelse genom hela flödet
+
+### Planerade komponenter
+
+1. **SubscriptionSwitcher** - Byte mellan prenumerationsalternativ
+2. **PlanLimitsDisplay** - Detaljerad visning av resursgränser per plan
+3. **SubscriptionHistory** - Historik över prenumerationsändringar och betalningar
 
 ## Integrationer
 
@@ -69,41 +113,230 @@ När en användare närmar sig eller når en resursgräns kommer systemet att:
 2. Skicka notifikationer till administratörer och ägare
 3. Föreslå prenumerationsuppgradering med relevant information
 
-## Teknisk implementation
+### Stripe-integration
 
-### Domänevents
+För att hantera betalningar och prenumerationer har vi implementerat en fullständig integration med Stripe betalningsplattform:
 
-Systemet använder följande domänevents för att hålla olika delar av applikationen synkroniserade:
-- ResourceLimitReachedEvent
-- ResourceUsageUpdatedEvent
-- SubscriptionChangedEvent
+#### 1. Backend-integration
 
-### Testning
+1. **StripeIntegrationService** - Service för att interagera med Stripe API:
+   - Skapar prenumerationer och hanterar betalningar
+   - Uppdaterar befintliga prenumerationer 
+   - Hanterar avbrott och förnyelser
+   - Hämtar betalningsmetoder och fakturahistorik
 
-Testerna för systemet inkluderar:
-- Enhetstester för varje strategi
-- Integrationstester för ResourceUsageTrackingService
-- UI-tester för ResourceManagementTab
-- End-to-end tester för uppgraderingsflöden
+2. **useStripeSubscription** - React hook för att använda Stripe-tjänster:
+   - Exponerar funktioner för prenumerationshantering
+   - Hanterar laddningstillstånd och felhantering
+   - Förenklar användningen av Stripe i UI-komponenter
+
+#### 2. Frontend-integration
+
+1. **PaymentProcessor** - Säker hantering av betalningsinformation:
+   - PCI-kompatibel inmatning av kreditkortsinformation
+   - Säker tokenisering av kortuppgifter
+   - Hantering av betalningsresultat och felmeddelanden
+
+2. **BillingInfo** - Hantering av faktureringsinformation:
+   - Visar prenumerationsdetaljer från Stripe
+   - Hanterar ändringar i betalningsmetoder
+   - Visar fakturahistorik med nedladdningsfunktionalitet
+
+#### 3. Webhooks och händelsehantering
+
+För att hålla systemet synkroniserat med Stripe planeras följande webhooks:
+- `checkout.session.completed` - För att bekräfta prenumerationsaktivering
+- `invoice.payment_succeeded` - För att registrera lyckade betalningar
+- `invoice.payment_failed` - För att hantera misslyckade betalningar
+- `customer.subscription.updated` - För att uppdatera prenumerationsdetaljer
+- `customer.subscription.deleted` - För att hantera avslutade prenumerationer
+
+## Teknisk Implementation
+
+### Databasschema
+
+Resursbegränsningssystemet använder följande databastabeller:
+
+```sql
+-- Resursbegränsningar per prenumerationsnivå
+CREATE TABLE resource_limits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_type subscription_plan_type NOT NULL,
+  resource_type resource_type NOT NULL,
+  limit_value INTEGER NOT NULL,
+  display_name TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(plan_type, resource_type)
+);
+
+-- Aktuell resursanvändning per organisation
+CREATE TABLE resource_usage (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  resource_type resource_type NOT NULL,
+  current_usage INTEGER NOT NULL DEFAULT 0,
+  last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(organization_id, resource_type)
+);
+
+-- Historikspårning av resursanvändning
+CREATE TABLE resource_usage_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  resource_type resource_type NOT NULL,
+  usage_value INTEGER NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Notifikationstabell för resursgränser
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  type notification_type NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  read_at TIMESTAMPTZ
+);
+
+-- Push-notifikationstoken
+CREATE TABLE device_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL,
+  device_type TEXT NOT NULL,
+  device_name TEXT,
+  app_version TEXT,
+  last_used TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, token)
+);
+```
+
+### Migrationsstatus
+
+Följande migrationer har utförts:
+
+| Miljö | Status | Datum |
+|-------|--------|-------|
+| Testmiljö | ✅ Genomförd | 2025-05-13 |
+| Produktionsmiljö | 🕒 Planerad | 2025-05-20 |
+
+Detaljerad migrationsinformation finns i [migration_summary.md](../../migrations/migration_summary.md).
+
+### RLS-Policies
+
+För att skydda resursbegränsningsdata har vi implementerat följande RLS-policyer:
+
+```sql
+-- resource_limits
+CREATE POLICY "Alla autentiserade användare kan se resursbegränsningar"
+  ON resource_limits
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- resource_usage
+CREATE POLICY "Organisationsmedlemmar kan se sin egen organisations resursanvändning"
+  ON resource_usage
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM organization_members
+      WHERE user_id = auth.uid()
+      AND organization_id = resource_usage.organization_id
+    )
+  );
+```
+
+Fullständiga RLS-policyer finns i migrationsskripten.
+
+### Integrationer
+
+#### 1. Frontend-komponenter
+
+```typescript
+// ResourceLimitProvider.tsx - Kontext för att hantera resursbegränsningar
+export const ResourceLimitProvider: React.FC<PropsWithChildren<{
+  organizationId: string;
+}>> = ({ organizationId, children }) => {
+  // Implementationsdetaljer
+};
+
+// ResourceUsageDisplay.tsx - Komponent för att visa resursbegränsningar
+export const ResourceUsageDisplay: React.FC<{
+  organizationId: string;
+  resourceType: ResourceType;
+}> = ({ organizationId, resourceType }) => {
+  // Implementationsdetaljer
+};
+```
+
+#### 2. Databas-funktioner 
+
+```sql
+-- Funktion för att uppdatera resursanvändning
+CREATE OR REPLACE FUNCTION update_resource_usage(
+  org_id UUID,
+  res_type resource_type,
+  usage_val INTEGER
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+-- Funktionsimplementation
+$$;
+
+-- Funktion för att skicka notifikation om resursbegränsning
+CREATE OR REPLACE FUNCTION send_resource_limit_notification(
+  org_id UUID,
+  res_type resource_type,
+  notif_type notification_type,
+  notif_title TEXT,
+  notif_body TEXT,
+  notif_metadata JSONB DEFAULT '{}'::jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+-- Funktionsimplementation
+$$;
+```
+
+### Automatiserad resursövervakning
+
+Automatisk övervakning av resursanvändning implementeras via Edge Functions:
+
+1. **Daily usage tracking** - Körs 01:00 varje dag, uppdaterar resursanvändningen för alla organisationer
+2. **Warning notifications** - Körs varje timme, skickar notifikationer om resursgränser som närmar sig
 
 ## Framtida förbättringar
 
-### Planerade förbättringar
+### Implementerade förbättringar ✅
 
 1. **Prestandaoptimering av resursspårning**
-   - Optimera databasfrågor för resursspårning
-   - Implementera effektivare cache-strategi för resursbegränsningsdata
-   - Minska nätverksbelastningen från periodiska uppdateringar
+   - Optimerat databasfrågor för resursspårning med RPC-funktioner
+   - Implementerat effektiv cache-strategi för resursbegränsningsdata (TTL-baserad)
+   - Minskat nätverksbelastningen från periodiska uppdateringar
 
 2. **Utökad testning av resursbegränsningssystem**
-   - Skapa omfattande tester för edge-cases i alla strategier
-   - Implementera automatiserade integrationstester
-   - Dokumentera testscenarier och resultat
+   - Skapat enhetstester för ResourceLimitStrategy-klasser
+   - Implementerat simuleringar för olika resursbegränsningsscenarier
+   - Dokumenterat testscenarier och resultat
 
-3. **Förbättrad användarupplevelse**
-   - Förbättra visuell feedback vid närhet till resursgränser
-   - Implementera stegvisa guider för resurshantering
-   - Skapa användarutbildningsmaterial för resurshantering
+### Pågående förbättringar 🚧
+
+1. **Förbättrad användarupplevelse**
+   - Förbättrat visuell feedback vid närhet till resursgränser
+   - Implementerat användargränssnitt för resurshantering
+   - Skapar användarutbildningsmaterial för resurshantering
 
 ## Prenumerationsnivåer
 
@@ -441,3 +674,281 @@ export class FeatureFlagService {
    - Spåra prenumerationsändringar
    - Dokumentera åtkomst
    - Behörighetsgranskningar 
+
+## Implementationsframsteg
+
+### Genomförda implementationer ✅
+
+Följande komponenter har implementerats som del av Stripe-integrationen och prenumerationshanteringen:
+
+1. **PaymentProcessor** - Komplett komponent för betalningshantering via Stripe:
+   - Stöd för kreditkortsinmatning med validering
+   - Hantering av fakturerings- och adressinformation
+   - Betalningsbekräftelser och responsiv felhantering
+
+2. **BillingInfo** - Omfattande faktureringsinformationsvisning:
+   - Översikt över prenumerationsdetaljer
+   - Hantering av betalningsmetoder
+   - Fakturahistorik med möjlighet till nedladdning
+   - Kontroll av automatisk förnyelse
+
+3. **SubscriptionAdminPanel** - Omfattande administrationsvy:
+   - Översikt med nyckeltal och statistik
+   - Användarhantering med sökmöjlighet
+   - Historikspårning av händelser
+   - Resursutnyttjandediagram
+
+4. **SubscriptionUpgradeFlow** - Integrerat uppgraderingsflöde:
+   - Sömlös integration mellan UpgradeGuide och PaymentProcessor
+   - Stegvis uppgraderingsprocess med tydlig användarfeedback
+   - Konfirmations- och avbrytshantering
+
+### Nästa steg 🚧
+
+För att slutföra implementationen av prenumerationssystemet bör följande åtgärder vidtas:
+
+1. **Backend-integration med Stripe**
+   - Implementera webhooks för händelsehantering från Stripe
+   - Konfigurera schemalagda jobb för förnyelser och fakturering
+   - Slutföra integrationen mellan Supabase och Stripe
+
+2. **Testning och validering**
+   - Utföra omfattande testning av betalningsflödet
+   - Validera att resursbegränsningar fungerar korrekt vid olika prenumerationsnivåer
+   - Testa automatisk förnyelse och avslut av prenumerationer
+
+3. **Monitoring och support**
+   - Implementera loggning av prenumerationshändelser
+   - Skapa aviseringar för misslyckade betalningar
+   - Upprätta supportprocess för prenumerationsrelaterade ärenden 
+
+# Implementation Plan: Prenumerationsmodell
+
+Detta dokument beskriver implementationsplanen för prenumerationsmodellen i Pling-applikationen.
+
+## Implementerade komponenter
+
+- [x] Övergripande arkitektur för prenumerationsmodellen
+- [x] Grundläggande domänmodell (entities, repositories, services)
+- [x] Frontend-komponenter för prenumerationshantering
+- [x] Stripe SDK-integration i frontend
+- [x] StripeIntegrationService med kommunikation till Stripe API
+- [x] BillingInfo-komponent för hantering av faktureringsinformation
+- [x] PaymentProcessor för hantering av betalningar
+- [x] useStripeSubscription hook
+- [x] Webhook-hantering (StripeWebhookHandler)
+- [x] Webhook-controller för API-integrationspunkt
+- [x] Schemalagda jobb för prenumerationshantering 
+- [x] Edge Functions för Stripe webhooks
+- [x] Edge Functions för schemalagda jobb
+- [x] SQL-migrationer för databasschema
+- [x] RPC-funktioner för prenumerationsstatistik
+
+## Implementationsordning
+
+1. **Fas 1: Domänmodell (Klar)**
+   - Definiera entiteter: Subscription, SubscriptionPlan, PaymentMethod, Invoice
+   - Skapa repositories
+   - Implementera basservice för prenumerationer
+
+2. **Fas 2: Frontend (Klar)**
+   - Skapa komponenter för prenumerationshantering
+   - Integrera med Stripe SDK
+   - Implementera hooks för prenumerationsdata
+
+3. **Fas 3: Stripe API Integration (Klar)**
+   - Skapa StripeIntegrationService
+   - Implementera betalningsflödet
+   - Testa prenumerationsskapande
+
+4. **Fas 4: Backend Webhook och Schemaläggning (Klar)**
+   - Implementera StripeWebhookHandler
+   - Skapa StripeWebhookController
+   - Implementera SubscriptionSchedulerService
+   - Skapa Edge Functions för webhooks och schemalagda jobb
+   - Skapa SQL-migrationer för databasschema och RPC-funktioner
+
+5. **Fas 5: Testing och Driftsättning (Påbörjad)**
+   - Integrationstestning av hela flödet
+   - Webhooks-testning
+   - Schemalagda jobb-testning
+   - Driftsättning och konfiguration
+
+6. **Fas 6: Avancerade funktioner (Planerad)**
+   - SCA-stöd för europeiska användare
+   - Rabattkodssystem
+   - Förbättrad analys
+   - Automatiserade påminnelser
+   - Integrering med faktureringssystem
+
+## Migreringsplan
+
+För att implementera den nya prenumerationsarkitekturen behöver följande steg genomföras:
+
+1. **Databasmigrationer**
+   - Skapa nya tabeller för subscription_statistics
+   - Utöka existerande tabeller med Stripe-specifika fält
+   - Skapa RPC-funktioner för prenumerationsstatistik
+   - Implementera row-level security
+
+2. **Deployment av Edge Functions**
+   - Distribuera stripe-webhook Edge Function för att hantera Stripe-händelser
+   - Distribuera subscription-scheduler Edge Function för schemalagda jobb
+   - Konfigurera miljövariabler för funktionerna
+
+3. **Webhook-konfigurering**
+   - Konfigurera webhook endpoints i Stripe Dashboard
+   - Sätta upp signaturverifiering
+   - Testa webhook-mottagning och hantering
+
+4. **Schemaläggare-konfigurering**
+   - Sätta upp cron eller annan schemaläggare
+   - Konfigurera behörigheter
+   - Testa schemalagda jobb-körning
+
+## Backend-komponenter (Stripe Webhooks och Schemalagda Jobb)
+
+### StripeWebhookHandler
+
+Webhook-handleren tar emot och hanterar följande händelsetyper från Stripe:
+
+1. `checkout.session.completed` - När en ny prenumeration skapas
+2. `invoice.payment_succeeded` - Lyckad betalning
+3. `invoice.payment_failed` - Misslyckad betalning
+4. `customer.subscription.updated` - Prenumerationsuppdatering
+5. `customer.subscription.deleted` - Prenumerationsavslutning
+
+För varje händelse:
+- Validerar data
+- Uppdaterar databasen
+- Utlöser domänhändelser
+- Loggar händelsen
+
+### SubscriptionSchedulerService
+
+Schemaläggaren implementerar följande jobb:
+
+1. `syncSubscriptionStatuses` (timvis):
+   - Synkroniserar lokal prenumerationsdata med Stripe
+   - Uppdaterar prenumerationsstatus
+   - Hanterar inkonsekvenser
+
+2. `checkRenewalReminders` (dagligen):
+   - Identifierar prenumerationer som snart förnyas
+   - Skickar påminnelser till administratörer
+   - Loggar skickade påminnelser
+
+3. `processExpiredSubscriptions` (dagligen):
+   - Identifierar och markerar utgångna prenumerationer
+   - Uppdaterar tillgång till funktioner
+   - Notifierar berörda användare
+
+4. `sendPaymentFailureReminders` (dagligen):
+   - Identifierar prenumerationer med misslyckade betalningar
+   - Skickar påminnelser till administratörer
+   - Loggar påminnelseförsök
+
+5. `updateSubscriptionStatistics` (veckovis):
+   - Beräknar och lagrar statistik per plan
+   - Beräknar månadsvis återkommande intäkt (MRR)
+   - Genererar sammanfattningsrapporter
+
+### Edge Functions
+
+Edge Functions implementerar serverless funktionalitet för:
+
+1. **stripe-webhook**:
+   - Tar emot webhooks från Stripe
+   - Validerar Stripe-signaturer
+   - Anropar databasoperationer
+   - Hanterar felscenarier
+
+2. **subscription-scheduler**:
+   - Körs regelbundet via externa schemaläggare
+   - Utför schemalagda prenumerationsjobb
+   - Genererar prenumerationsstatistik
+   - Rapporterar körningsresultat
+
+### RPC-funktioner
+
+SQL-procedurer för att hantera:
+
+1. `get_subscription_stats_by_plan`:
+   - Statistik över aktiva prenumerationer per plan
+
+2. `calculate_monthly_recurring_revenue`:
+   - Beräkning av totala MRR
+
+3. `get_upcoming_renewals`:
+   - Lista på prenumerationer som snart förnyas
+
+4. `get_upcoming_expirations`:
+   - Lista på prenumerationer som snart upphör
+
+5. `process_expired_subscriptions`:
+   - Hantering av utgångna prenumerationer
+
+## Testplan
+
+För att säkerställa kvalitet och funktionalitet ska följande tester utföras:
+
+1. **Unit tests**
+   - Testa StripeWebhookHandler
+   - Testa StripeWebhookController
+   - Testa SubscriptionSchedulerService
+   - Testa RPC-funktioner
+
+2. **Integration tests**
+   - Testa webhook-flödet från Stripe till databas
+   - Testa schemalagda jobb
+   - Testa hela prenumerationsflödet
+
+3. **End-to-end tests**
+   - Testa köp av prenumeration via frontend
+   - Testa automatisk förnyelse
+   - Testa uppdatering av betalningsmetod
+   - Testa avslutande av prenumeration
+
+## Driftsättning
+
+För att aktivera lösningen i produktion behöver följande steg utföras:
+
+1. **Databasmigrationer**
+   - Kör SQL-migrations i Supabase-projektet
+   - Verifiera databasstruktur och RPC-funktioner
+
+2. **Edge Functions**
+   - Distribuera Edge Functions till Supabase
+   - Konfigurera miljövariabler:
+     ```
+     STRIPE_SECRET_KEY=sk_xxxxx
+     STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+     SCHEDULER_SECRET=schsec_xxxxx
+     ```
+
+3. **Webhook-konfigurering**
+   - Konfigurera webhook URL i Stripe Dashboard
+   - Sätt upp händelser att lyssna på
+   - Testa webhook-mottagning
+
+4. **Schemaläggare**
+   - Konfigurera cron för att anropa scheduler Edge Function
+   - Sätt upp följande schema:
+     - syncSubscriptionStatuses: Varje timme
+     - checkRenewalReminders: Varje morgon
+     - processExpiredSubscriptions: Varje morgon
+     - sendPaymentFailureReminders: Varje morgon
+     - updateSubscriptionStatistics: Varje måndag morgon
+
+## Nästa steg
+
+För att slutföra implementationen av prenumerationssystemet bör följande åtgärder vidtas:
+
+1. **Implementera SCA-stöd** för europeiska användare
+2. **Utveckla rabattkodssystem** för kampanjer
+3. **Förbättra analysdashboard** för prenumerationsintäkter
+4. **Implementera tjänstespecifika användningskvoter** för mer detaljerad fakturering
+5. **Skapa automatiserade påminnelser** för snart utgående prenumerationer
+6. **Integrera med faktureringssystem** för automatisk fakturering till kunder
+7. **Implementera revisionsspårning** för fakturerings- och prenumerationsändringar
+8. **Förbättra felhantering** för webhook-events och schemalagda jobb 

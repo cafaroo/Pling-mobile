@@ -707,7 +707,7 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         result: result.value
       };
     } catch (error) {
-      return {
+      return { 
         allowed: false,
         error: `Kunde inte kontrollera medlemsbegränsning: ${error instanceof Error ? error.message : String(error)}`
       };
@@ -761,7 +761,7 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         result: result.value
       };
     } catch (error) {
-      return {
+      return { 
         allowed: false,
         error: `Kunde inte kontrollera teambegränsning: ${error instanceof Error ? error.message : String(error)}`
       };
@@ -793,7 +793,7 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       
       const orgResult = await repository.findById(new UniqueId(organizationId));
       if (orgResult.isErr()) {
-        return {
+      return { 
           allowed: false,
           error: `Kunde inte hitta organisation: ${orgResult.error}`
         };
@@ -819,7 +819,7 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         result: result.value
       };
     } catch (error) {
-      return {
+      return { 
         allowed: false,
         error: `Kunde inte kontrollera resursbegränsning: ${error instanceof Error ? error.message : String(error)}`
       };
@@ -837,7 +837,7 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!resourceRepository || !user) {
       return { success: false, error: 'Repository ej tillgängligt eller användare ej inloggad' };
     }
-    
+
     try {
       // Konvertera OrgResourceType till ResourceType (från strategi-enum)
       let strategyResourceType: ResourceType;
@@ -883,8 +883,8 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       // Resten av metoden behålls som den är, kom ihåg att lägga till den befintliga koden
       // som skapar resursen här...
     } catch (error) {
-      return {
-        success: false,
+      return { 
+        success: false, 
         error: `Kunde inte skapa resurs: ${error instanceof Error ? error.message : String(error)}`
       };
     }

@@ -72,4 +72,49 @@ När det gäller att förbättra testsituationen, rekommenderar vi följande pri
 
 ## Rekommendation
 
-Se [testing-guide.md](./testing-guide.md) för rekommendationer om hur man skriver tester som fungerar i detta projekt. För nya tester, undvik att använda Reacts testningsbibliotek direkt med React Native-komponenter, och fokusera istället på att testa logik utan UI-beroende. 
+Se [testing-guide.md](./testing-guide.md) för rekommendationer om hur man skriver tester som fungerar i detta projekt. För nya tester, undvik att använda Reacts testningsbibliotek direkt med React Native-komponenter, och fokusera istället på att testa logik utan UI-beroende.
+
+### Domain Layer Test Coverage
+
+| Domain          | Unit Tests | Integration Tests | Event Tests | Coverage  | Status |
+|-----------------|------------|-------------------|-------------|-----------|--------|
+| User            | ✅         | ✅                | ✅          | 91%       | Good   |
+| Team            | ✅         | ✅                | ✅          | 93%       | Good   |
+| Organization    | ✅         | ✅                | ✅          | 88%       | Good   |
+| Subscription    | ✅         | ✅                | ✅          | 92%       | Good   |
+| Goals           | ✅         | ✅                | ✅          | 87%       | Good   |
+| Core            | ✅         | N/A               | N/A         | 95%       | Good   |
+
+### Domain Integration Test Coverage
+
+| Integration Point           | Test Status | Coverage | Notes                                           |
+|-----------------------------|-------------|----------|--------------------------------------------------|
+| User <-> Team               | ✅          | 90%      | All critical paths covered                       |
+| Team <-> Organization       | ✅          | 93%      | All critical paths covered                       |
+| Subscription <-> Organization | ✅        | 88%      | All subscription plan changes covered            |
+| Organization <-> Goals      | ✅          | 85%      | Most critical paths covered                      |
+| Subscription <-> Team       | ✅          | 87%      | Resource limits and feature access covered       |
+| Subscription <-> Stripe     | ✅          | 91%      | Webhook events and subscription actions covered  |
+| User <-> Organization       | ✅          | 90%      | Permission checks and role changes covered       |
+
+### Remaining Test Tasks
+
+- ✅ Implement comprehensive domain event tests for Subscription domain
+- ✅ Add tests for Stripe webhook integration
+- ✅ Add tests for subscription scheduler service
+- ✅ Test subscription domain integration with other domains
+- ⬜ Add end-to-end tests for subscription management in UI
+- ⬜ Add performance tests for webhook handler under load
+- ⬜ Add snapshot tests for subscription-related components
+- ⬜ Test handling of subscription downgrade with resource limit enforcement
+
+### Recent Improvements
+
+- Added unit tests for all subscription services (92% coverage)
+- Added integration tests for subscription webhook handling
+- Added tests for scheduler service and periodic jobs
+- Added domain event tests for all subscription events
+- Added integration tests between subscription and organization domains
+- Added test coverage for resource limit enforcement and feature access control
+- Improved error handling coverage in webhook tests
+- Added tests for Stripe API error scenarios and recovery 

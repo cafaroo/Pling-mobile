@@ -282,4 +282,116 @@ style.resizeMode is deprecated. Please use props.resizeMode
 
 // Efter:
 <Image resizeMode="contain" ... />
-``` 
+```
+
+## Felhantering i Edge Functions
+
+För att förbättra felhanteringen i Edge Functions har vi infört en omfattande felhanteringsarkitektur med tre huvudsakliga moduler: 
+
+### Huvudmoduler
+
+1. **error-handler.ts**
+
+   Denna modul tillhandahåller grundläggande verktyg för felhantering:
+
+   ```typescript
+   import { WebhookError, createErrorResponse, logError, withRetry } from '../common/error-handler.ts';
+
+   // Använd specialiserade felklasser
+   throw new WebhookError('Ogiltig signatur', 400);
+
+   // Skapa standardiserade felresponser
+   return createErrorResponse(error, 500, ErrorCode.INTERNAL_SERVER_ERROR);
+
+   // Logga strukturerad felinformation
+   logError(error, { operation: 'webhook', context: 'subscription-create' });
+
+   // Utför automatiska återförsök
+   const result = await withRetry(async () => {
+     return await riskyOperation();
+   }, 3, 1000);
+   ```
+
+2. **db-helper.ts**
+
+   För säkra databasoperationer:
+
+   ```typescript
+   import { safeDbOperation, getSubscriptionByStripeId } from '../common/db-helper.ts';
+
+   // Säker databasoperation med felhantering
+   const result = await safeDbOperation(
+     async (client) => {
+       return await client.from('table').select('*').eq('id', id);
+     },
+     'Kunde inte hämta data',
+     true // Använd service role
+   );
+   ```
+
+3. **stripe-helper.ts**
+
+   För Stripe API-anrop:
+
+   ```typescript
+   import { verifyStripeWebhookSignature, getSubscriptionFromStripe } from '../common/stripe-helper.ts';
+
+   // Verifiera webhook-signatur
+   const event = verifyStripeWebhookSignature(body, signature);
+
+   // Hämta Stripe-prenumeration med automatiska återförsök
+   const subscription = await getSubscriptionFromStripe(subscriptionId);
+   ```
+
+### Användning och implementation
+
+1. **Strukturerad felhantering**
+
+   ```typescript
+   try {
+     // Utför operation
+   } catch (error) {
+     // Logga strukturerat fel
+     logError(error, { context: 'operationName' });
+     
+     // Skapa lämplig felrespons
+     return createErrorResponse(
+       error,
+       error instanceof WebhookError ? error.statusCode : 500,
+       ErrorCode.OPERATION_FAILED
+     );
+   }
+   ```
+
+2. **Operationsspårning**
+
+   ```typescript
+   await withErrorTracking(
+     'Handle webhook event',
+     async () => {
+       // Kod som ska övervakas och tidsmätas
+     }
+   );
+   ```
+
+3. **Automatiska återförsök**
+
+   ```typescript
+   await withRetry(
+     async () => {
+       // Nätverksanrop eller annan operation som kan misslyckas tillfälligt
+     },
+     3, // Max antal försök
+     1000 // Basförsening i ms (kommer att öka exponentiellt)
+   );
+   ```
+
+### Fördelar
+
+1. **Ökad robusthet**: Systemet kan återhämta sig från tillfälliga fel
+2. **Tydligare felmeddelanden**: Standardiserad felstruktur förenklar felsökning
+3. **Prestandaövervakning**: Inbyggd tidsmätning och spårning
+4. **Säkrare databasåtkomst**: Förhindrar oväntat databeteende
+5. **Förbättrad utvecklingsupplevelse**: Minskad kodduplicering genom återanvändbara felhanteringsmönster
+
+Den nya felhanteringsarkitekturen rekommenderas för alla Edge Functions och serverless-funktioner för att säkerställa konsekvent och robust felhantering. 

@@ -96,4 +96,12 @@ För att bidra till dokumentationen, följ dessa riktlinjer:
 1. Använd Markdown-format
 2. Följ den befintliga strukturen
 3. Inkludera kodexempel när det är relevant
-4. Håll dokumentationen uppdaterad när koden förändras 
+4. Håll dokumentationen uppdaterad när koden förändras
+
+## Resursbegränsningssystem
+
+- [Subscription Model](plans/domains/subscription_model.md) - Dokumentation av prenumerationsmodellen och resursbegränsningar
+- [Migration Summary](migrations/migration_summary.md) - Sammanfattning av migreringar för resursbegränsningssystemet
+- [Resource Performance Optimization](plans/resource_performance_optimization.md) - Plan för prestandaoptimering av resursbegränsningssystemet
+- [Resource Limits Test Plan](tests/resource_limits_test_plan.md) - Testplan för resursbegränsningssystemet
+- [Integration Tests Setup](plans/integration_tests_setup.md) - Guide för konfiguration av integrationstester 

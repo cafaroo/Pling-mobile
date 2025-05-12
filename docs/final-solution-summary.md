@@ -65,3 +65,96 @@ Den underliggande orsaken till de brustna testerna var en versionsskillnad i mod
 Domänlagertester fungerar nu med vår konfiguration, medan UI-tester kräver ytterligare arbete. De skapade mockfilerna visar vägen framåt för att lösa problemen med UI-testerna.
 
 Vi rekommenderar att fortsätta med domäntesterna och gradvis återaktivera UI-testerna med de skapade mockfilerna, tillsammans med en fullständig ominstallation av npm-paket. 
+
+# Sammanfattning av Stripe-integration i Pling
+
+Detta dokument sammanfattar implementationen av Stripe-integrationen för prenumerationshantering i Pling-mobilappen.
+
+## Implementerade komponenter
+
+Vi har implementerat en fullständig Stripe-integration för prenumerationshantering med följande komponenter:
+
+### Frontend
+
+- **PaymentProcessor** - Hanterar betalningsflödet med Stripe SDK
+- **BillingInfo** - Visar faktureringsinformation och hanterar betalningsmetoder
+- **SubscriptionUpgradeFlow** - Guidar användaren genom uppgradering av prenumeration
+- **useStripeSubscription** - Hook för att hantera Stripe-operationer
+
+### Backend
+
+- **StripeIntegrationService** - Kommunicerar med Stripe API
+- **StripeWebhookHandler** - Hanterar webhook-händelser från Stripe
+- **StripeWebhookController** - Exponerar API för webhook-mottagning
+- **SubscriptionSchedulerService** - Hanterar schemalagda jobb för prenumerationer
+
+### Serverless
+
+- **stripe-webhook** - Edge Function för att hantera Stripe webhooks
+- **subscription-scheduler** - Edge Function för schemalagda prenumerationsjobb
+
+### Databas
+
+- Utökade databastabeller för prenumerationsdata
+- RPC-funktioner för prenumerationsstatistik
+- Migrationsskript för nya tabeller och funktioner
+
+## Arkitektur
+
+Lösningen bygger på en kombination av:
+
+1. **Frontend** med React Native/Expo för användargränssnittet
+2. **Stripe SDK** för säker hantering av betalningsinformation
+3. **Backend** för affärslogik och integration med Stripe API
+4. **Webhooks** för hantering av händelser från Stripe
+5. **Schemalagda jobb** för periodisk uppdatering och underhåll
+6. **Supabase** för datalagring och serverless funktioner
+
+## Flöden
+
+### Prenumerationsflöde
+
+1. Användaren väljer prenumerationsplan
+2. Användaren anger betalningsinformation via Stripe SDK
+3. Frontend anropar backend för att skapa prenumeration
+4. Backend kommunicerar med Stripe API
+5. Webhooks uppdaterar databasen vid slutförande
+6. Användaren får tillgång till funktioner
+
+### Webhook-hantering
+
+Vi hanterar följande Stripe-händelser:
+- Nya prenumerationer
+- Lyckade betalningar
+- Misslyckade betalningar
+- Prenumerationsuppdateringar
+- Prenumerationsborttagningar
+
+### Schemalagda jobb
+
+Vi har implementerat jobb för att:
+- Synkronisera prenumerationsstatus
+- Skicka påminnelser för snart utgående prenumerationer
+- Hantera utgångna prenumerationer
+- Hantera misslyckade betalningar
+- Generera prenumerationsstatistik
+
+## Säkerhet
+
+- Känslig betalningsinformation hanteras enbart av Stripe SDK
+- Webhook-signaturer valideras för att säkerställa autenticitet
+- API-nycklar lagras säkert i miljövariabler
+- Schemalagda jobb är säkrade med dedikerad hemlighet
+- Row-level security i databasen skyddar data
+
+## Driftsättning
+
+För att aktivera lösningen krävs:
+1. Deployment av databasmigrationer
+2. Deployment av Edge Functions
+3. Konfiguration av webhooks i Stripe
+4. Konfiguration av schemalagda jobb
+
+## Sammanfattning
+
+Med denna implementation har vi skapat en robust och säker prenumerationshantering för Pling-appen. Lösningen hanterar hela processen från användargränssnitt till datalagring, med stöd för webhooks och schemalagda jobb för att säkerställa konsistens och uppdatering av data. Arkitekturen är skalbar och kan enkelt utökas med fler funktioner i framtiden. 

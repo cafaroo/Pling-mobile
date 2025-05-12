@@ -20,6 +20,8 @@ import {
 } from '../events/OrganizationEvents';
 import { SubscriptionService } from '../interfaces/SubscriptionService';
 import { ResourceLimitType } from '../interfaces/SubscriptionService';
+import { ResourceLimitStrategyFactory } from '../strategies/ResourceLimitStrategyFactory';
+import { ResourceType, LimitCheckResult } from '../strategies/ResourceLimitStrategy';
 
 export interface OrganizationProps {
   id: UniqueId;
@@ -45,6 +47,7 @@ export type OrganizationUpdateDTO = {
 
 export class Organization extends AggregateRoot<OrganizationProps> {
   private subscriptionService?: SubscriptionService;
+  private limitStrategyFactory?: ResourceLimitStrategyFactory;
 
   private constructor(props: OrganizationProps) {
     super(props);
@@ -86,12 +89,187 @@ export class Organization extends AggregateRoot<OrganizationProps> {
     this.subscriptionService = service;
   }
 
+  /**
+   * Sätter factory för resursbegränsningsstrategier.
+   * 
+   * @param factory - Factory för att skapa strategier
+   */
+  public setLimitStrategyFactory(factory: ResourceLimitStrategyFactory): void {
+    this.limitStrategyFactory = factory;
+  }
+
   public async hasActiveSubscription(): Promise<boolean> {
     if (!this.subscriptionService) {
       return true;
     }
 
     return await this.subscriptionService.hasActiveSubscription(this.id);
+  }
+
+  /**
+   * Kontrollerar om en användare kan läggas till i organisationen baserat på resursbegränsningar.
+   * 
+   * @param addCount - Antal användare att lägga till
+   * @returns Resultat med information om begränsningen
+   */
+  public async canAddMoreMembers(addCount: number = 1): Promise<Result<LimitCheckResult, string>> {
+    try {
+      // Använd den nya strategin om tillgänglig
+      if (this.limitStrategyFactory) {
+        const strategy = this.limitStrategyFactory.getTeamMemberStrategy();
+        const result = await strategy.isActionAllowed(
+          this.id,
+          this.props.members.length,
+          addCount
+        );
+        
+        if (!result.allowed) {
+          return Result.fail(result.reason || 'Du har nått gränsen för antal teammedlemmar i din prenumerationsplan.');
+        }
+        
+        return Result.ok(result);
+      }
+      
+      // Fallback till tidigare canPerformResourceAction
+      const canAddResult = await this.canPerformResourceAction(
+        ResourceLimitType.TEAM_MEMBERS,
+        addCount
+      );
+      
+      if (canAddResult.isErr()) {
+        return Result.fail(canAddResult.error);
+      }
+      
+      return Result.ok({
+        allowed: true,
+        limit: this.props.settings.maxMembers || 3,
+        currentUsage: this.props.members.length,
+        usagePercentage: this.props.settings.maxMembers ? 
+          Math.round((this.props.members.length / this.props.settings.maxMembers) * 100) : 
+          0
+      });
+    } catch (error) {
+      return Result.fail(`Kunde inte kontrollera medlemsbegränsning: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Kontrollerar om ett team kan läggas till i organisationen baserat på resursbegränsningar.
+   * 
+   * @param addCount - Antal team att lägga till
+   * @returns Resultat med information om begränsningen
+   */
+  public async canAddMoreTeams(addCount: number = 1): Promise<Result<LimitCheckResult, string>> {
+    try {
+      // Använd den nya strategin om tillgänglig
+      if (this.limitStrategyFactory) {
+        const strategy = this.limitStrategyFactory.getTeamStrategy();
+        const result = await strategy.isActionAllowed(
+          this.id,
+          this.props.teamIds.length,
+          addCount
+        );
+        
+        if (!result.allowed) {
+          return Result.fail(result.reason || 'Du har nått gränsen för antal team i din prenumerationsplan.');
+        }
+        
+        return Result.ok(result);
+      }
+      
+      // Fallback till tidigare canPerformResourceAction
+      const canAddResult = await this.canPerformResourceAction(
+        ResourceLimitType.TEAMS,
+        addCount
+      );
+      
+      if (canAddResult.isErr()) {
+        return Result.fail(canAddResult.error);
+      }
+      
+      return Result.ok({
+        allowed: true,
+        limit: this.props.settings.maxTeams || 1,
+        currentUsage: this.props.teamIds.length,
+        usagePercentage: this.props.settings.maxTeams ? 
+          Math.round((this.props.teamIds.length / this.props.settings.maxTeams) * 100) : 
+          0
+      });
+    } catch (error) {
+      return Result.fail(`Kunde inte kontrollera teambegränsning: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Kontrollerar om en resurs av specifik typ kan läggas till i organisationen baserat på resursbegränsningar.
+   * 
+   * @param resourceType - Typ av resurs att kontrollera
+   * @param currentCount - Nuvarande antal av resursen
+   * @param addCount - Antal resurser att lägga till
+   * @returns Resultat med information om begränsningen
+   */
+  public async canAddMoreResources(
+    resourceType: ResourceType,
+    currentCount: number,
+    addCount: number = 1
+  ): Promise<Result<LimitCheckResult, string>> {
+    try {
+      // Använd den nya strategin om tillgänglig
+      if (this.limitStrategyFactory) {
+        const strategy = this.limitStrategyFactory.getResourceStrategy(resourceType);
+        const result = await strategy.isActionAllowed(
+          this.id,
+          currentCount,
+          addCount
+        );
+        
+        if (!result.allowed) {
+          return Result.fail(result.reason || `Du har nått gränsen för denna resurstyp i din prenumerationsplan.`);
+        }
+        
+        return Result.ok(result);
+      }
+      
+      // Fallback till tidigare canPerformResourceAction baserat på resurstyp
+      let limitType: ResourceLimitType;
+      switch (resourceType) {
+        case ResourceType.GOAL:
+          limitType = ResourceLimitType.GOALS;
+          break;
+        case ResourceType.COMPETITION:
+          limitType = ResourceLimitType.COMPETITIONS;
+          break;
+        case ResourceType.DASHBOARD:
+          limitType = ResourceLimitType.DASHBOARDS;
+          break;
+        case ResourceType.REPORT:
+          limitType = ResourceLimitType.REPORTS;
+          break;
+        case ResourceType.MEDIA:
+          limitType = ResourceLimitType.MEDIA_STORAGE;
+          break;
+        default:
+          limitType = ResourceLimitType.GENERAL;
+      }
+      
+      const canAddResult = await this.canPerformResourceAction(
+        limitType,
+        addCount
+      );
+      
+      if (canAddResult.isErr()) {
+        return Result.fail(canAddResult.error);
+      }
+      
+      return Result.ok({
+        allowed: true,
+        limit: 5, // Standardgräns
+        currentUsage: currentCount,
+        usagePercentage: Math.round((currentCount / 5) * 100)
+      });
+    } catch (error) {
+      return Result.fail(`Kunde inte kontrollera resursbegränsning: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   public async canPerformResourceAction(

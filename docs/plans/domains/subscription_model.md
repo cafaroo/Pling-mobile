@@ -2,7 +2,108 @@
 
 ## Översikt
 
-Detta dokument beskriver prenumerationsmodellen för Pling-applikationen, inklusive olika prenumerationsnivåer, funktioner, prissättning och teknisk implementation.
+Pling-applikationen använder en prenumerationsbaserad modell för att kontrollera tillgång till olika funktioner och resursbegränsningar. Modellen är implementerad enligt Domain-Driven Design principer med tydlig separation mellan domäner.
+
+## Resursmodell
+
+### Resursbegränsningar
+
+Vi har implementerat en robust lösning för att hantera resursbegränsningar baserad på en strategi-pattern:
+
+#### Huvudkomponenter:
+
+1. **ResourceLimitStrategy** - Ett interface som definierar hur resursbegränsningar beräknas och kontrolleras.
+2. **BaseResourceLimitStrategy** - En abstrakt basklass som implementerar grundläggande funktionalitet för resursbegränsningar.
+3. **Strategiklasser** - Konkreta implementationer för olika resurstyper:
+   - **TeamLimitStrategy** - Begränsar antal team i en organisation
+   - **TeamMemberLimitStrategy** - Begränsar antal medlemmar per team
+   - **GoalLimitStrategy** - Begränsar antal mål som kan skapas
+   - **CompetitionLimitStrategy** - Begränsar antal tävlingar som kan skapas
+   - **ReportLimitStrategy** - Begränsar antal rapporter som kan genereras
+   - **OrganizationResourceLimitStrategy** - Övergripande resursstrategi för organisationen
+
+4. **ResourceLimitStrategyFactory** - Fabriksklass som skapar och returnerar rätt strategi baserat på typ.
+
+### Automatiserad resursanvändningsspårning
+
+Vi har implementerat ett automatiskt system för att spåra resursanvändning inom organisationer:
+
+1. **ResourceUsageTrackingService** - Service för att spåra och uppdatera resursanvändning.
+2. **AutomaticResourceTrackingService** - Service för att schemalägga periodiska uppdateringar av resursanvändning.
+3. **ResourceCountProvider** - Interface för att hämta antal resurser per typ.
+4. **SupabaseResourceCountProvider** - Konkret implementation som hämtar resursantal från Supabase.
+
+### Notifikationer för resursgränser
+
+För att förbättra användarupplevelsen när resursgränser närmar sig eller nås:
+
+1. **ResourceLimitNotificationService** - Service för att skicka notifikationer om resursbegränsningar.
+2. **SupabaseNotificationAdapter** - Adapter för integration med Supabase notifikationssystem.
+
+## Användargränssnitt
+
+För att visualisera och hantera resursbegränsningar har vi följande komponenter:
+
+1. **ResourceLimitError** - Komponent för att visa felmeddelanden när resursgränser nås.
+2. **ResourceLimitDisplay** - Generell komponent för att visa resursbegränsningar.
+3. **ResourceUsageOverview** - Dashboard-widget för att visa resursbegränsning per organisation.
+4. **ResourceManagementTab** - Dedikerad flik för att hantera olika resurstyper och deras begränsningar.
+
+## Integrationer
+
+### Prenumerationsnivåer
+
+Varje prenumerationsnivå (Basic, Professional, Enterprise) definierar gränser för följande resurstyper:
+- Antal team
+- Medlemmar per team
+- Antal mål
+- Antal tävlingar
+- Antal rapporter
+- Antal dashboards
+- Medialagring (MB)
+
+### Prenumerationsuppgraderingar
+
+När en användare närmar sig eller når en resursgräns kommer systemet att:
+1. Visa visuella indikatorer i gränssnittet
+2. Skicka notifikationer till administratörer och ägare
+3. Föreslå prenumerationsuppgradering med relevant information
+
+## Teknisk implementation
+
+### Domänevents
+
+Systemet använder följande domänevents för att hålla olika delar av applikationen synkroniserade:
+- ResourceLimitReachedEvent
+- ResourceUsageUpdatedEvent
+- SubscriptionChangedEvent
+
+### Testning
+
+Testerna för systemet inkluderar:
+- Enhetstester för varje strategi
+- Integrationstester för ResourceUsageTrackingService
+- UI-tester för ResourceManagementTab
+- End-to-end tester för uppgraderingsflöden
+
+## Framtida förbättringar
+
+### Planerade förbättringar
+
+1. **Prestandaoptimering av resursspårning**
+   - Optimera databasfrågor för resursspårning
+   - Implementera effektivare cache-strategi för resursbegränsningsdata
+   - Minska nätverksbelastningen från periodiska uppdateringar
+
+2. **Utökad testning av resursbegränsningssystem**
+   - Skapa omfattande tester för edge-cases i alla strategier
+   - Implementera automatiserade integrationstester
+   - Dokumentera testscenarier och resultat
+
+3. **Förbättrad användarupplevelse**
+   - Förbättra visuell feedback vid närhet till resursgränser
+   - Implementera stegvisa guider för resurshantering
+   - Skapa användarutbildningsmaterial för resurshantering
 
 ## Prenumerationsnivåer
 

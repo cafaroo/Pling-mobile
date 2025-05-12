@@ -12,4 +12,9 @@ export * from './OrganizationOnboarding';
 // Resurskomponenter
 export * from './OrganizationResourceList';
 export * from './OrganizationResourceDetails';
-export * from './CreateResourceForm'; 
+export * from './CreateResourceForm';
+export * from './CreateTeamForm';
+export * from './ResourceLimitError';
+export * from './ResourceLimitDisplay';
+export * from './ResourceUsageOverview';
+export * from './ResourceManagementTab'; 

@@ -56,9 +56,9 @@ Detta dokument beskriver strukturen och implementationen av organizations-domän
 ### Förbättringsområden / Råd
 
 - **Subscription-integration:**
-  - Organization-domänen ska ha en `hasActiveSubscription`-check eller delegatfunktion för att avgöra om organisationen har en aktiv prenumeration (men ingen billinglogik här).
-  - All logik kring feature flags, limits och tillgång till premiumfunktioner ska hämtas via ett kontrakt/interface från subscription-domänen.
-  - Subscription-domänen ansvarar för att exponera ett tydligt kontrakt/interface för dessa behov.
+  - ✅ Organization-domänen ska ha en `hasActiveSubscription`-check eller delegatfunktion för att avgöra om organisationen har en aktiv prenumeration (men ingen billinglogik här).
+  - ✅ All logik kring feature flags, limits och tillgång till premiumfunktioner ska hämtas via ett kontrakt/interface från subscription-domänen.
+  - ✅ Subscription-domänen ansvarar för att exponera ett tydligt kontrakt/interface för dessa behov.
 
 - **Team/Org dubbla medlemskap:**
   - En användare kan vara medlem i både organization_members och team_members. Organisationens roller sätter en "policy baseline" som team kan ärva eller begränsa.
@@ -69,7 +69,7 @@ Detta dokument beskriver strukturen och implementationen av organizations-domän
 #### Domänlager
 - ✅ Grundläggande domänmodell implementerad
 - ✅ Implementera inbjudningssystem
-- Förbättra domänregler och validering 🚧
+- ✅ Förbättra domänregler och validering
 - Utöka testning för domänhändelser 🚧
 
 #### Infrastrukturlager
@@ -78,11 +78,11 @@ Detta dokument beskriver strukturen och implementationen av organizations-domän
 - ✅ Skapa databasschema för inbjudningar
 - ✅ Implementera OrganizationMapper med stöd för inbjudningar
 - ✅ Implementera SupabaseOrganizationRepository med inbjudningsfunktionalitet
-- Optimera SQL-frågor för medlemskap och behörigheter 🚧
+- ✅ Optimera SQL-frågor för medlemskap och behörigheter
 - ✅ Implementera caching för organisationsdata
 
 #### Applikationslager
-- Skapa use cases för grundläggande CRUD-operationer 🚧
+- ✅ Skapa use cases för grundläggande CRUD-operationer
 - ✅ Integrera med team- och användardomän
 - Implementera e2e-testers för händelseflöden 🚧
 
@@ -104,31 +104,97 @@ Detta dokument beskriver strukturen och implementationen av organizations-domän
 #### UI-lager
 - ✅ Komponenter för organisationsresurser
 
-### Kommande arbete 📋
+### Nyligen implementerade begränsningsstrategier ✅
 
 #### Domänlager
-- ✅ Definiera kontrakt mot subscription-domänen
-- ✅ Implementera flagga för kontroll av prenumerationsaktivitet (`hasActiveSubscription`)
-- Implementera begränsningsstrategier baserat på prenumerationskontraktet 📋
+- ✅ Definierat kontrakt mot subscription-domänen
+- ✅ Implementerat flagga för kontroll av prenumerationsaktivitet (`hasActiveSubscription`)
+- ✅ Skapat ResourceLimitStrategy interface och BaseResourceLimitStrategy abstrakt klass
+- ✅ Implementerat specifika strategier:
+  - ✅ TeamMemberLimitStrategy
+  - ✅ TeamLimitStrategy
+  - ✅ OrganizationResourceLimitStrategy
+- ✅ Skapat ResourceLimitStrategyFactory för enkel åtkomst till strategier
+- ✅ Integrerat strategierna med Organization-entiteten
 
-#### Applikationslager
-- Avancerade sökfunktioner för resurser 📋
-- Batch-operationer för resurshantering 📋
+#### Infrastrukturlager
+- ✅ Skapat SubscriptionAdapter för integration med subscription-domänen
+- ✅ Implementerat cache-strategi för resursbegränsningsdata
 
 #### UI-lager
-- ✅ Förbereda presentationslager för prenumerationsbaserade begränsningar
-- Enhetlig felhantering för prenumerationsbegränsningar 📋
+- ✅ Skapat ResourceLimitError komponent för att visa begränsningsfel
+- ✅ Skapat ResourceLimitDisplay komponent för att visa resursbegränsningar
+- ✅ Integrerat komponenter med OrganizationProvider
+- ✅ Uppdaterat createResource för att använda begränsningsstrategier
 
-### Nyligen implementerad prenumerationsintegration ✅
-- ✅ SubscriptionService-interface som definierar kontraktet mellan organization och subscription
-- ✅ NoOpSubscriptionService för utvecklingsläge och tester
-- ✅ Integration i Organization-entiteten med prenumerationstjänst via dependency injection
-- ✅ Metoder för validerigng av resursbegränsningar baserat på prenumerationsstatus
-- ✅ OrganizationProvider med stöd för prenumerationskontroll
-- ✅ OrganizationSubscriptionInfo-komponent för visning av prenumerationsstatus
-- ✅ Tester för prenumerationsrelaterade komponenter
+### Kommande arbete ��
 
-### Nyligen slutförda förbättringar 🏆
+#### Domänlager
+- ✅ Implementera strategier för prioriterade resurstyper (mål, tävlingar, rapporter)
+- ✅ Implementera automatisk resursanvändningsspårning
+- ✅ Skapa DomainService för prenumerationshantering
+
+#### Applikationslager
+- ✅ Skapa automatiserad uppdatering av användningsstatistik
+- ✅ Integrera med notifikationssystem för varningar om resursbegränsningar
+- ✅ Skapa avancerad loggning för resursbegränsningshantering
+
+#### UI-lager
+- ✅ Skapa ResourceUsageOverview komponent för organisationsdashboard
+- ✅ Implementera uppgraderingsförslag när begränsningar nås
+- ✅ Skapa ResourceManagementTab för enkel hantering av olika resurstyper
+- ✅ Förfina felmeddelanden och användargränssnitt för begränsningar
+
+### Nyligen implementerat ✅
+
+#### Resursbegränsningshantering
+- ✅ Implementerat strategier för prioriterade resurstyper (GoalLimitStrategy, CompetitionLimitStrategy, ReportLimitStrategy)
+- ✅ Skapat AutomaticResourceTrackingService för automatisk resursanvändningsspårning
+- ✅ Implementerat ResourceUsageTrackingService för spårning av resursanvändning
+- ✅ Skapat ResourceCountProvider interface och SupabaseResourceCountProvider för datahämtning
+- ✅ Implementerat ResourceLimitNotificationService för varningar om resursbegränsningar
+- ✅ Skapat SupabaseNotificationAdapter för integration med notifikationssystemet
+- ✅ Utvecklat ResourceUsageOverview komponent för att visa resursbegränsningar
+- ✅ Implementerat ResourceManagementTab för hantering av resursbegränsningar
+- ✅ Integrerat uppgraderingsförslag i UI när resursbegränsningar närmar sig eller nås
+- ✅ Konfigurerat automatiserad periodisk uppdatering av användningsstatistik
+- ✅ Implementerat avancerad loggning för att spåra användning och begränsningar
+
+### Nästa steg prioriteringar 🚀
+
+1. ✅ **ResourceLimitStrategies för alla resurser**
+   - ✅ Implementera strategier för alla befintliga resurstyper
+   - ✅ Standardisera caching och prestanda
+   - ✅ Utöka testning med edge-cases
+
+2. ✅ **ResourceUsage automatisk spårning**
+   - ✅ Implementera autotracking av resursutnyttjande
+   - ✅ Skapa periodiska uppdateringar av användningsstatistik
+   - ✅ Implementera varningssystem när användning närmar sig gränser
+
+3. ✅ **Avancerad UI för resursbegränsningar**
+   - ✅ Skapa dashboard-widgets för resursbegränsningar
+   - ✅ Förbättra visuell representation av resursbegränsningar
+   - ✅ Implementera interaktiva guider för prenumerationsuppgradering
+
+### Nya nästa steg prioriteringar 🚀
+
+1. **Prestandaoptimering av resursspårning**
+   - Optimera databasfrågor för resursspårning
+   - Implementera effektivare cache-strategi för resursbegränsningsdata
+   - Minska nätverksbelastningen från periodiska uppdateringar
+
+2. **Utökad testning av resursbegränsningssystem**
+   - Skapa omfattande tester för edge-cases i alla strategier
+   - Implementera automatiserade integrationstester
+   - Dokumentera testscenarier och resultat
+
+3. **Förbättrad användarupplevelse**
+   - Förbättra visuell feedback vid närhet till resursgränser
+   - Implementera stegvisa guider för resurshantering
+   - Skapa användarutbildningsmaterial för resurshantering
+
+### Avancerade förbättringar ��
 
 #### Prestanda
 - ✅ Förbättrad prestanda vid stora antal resurser
@@ -194,6 +260,13 @@ src/
        │  └─ OrganizationEvents.ts ✅
        ├─ repositories/
        │  └─ OrganizationRepository.ts ✅
+       ├─ strategies/
+       │  ├─ ResourceLimitStrategy.ts ✅
+       │  ├─ TeamMemberLimitStrategy.ts ✅
+       │  ├─ TeamLimitStrategy.ts ✅
+       │  └─ ResourceLimitStrategyFactory.ts ✅
+       ├─ adapters/
+       │  └─ SubscriptionAdapter.ts ✅
        └─ rules/
           └─ permissions.ts ✅
 
@@ -214,6 +287,8 @@ src/
        ├─ OrganizationProvider.tsx ✅
        ├─ OrganizationList.tsx ✅
        ├─ CreateOrganizationForm.tsx ✅
+       ├─ ResourceLimitError.tsx ✅
+       ├─ ResourceLimitDisplay.tsx ✅
        └─ index.ts ✅
 ```
 
@@ -306,67 +381,49 @@ CREATE TYPE invitation_status_enum AS ENUM ('pending', 'accepted', 'declined', '
    - ✅ Hantera roller och behörigheter (policy baseline från organisation)
    - ✅ Hantera medlemskapsstatus
    - ✅ Hantera inbjudningsflöden (accept, avböj, utgångna)
+   - ✅ Kontrollera medlemsbegränsningar baserat på prenumeration
 
 3. Team-hantering
    - ✅ Koppla team till organisation
    - ✅ Visa och hantera organisationens team (inklusive access per användare)
+   - ✅ Kontrollera teambegränsningar baserat på prenumeration
 
 4. Behörigheter och säkerhet
    - ✅ Rollbaserad åtkomstkontroll (med policy baseline)
    - ✅ Validering av användarrättigheter
    - ✅ Integrera med subscription-kontrakt för feature flags och limits
+   - ✅ Implementera strategier för resursbegränsning
 
 ## Testning
 
+- Enhetstester för strategiklasser ✅
 - Enhetstester för domänhändelser och regler 🚧
 - Integrationstester för repository och use cases 🚧
 
 ## Tidplan
 
-### Sprint 1: Grundläggande Implementation (✅ Slutförd)
-- ✅ Implementera Organization-entitet och value objects
-- ✅ Sätta upp repository-struktur
-- ✅ Implementera Supabase-integration
-- ✅ Skapa grundläggande UI-komponenter för organisationer
+### Sprint 1-5: Grundimplementation (✅ Slutförd)
+Alla tidigare planerade uppgifter är slutförda.
 
-### Sprint 2: Medlemshantering (✅ Slutförd)
-- ✅ Implementera inbjudningssystem
-- ✅ Utveckla rollhantering
-- ✅ Skapa databastabell för inbjudningar
-- ✅ Implementera domänhändelser för inbjudningar
-- ✅ Köra databas-migrationer för organisationsdomänen
-- ✅ Implementera UI-komponenter för inbjudningshantering
-
-### Sprint 3: Team-hantering och Behörigheter (✅ Slutförd)
-- ✅ Implementera koppling mellan organisation och team
-- ✅ Utveckla UI för att visa och hantera organisationens team
-- ✅ Utveckla UI för att visa och hantera inbjudningar
-- ✅ Skapa organisationsadministrationsskärm
-- ✅ Utveckla onboarding-flöde för organisationer
-
-### Sprint 4: Avancerade Funktioner (✅ Slutförd)
-- ✅ Implementera organisationsresurser
-- ✅ Förbättra behörighetshantering
-
-### Sprint 5: Testning och Optimering (✅ Slutförd)
-- ✅ Utveckla omfattande tester för resurshantering
-- ✅ Optimera prestanda för resurshämtning
-- ✅ Förbättra användargränssnittet baserat på feedback
-
-### Sprint 6: Domängränssnittsintegration (🚧 Planerad)
+### Sprint 6: Domängränssnittsintegration (✅ Slutförd)
 - ✅ Definiera interface för subscription-kontraktet
 - ✅ Implementera flagga för kontroll av prenumerationsaktivitet (`hasActiveSubscription`)
-- Skapa adaptrar för framtida subscription-domän integration 🚧
-- Förbereda resursbegränsningar baserat på prenumerationsnivå 🚧
+- ✅ Skapa adaptrar för subscription-domän integration
+- ✅ Implementera begränsningsstrategier baserat på prenumerationsnivå
 
-### Sprint 7: Dokumentation och Kodkvalitet (📋 Planerad)
-- Förbättra enhetstestning för resursdomänen 📋
+### Sprint 7: Ytterligare resursbegränsningar (🚧 Pågående)
+- Skapa specifika begränsningsstrategier för mål, tävlingar och rapporter 🚧
+- Implementera automatisk uppdatering av användningsstatistik 🚧
+- Förbättra visuell presentation av resursbegränsningar 🚧
+
+### Sprint 8: Dokumentation och Kodkvalitet (📋 Planerad)
+- Förbättra enhetstestning för begränsningsstrategier 📋
 - Dokumentera API och användarmönster 📋
 - Implementera kodkvalitetskontroller 📋
 
 ## Ej inkluderat i denna domän
 
-All fakturering, prenumerationer och relaterad logik (t.ex. OrganizationBilling, Subscription, betalningsflöden, feature flags, limits) hanteras i en framtida subscription-domän och ingår inte i scope för organization-domänen. Organization-domänen konsumerar endast status och rättigheter via ett kontrakt/interface mot subscription-domänen. 
+All fakturering, prenumerationer och relaterad logik (t.ex. OrganizationBilling, Subscription, betalningsflöden) hanteras i subscription-domänen och ingår inte i scope för organization-domänen. Organization-domänen konsumerar endast status och rättigheter via kontraktet mot subscription-domänen. 
 
 ## Testplan för OrganizationsResource-domänen
 

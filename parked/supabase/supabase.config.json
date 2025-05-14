@@ -1,0 +1,8 @@
+{
+  "project_id": "dgrmxelwxeoyiwzoqjsj",
+  "project_name": "pling",
+  "region": "eu-north-1",
+  "migrations": {
+    "directory": "migrations"
+  }
+} 

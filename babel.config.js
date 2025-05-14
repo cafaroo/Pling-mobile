@@ -21,8 +21,8 @@ module.exports = function (api) {
             '@services': './services',
             '@styles': './styles',
             '@types': './types',
-            '@assets': './assets'
-          }
+            '@assets': './assets',
+            '@domain': './src'                  // Nytt tydligt domänalias          }
         }
       ]
     ],

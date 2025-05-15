@@ -1,6 +1,7 @@
 import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { TeamRole } from '../value-objects/TeamRole';
+import { TeamSettingsProps } from '../entities/TeamSettings';
 
 /**
  * BasTeamEvent
@@ -66,5 +67,45 @@ export class TeamUpdated extends BaseTeamEvent {
     public readonly name: string
   ) {
     super('TeamUpdated', teamId);
+  }
+}
+
+export class InvitationSent extends BaseTeamEvent {
+  constructor(
+    public readonly teamId: UniqueId,
+    public readonly userId: UniqueId,
+    public readonly invitedBy: UniqueId,
+    public readonly invitationId: UniqueId
+  ) {
+    super('InvitationSent', teamId);
+  }
+}
+
+export class InvitationAccepted extends BaseTeamEvent {
+  constructor(
+    public readonly teamId: UniqueId,
+    public readonly userId: UniqueId,
+    public readonly invitationId: UniqueId
+  ) {
+    super('InvitationAccepted', teamId);
+  }
+}
+
+export class InvitationDeclined extends BaseTeamEvent {
+  constructor(
+    public readonly teamId: UniqueId,
+    public readonly userId: UniqueId,
+    public readonly invitationId: UniqueId
+  ) {
+    super('InvitationDeclined', teamId);
+  }
+}
+
+export class TeamSettingsUpdated extends BaseTeamEvent {
+  constructor(
+    public readonly teamId: UniqueId,
+    public readonly settings: TeamSettingsProps
+  ) {
+    super('TeamSettingsUpdated', teamId);
   }
 } 

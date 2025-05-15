@@ -24,13 +24,17 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
 
 2. **Event Handlers för Team-domänen** - Implementerat strukturerad hantering av team-relaterade domänevents:
    - Skapat `BaseEventHandler` basklass med generisk typning för alla event handlers
-   - Implementerat specifika handlers för grundläggande team-events:
+   - Implementerat specifika handlers för alla team-events:
      - `TeamCreatedHandler` för att hantera nya team och uppdatera användarens teammedlemskap
      - `MemberJoinedHandler` för att hantera nya teammedlemmar och uppdatera teamstatistik
-     - Förberedande struktur för `MemberLeftHandler`, `TeamMemberRoleChangedHandler` och `TeamMessageCreatedHandler`
+     - `MemberLeftHandler` för att hantera när medlemmar lämnar team och uppdatera statistik
+     - `TeamMemberRoleChangedHandler` för att hantera rollförändringar och auditloggning
+     - `TeamMessageCreatedHandler` för att hantera nya teammeddelanden och uppdatera aktivitet
    - Skapat `TeamEventHandlerFactory` för enkel instansiering och registrering av handlers
    - Implementerat `DomainEventHandlerInitializer` för att registrera alla handlers vid appstart
    - Strukturerade enhetstester för validering av event handler-funktionalitet
+   - Förbättrat felhantering vid eventbehandling med detaljerade felmeddelanden
+   - Implementerat konsekventa loggningsrutiner för felsökning och övervakning
 
 3. **Basklasser för Entiteter** - Implementerat grundläggande basklasser för alla domänkomponenter:
    - Skapat `Entity<T>` basklass för alla entiteter med generisk typning

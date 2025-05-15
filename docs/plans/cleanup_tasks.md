@@ -47,10 +47,18 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [x] ActivateUserUseCase
   - [x] UpdateSettingsUseCase
   - [x] UpdatePrivacySettingsUseCase
+- [x] Implementerat event handlers för team-relaterade domänevents:
+  - [x] MemberJoinedHandler
+  - [x] TeamCreatedHandler
+  - [x] MemberLeftHandler
+  - [x] TeamMemberRoleChangedHandler
+  - [x] TeamMessageCreatedHandler
 
 ### Testning
 - [x] Exporterat testmockar via `test-utils/index.ts` för enkel tillgång.
 - [x] Förbättrat testbarhet genom korrekt implementation av `EventBus` och mock-objekt.
+- [x] Skapat tester för subscription-relaterade hooks och komponenter.
+- [x] Implementerat tester för team-relaterade event handlers.
 
 ## Fas 1: Förberedelse och Analys
 
@@ -107,9 +115,9 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 
 ### 2.6 Domänevents
 - [x] Definiera standardstruktur för domänevents
-- [ ] Refaktorera team-relaterade events
+- [x] Refaktorera team-relaterade events
 - [ ] Refaktorera user-relaterade events
-- [ ] Säkerställ att events bara innehåller nödvändig information
+- [x] Säkerställ att events bara innehåller nödvändig information
 
 ## Fas 3: Applikationslager
 
@@ -215,7 +223,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 3. ~~Förbättra domäntestning med den nya strukturen~~
 4. ~~Slutför refaktorering av team-relaterade use cases~~
 5. ~~Slutför refaktorering av user-relaterade use cases~~
-6. ~~Implementera event handlers för team-relaterade domänevents~~
+6. [x] Implementera event handlers för team-relaterade domänevents
 7. ~~Implementera hooks för att använda de refaktorerade use cases~~
 8. [x] Utöka hooks-implementationen med ytterligare beteenden och förbättrad felhantering
 9. ~~Implementera standardiserade hooks för user-domänen~~
@@ -232,7 +240,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
    - ~~Team-relaterade use cases~~ ✓
    - ~~User-relaterade use cases~~ ✓
 5. ~~Domäntjänster och Domänevents (Fas 2.5, 2.6)~~ ✓
-   - ~~Event handlers~~ ✓
+   - [x] Event handlers ✓
 6. ~~Hooks (Fas 3.3)~~ ✓
    - ~~Standardiserade hooks för team och user~~ ✓
    - Vidareutveckling av hooks och providers (Fokus i nästa fas)

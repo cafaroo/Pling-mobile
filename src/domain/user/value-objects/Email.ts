@@ -1,51 +1,63 @@
+import { ValueObject } from '@/shared/domain/ValueObject';
 import { Result, ok, err } from '@/shared/core/Result';
 
-export class Email {
-  private constructor(readonly value: string) {}
+interface EmailProps {
+  value: string;
+}
 
-  public static create(email: string): Result<Email> {
-    if (!email) {
-      return err('Email kan inte vara tom');
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Kontrollera maxlängd
-    if (normalizedEmail.length > 254) {
-      return err('E-postadressen är för lång');
-    }
-
-    // Kontrollera att @ finns och att det bara finns en
-    const atCount = normalizedEmail.split('@').length - 1;
-    if (atCount !== 1) {
-      return err('Ogiltig e-postadress');
-    }
-
-    // Dela upp i lokal del och domän
-    const [localPart, domain] = normalizedEmail.split('@');
-
-    // Validera lokal del
-    if (!localPart || localPart.length > 64) {
-      return err('Ogiltig e-postadress');
-    }
-
-    // Validera domän
-    if (!domain || domain.length > 255 || !domain.includes('.')) {
-      return err('Ogiltig e-postadress');
-    }
-
-    // Striktare regex för både lokal del och domän
-    const emailRegex = /^[a-z0-9](?:[a-z0-9!#$%&'*+/=?^_`{|}~-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9!#$%&'*+/=?^_`{|}~-]*[a-z0-9])?)*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/;
-
-    if (!emailRegex.test(normalizedEmail)) {
-      return err('Ogiltig e-postadress');
-    }
-
-    return ok(new Email(normalizedEmail));
+/**
+ * Email värde-objekt
+ * 
+ * Ett värde-objekt som representerar en e-postadress med valideringsregler.
+ */
+export class Email extends ValueObject<EmailProps> {
+  private static readonly EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  
+  private constructor(props: EmailProps) {
+    super(props);
   }
-
+  
+  /**
+   * Skapar ett nytt Email-objekt
+   * @param email E-postadressen
+   * @returns Result med Email eller felmeddelande
+   */
+  public static create(email: string): Result<Email, string> {
+    // Trimma och omvandla e-postadressen till gemener
+    const processedEmail = email.trim().toLowerCase();
+    
+    // Validera e-postadressen
+    const validation = this.validate<string>(processedEmail, [
+      [processedEmail.length > 0, 'E-postadressen får inte vara tom'],
+      [this.EMAIL_REGEX.test(processedEmail), 'Ogiltig e-postadress. Måste vara på formatet namn@domän.com'],
+    ]);
+    
+    if (validation.isErr()) {
+      return err(validation.error);
+    }
+    
+    return ok(new Email({ value: processedEmail }));
+  }
+  
+  /**
+   * Returnerar e-postadressen som en sträng
+   */
+  public get value(): string {
+    return this.props.value;
+  }
+  
+  /**
+   * Returnerar domändelen av e-postadressen
+   */
+  public get domain(): string {
+    return this.props.value.split('@')[1];
+  }
+  
+  /**
+   * Representerar Email som en sträng
+   */
   public toString(): string {
-    return this.value;
+    return this.props.value;
   }
 
   public equals(other: Email): boolean {

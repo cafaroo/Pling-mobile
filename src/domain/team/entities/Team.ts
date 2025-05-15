@@ -7,10 +7,12 @@ import { TeamSettings } from './TeamSettings';
 import { TeamRole } from '../value-objects/TeamRole';
 import { TeamPermission } from '../value-objects/TeamPermission';
 import { MemberJoined, MemberLeft, TeamMemberRoleChanged, TeamCreated, TeamUpdated } from '../events/TeamEvents';
+import { TeamName } from '../value-objects/TeamName';
+import { TeamDescription } from '../value-objects/TeamDescription';
 
 export interface TeamProps {
-  name: string;
-  description?: string;
+  name: TeamName;
+  description?: TeamDescription;
   ownerId: UniqueId;
   members: TeamMember[];
   invitations: TeamInvitation[];
@@ -37,11 +39,11 @@ export class Team extends AggregateRoot<TeamProps> {
   }
 
   get name(): string {
-    return this.props.name;
+    return this.props.name.value;
   }
 
   get description(): string | undefined {
-    return this.props.description;
+    return this.props.description?.value;
   }
 
   get ownerId(): UniqueId {
@@ -75,9 +77,16 @@ export class Team extends AggregateRoot<TeamProps> {
         ? props.ownerId 
         : new UniqueId(props.ownerId);
 
-      // Validering
-      if (!props.name || props.name.trim().length < 2) {
-        return err('Teamnamn måste vara minst 2 tecken');
+      // Validera och skapa TeamName värde-objekt
+      const nameResult = TeamName.create(props.name);
+      if (nameResult.isErr()) {
+        return err(nameResult.error);
+      }
+      
+      // Validera och skapa TeamDescription värde-objekt
+      const descriptionResult = TeamDescription.create(props.description);
+      if (descriptionResult.isErr()) {
+        return err(descriptionResult.error);
       }
 
       // Skapa teamet
@@ -114,8 +123,8 @@ export class Team extends AggregateRoot<TeamProps> {
 
       // Skapa nytt team med den nya strukturen
       const team = new Team({
-        name: props.name.trim(),
-        description: props.description?.trim(),
+        name: nameResult.value,
+        description: descriptionResult.value,
         ownerId,
         members: [ownerMemberResult.value],
         invitations: [],
@@ -128,7 +137,7 @@ export class Team extends AggregateRoot<TeamProps> {
       team.addDomainEvent(new TeamCreated(
         id,
         ownerId,
-        props.name.trim()
+        nameResult.value.value
       ));
 
       return ok(team);
@@ -140,19 +149,25 @@ export class Team extends AggregateRoot<TeamProps> {
   // Uppdatera team
   public update(updateDTO: TeamUpdateDTO): Result<void, string> {
     try {
-      if (updateDTO.name && updateDTO.name.trim().length < 2) {
-        return err('Teamnamn måste vara minst 2 tecken');
-      }
-
-      // Uppdatera teamet
+      // Hantera uppdatering av namn
       if (updateDTO.name) {
-        this.props.name = updateDTO.name.trim();
+        const nameResult = TeamName.create(updateDTO.name);
+        if (nameResult.isErr()) {
+          return err(nameResult.error);
+        }
+        this.props.name = nameResult.value;
       }
 
+      // Hantera uppdatering av beskrivning
       if (updateDTO.description !== undefined) {
-        this.props.description = updateDTO.description.trim();
+        const descriptionResult = TeamDescription.create(updateDTO.description);
+        if (descriptionResult.isErr()) {
+          return err(descriptionResult.error);
+        }
+        this.props.description = descriptionResult.value;
       }
 
+      // Hantera uppdatering av inställningar
       if (updateDTO.settings) {
         try {
           this.props.settings = this.props.settings.update(updateDTO.settings);
@@ -166,7 +181,7 @@ export class Team extends AggregateRoot<TeamProps> {
       // Lägg till domänhändelse
       this.addDomainEvent(new TeamUpdated(
         this.id,
-        this.name
+        this.props.name.value
       ));
 
       return ok(undefined);

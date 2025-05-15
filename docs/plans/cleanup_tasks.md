@@ -87,8 +87,8 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [ ] Implementera domänevent-publish i alla entiteter
 
 ### 2.2 Värde-objekt
-- [ ] Standardisera bas-implementationen för värde-objekt
-- [ ] Refaktorera `TeamName`, `TeamDescription` som värde-objekt
+- [x] Standardisera bas-implementationen för värde-objekt
+- [x] Refaktorera `TeamName`, `TeamDescription` som värde-objekt
 - [ ] Refaktorera `UserProfile` som korrekt värde-objekt
 - [x] Säkerställ att värde-objekt är oföränderliga (immutable)
 - [x] Implementera validering i create-metoder för alla värde-objekt

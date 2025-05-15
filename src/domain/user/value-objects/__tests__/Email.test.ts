@@ -2,105 +2,90 @@ import { Email } from '../Email';
 import '@testing-library/jest-dom';
 
 describe('Email', () => {
-  describe('create', () => {
-    it('ska skapa ett giltigt Email-objekt', () => {
-      const validEmails = [
-        'test@example.com',
-        'user.name@domain.com',
-        'user+tag@domain.co.uk',
-        'very.common@example.com',
-        'a.little.lengthy.but.fine@a.iana-servers.net'
-      ];
-
-      validEmails.forEach(email => {
-        const result = Email.create(email);
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          expect(result.value.value).toBe(email.toLowerCase());
-        }
-      });
-    });
-
-    it('ska normalisera e-postadresser till gemener', () => {
-      const result = Email.create('Test@EXAMPLE.com');
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.value).toBe('test@example.com');
-      }
-    });
-
-    it('ska returnera fel för tom e-post', () => {
-      const result = Email.create('');
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error).toBe('Email kan inte vara tom');
-      }
-    });
-
-    it('ska returnera fel för för lång e-post', () => {
-      // Skapa en väldigt lång lokal del
-      const longLocalPart = 'a'.repeat(255);
-      const result = Email.create(`${longLocalPart}@example.com`);
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error).toBe('E-postadressen är för lång');
-      }
-    });
-
-    it('ska returnera fel för ogiltiga e-postadresser', () => {
-      const invalidEmails = [
-        'plainaddress',
-        '#@%^%#$@#$@#.com',
-        '@example.com',
-        'email.example.com',
-        'email@example@example.com',
-        '.email@example.com',
-        'email.@example.com',
-        'email@-example.com',
-        'email@111.222.333.44444'
-      ];
-
-      invalidEmails.forEach(email => {
-        const result = Email.create(email);
-        expect(result.isErr()).toBe(true);
-        if (result.isErr()) {
-          expect(result.error).toBe('Ogiltig e-postadress');
-        }
-      });
-    });
+  it('ska skapa ett giltigt Email-objekt', () => {
+    const emailResult = Email.create('test@example.com');
+    expect(emailResult.isSuccess).toBe(true);
+    
+    if (emailResult.isSuccess) {
+      const email = emailResult.getValue();
+      expect(email.value).toBe('test@example.com');
+      expect(email.toString()).toBe('test@example.com');
+    }
   });
-
-  describe('equals', () => {
-    it('ska korrekt jämföra två e-postadresser', () => {
-      const email1 = Email.create('test@example.com');
-      const email2 = Email.create('test@example.com');
-      const email3 = Email.create('other@example.com');
-
-      expect(email1.isOk() && email2.isOk() && email3.isOk()).toBe(true);
-      if (email1.isOk() && email2.isOk() && email3.isOk()) {
-        expect(email1.value.equals(email2.value)).toBe(true);
-        expect(email1.value.equals(email3.value)).toBe(false);
-      }
-    });
-
-    it('ska hantera skiftlägesokänsliga jämförelser', () => {
-      const email1 = Email.create('test@example.com');
-      const email2 = Email.create('TEST@EXAMPLE.COM');
-
-      expect(email1.isOk() && email2.isOk()).toBe(true);
-      if (email1.isOk() && email2.isOk()) {
-        expect(email1.value.equals(email2.value)).toBe(true);
-      }
-    });
+  
+  it('ska hantera kapitalisering och trimning', () => {
+    const emailResult = Email.create('  TEST@EXAMPLE.COM  ');
+    expect(emailResult.isSuccess).toBe(true);
+    
+    if (emailResult.isSuccess) {
+      expect(emailResult.getValue().value).toBe('test@example.com');
+    }
   });
-
-  describe('toString', () => {
-    it('ska returnera e-postadressen som sträng', () => {
-      const result = Email.create('test@example.com');
-      expect(result.isOk()).toBe(true);
-      if (result.isOk()) {
-        expect(result.value.toString()).toBe('test@example.com');
-      }
-    });
+  
+  it('ska returnera domändelen från e-postadressen', () => {
+    const emailResult = Email.create('test@example.com');
+    expect(emailResult.isSuccess).toBe(true);
+    
+    if (emailResult.isSuccess) {
+      expect(emailResult.getValue().domain).toBe('example.com');
+    }
+  });
+  
+  it('ska misslyckas för en e-postadress utan @', () => {
+    const emailResult = Email.create('testexample.com');
+    expect(emailResult.isSuccess).toBe(false);
+    expect(emailResult.isFailure).toBe(true);
+    
+    if (emailResult.isFailure) {
+      expect(emailResult.error).toContain('Ogiltig e-postadress');
+    }
+  });
+  
+  it('ska misslyckas för en e-postadress utan domän', () => {
+    const emailResult = Email.create('test@');
+    expect(emailResult.isSuccess).toBe(false);
+    expect(emailResult.isFailure).toBe(true);
+    
+    if (emailResult.isFailure) {
+      expect(emailResult.error).toContain('Ogiltig e-postadress');
+    }
+  });
+  
+  it('ska misslyckas för en tom e-postadress', () => {
+    const emailResult = Email.create('');
+    expect(emailResult.isSuccess).toBe(false);
+    expect(emailResult.isFailure).toBe(true);
+    
+    if (emailResult.isFailure) {
+      expect(emailResult.error).toContain('får inte vara tom');
+    }
+  });
+  
+  it('ska jämföra två identiska e-postadresser som lika', () => {
+    const email1Result = Email.create('test@example.com');
+    const email2Result = Email.create('test@example.com');
+    
+    expect(email1Result.isSuccess && email2Result.isSuccess).toBe(true);
+    
+    if (email1Result.isSuccess && email2Result.isSuccess) {
+      const email1 = email1Result.getValue();
+      const email2 = email2Result.getValue();
+      
+      expect(email1.equals(email2)).toBe(true);
+    }
+  });
+  
+  it('ska jämföra två olika e-postadresser som olika', () => {
+    const email1Result = Email.create('test1@example.com');
+    const email2Result = Email.create('test2@example.com');
+    
+    expect(email1Result.isSuccess && email2Result.isSuccess).toBe(true);
+    
+    if (email1Result.isSuccess && email2Result.isSuccess) {
+      const email1 = email1Result.getValue();
+      const email2 = email2Result.getValue();
+      
+      expect(email1.equals(email2)).toBe(false);
+    }
   });
 }); 

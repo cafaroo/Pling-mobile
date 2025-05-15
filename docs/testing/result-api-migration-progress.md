@@ -27,12 +27,12 @@ Detta dokument spårar framstegen i migreringen från det gamla Result-API:et (i
 - [x] `useStandardizedHook.ts` - Uppdaterad från isSuccess/getValue till isOk/value
 - [x] `createStandardizedHook.ts` - Uppdaterad från isSuccess/getValue till isOk/value i unwrapResult
 - [x] `BaseHook.ts` - Uppdaterad från isSuccess/getValue till isOk/value i resultToHookResult och unwrapResult
+- [x] `useTeamWithStandardHook.ts` - Uppdaterad från isSuccess till isOk
+- [x] `useTeamGoals.ts` - Uppdaterad från isSuccess/isFailure till isOk/isErr
 
 ## Pågående uppdateringar
 
 ### Hooks
-- [ ] `useTeamWithStandardHook.ts` - Använder isSuccess
-- [ ] `useTeamGoals.ts` - Använder isSuccess
 - [ ] `useTeamActivities.ts` - Använder getValue
 - [ ] `useTeam.ts` - Använder getValue
 - [ ] `useUserCache.ts` - Använder getValue
@@ -51,7 +51,8 @@ Vi använder följande strategier för att migrera koden:
 1. ~~Slutföra uppdateringen av TeamRepository.ts~~ ✓
 2. ~~Uppdatera OptimizedUserRepository.ts~~ ✓
 3. ~~Uppdatera grundläggande hooks i applikationslagret (useStandardizedHook, createStandardizedHook, BaseHook)~~ ✓
-4. Uppdatera domänspecifika hooks (useTeamWithStandardHook, useTeamActivities, useTeam)
-5. Uppdatera user-relaterade hooks (useUserCache)
-6. Uppdatera organization-relaterade hooks (useOrganizationWithStandardHook)
-7. Göra tester som verifierar att API:et används konsekvent 
+4. ~~Uppdatera domänspecifika hooks (useTeamWithStandardHook, useTeamGoals)~~ ✓
+5. Uppdatera återstående domänspecifika hooks (useTeamActivities, useTeam)
+6. Uppdatera user-relaterade hooks (useUserCache)
+7. Uppdatera organization-relaterade hooks (useOrganizationWithStandardHook)
+8. Göra tester som verifierar att API:et används konsekvent 

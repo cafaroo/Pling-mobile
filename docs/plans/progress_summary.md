@@ -41,9 +41,15 @@ Vi har gjort betydande framsteg i förbättringen av aggregatgränser och domän
      - `BaseTeamEvent` för alla teamrelaterade events
      - `BaseUserEvent` för alla användarrelaterade events
    - Skapat nya standardiserade event-klasser:
-     - För Organization-domänen: `OrganizationCreatedEvent`, `OrganizationMemberJoinedEvent`, `OrganizationMemberLeftEvent`, `OrganizationMemberRoleChangedEvent`, `TeamAddedToOrganizationEvent`, `TeamRemovedFromOrganizationEvent`, `OrganizationMemberInvitedEvent`, `OrganizationInvitationAcceptedEvent`, `OrganizationInvitationDeclinedEvent`, `OrganizationUpdatedEvent`
-     - För Team-domänen: `TeamCreatedEvent`, `TeamMemberJoinedEvent`, `TeamMemberLeftEvent`, `TeamMemberRoleChangedEvent`
-     - För User-domänen: `UserCreatedEvent`, `UserProfileUpdatedEvent`, `UserSettingsUpdatedEvent`, `UserStatusChangedEvent`, `UserTeamAddedEvent`, `UserTeamRemovedEvent`, `UserRoleAddedEvent`, `UserRoleRemovedEvent`, `UserActivatedEvent`, `UserDeactivatedEvent`, `UserNotificationSettingsChangedEvent`, `UserSecurityEventOccurredEvent`
+     - För Organization-domänen: `OrganizationCreatedEvent`, `OrganizationMemberJoinedEvent`, `OrganizationMemberLeftEvent`, `OrganizationMemberRoleChangedEvent`, `OrganizationUpdatedEvent`, `TeamAddedToOrganizationEvent`, `TeamRemovedFromOrganizationEvent`
+     - För Team-domänen: `TeamCreatedEvent`, `TeamUpdatedEvent`, `TeamDeletedEvent`, `TeamMemberJoinedEvent`, `TeamMemberLeftEvent`, `TeamMemberRoleChangedEvent`
+     - För User-domänen: `UserCreatedEvent`, `UserProfileUpdatedEvent`, `UserSettingsUpdatedEvent`, `UserStatusChangedEvent`, `UserActivatedEvent`, `UserDeactivatedEvent`, `UserRoleAddedEvent`, `UserRoleRemovedEvent`, `UserTeamAddedEvent`, `UserTeamRemovedEvent`, `UserNotificationSettingsChangedEvent`
+   - Implementerat omfattande testning av invarianter och event-publicering:
+     - Skapat hjälpklasser för testning av invarianter: `InvariantTestHelper`
+     - Skapat hjälpklasser för testning av events: `AggregateTestHelper` 
+     - Implementerat mockningsverktyg för domänevents i tester
+     - Skapat exempel på tester för alla aggregat som validerar både invarianter och event-publicering
+     - Skapat dokumentation och exempel för användning av testhjälparna
    - Uppdaterat entitetsklasser för att använda de nya event-klasserna:
      - `Organization.ts` - Ersatt alla gamla events med nya standardiserade
      - `Team.ts` - Ersatt gamla events med nya standardiserade

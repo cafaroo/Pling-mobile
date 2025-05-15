@@ -3,12 +3,547 @@ import { OrganizationInvitation } from '../../value-objects/OrganizationInvitati
 import { UniqueId } from '@/shared/core/UniqueId';
 import { OrganizationRole } from '../../value-objects/OrganizationRole';
 import { DomainEventTestHelper } from '@/test-utils/DomainEventTestHelper';
-import { 
-  MemberInvitedToOrganization, 
-  OrganizationInvitationAccepted,
-  OrganizationInvitationDeclined 
-} from '../../events/OrganizationEvents';
-import { OrganizationMember } from '../OrganizationMember';
+import { OrganizationCreatedEvent } from '../../events/OrganizationCreatedEvent';
+import { OrganizationMemberJoinedEvent } from '../../events/OrganizationMemberJoinedEvent';
+import { OrganizationMemberLeftEvent } from '../../events/OrganizationMemberLeftEvent';
+import { OrganizationMemberRoleChangedEvent } from '../../events/OrganizationMemberRoleChangedEvent';
+import { TeamAddedToOrganizationEvent } from '../../events/TeamAddedToOrganizationEvent';
+import { TeamRemovedFromOrganizationEvent } from '../../events/TeamRemovedFromOrganizationEvent';
+import { OrganizationMemberInvitedEvent } from '../../events/OrganizationMemberInvitedEvent';
+import { OrganizationInvitationAcceptedEvent } from '../../events/OrganizationInvitationAcceptedEvent';
+import { OrganizationInvitationDeclinedEvent } from '../../events/OrganizationInvitationDeclinedEvent';
+import { mockDomainEvents } from '@/test-utils/mocks';
+import { OrgSettings } from '../../value-objects/OrgSettings';
+import { OrganizationMember } from '../../value-objects/OrganizationMember';
+
+describe('Organization Aggregate', () => {
+  // Setup
+  beforeEach(() => {
+    mockDomainEvents.clearEvents();
+  });
+
+  afterEach(() => {
+    mockDomainEvents.clearEvents();
+  });
+
+  describe('Skapande av Organization', () => {
+    test('ska skapa en giltig organisation', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const name = 'Test Organization';
+      
+      // Act
+      const orgResult = Organization.create({
+        name,
+        ownerId
+      });
+      
+      // Assert
+      expect(orgResult.isOk()).toBe(true);
+      
+      if (orgResult.isOk()) {
+        const org = orgResult.value;
+        expect(org.name).toBe(name);
+        expect(org.ownerId.equals(ownerId)).toBe(true);
+        
+        // Kontrollera att ägaren är medlem med OWNER-roll
+        const ownerMember = org.members.find(m => 
+          m.userId.equals(ownerId) && m.role === OrganizationRole.OWNER
+        );
+        expect(ownerMember).toBeDefined();
+      }
+    });
+    
+    test('ska publicera OrganizationCreatedEvent vid skapande', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const name = 'Test Organization';
+      
+      // Act
+      const orgResult = Organization.create({
+        name,
+        ownerId
+      });
+      
+      // Assert
+      expect(orgResult.isOk()).toBe(true);
+      
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBe(1);
+      
+      const event = events[0];
+      expect(event).toBeInstanceOf(OrganizationCreatedEvent);
+      
+      const createdEvent = event as OrganizationCreatedEvent;
+      expect(createdEvent.name).toBe(name);
+      expect(createdEvent.ownerId.toString()).toBe(ownerId.toString());
+    });
+  });
+
+  describe('Invarianter', () => {
+    test('ska avvisa skapande utan namn', () => {
+      // Arrange & Act
+      const orgResult = Organization.create({
+        name: '',
+        ownerId: new UniqueId()
+      });
+      
+      // Assert
+      expect(orgResult.isErr()).toBe(true);
+      expect(orgResult.error).toContain('namn');
+    });
+    
+    test('ska säkerställa att ägaren är medlem med OWNER-roll', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      
+      // Act
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      // Assert
+      expect(orgResult.isOk()).toBe(true);
+      
+      if (orgResult.isOk()) {
+        const org = orgResult.value;
+        const ownerMember = org.members.find(m => 
+          m.userId.equals(ownerId) && m.role === OrganizationRole.OWNER
+        );
+        
+        expect(ownerMember).toBeDefined();
+      }
+    });
+    
+    test('ska hantera dubblettmedlemmar korrekt', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      const userId = new UniqueId();
+      const member = new OrganizationMember({
+        userId,
+        role: OrganizationRole.MEMBER,
+        joinedAt: new Date()
+      });
+      
+      // Act
+      const addResult = org.addMember(member);
+      expect(addResult.isOk()).toBe(true);
+      
+      // Försök lägga till samma medlem igen
+      const secondAddResult = org.addMember(member);
+      
+      // Assert
+      expect(secondAddResult.isErr()).toBe(true);
+      expect(secondAddResult.error).toContain('redan medlem');
+    });
+  });
+
+  describe('Medlemshantering', () => {
+    test('ska lägga till medlemmar och publicera OrganizationMemberJoinedEvent', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      const userId = new UniqueId();
+      const member = new OrganizationMember({
+        userId,
+        role: OrganizationRole.MEMBER,
+        joinedAt: new Date()
+      });
+      
+      mockDomainEvents.clearEvents(); // Rensa tidigare events
+      
+      // Act
+      const addResult = org.addMember(member);
+      
+      // Assert
+      expect(addResult.isOk()).toBe(true);
+      
+      // Kontrollera att medlemmen lades till
+      const addedMember = org.members.find(m => m.userId.equals(userId));
+      expect(addedMember).toBeDefined();
+      expect(addedMember?.role).toBe(OrganizationRole.MEMBER);
+      
+      // Kontrollera event
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBe(1);
+      
+      const event = events[0];
+      expect(event).toBeInstanceOf(OrganizationMemberJoinedEvent);
+      
+      const joinedEvent = event as OrganizationMemberJoinedEvent;
+      expect(joinedEvent.userId.toString()).toBe(userId.toString());
+      expect(joinedEvent.role).toBe(OrganizationRole.MEMBER);
+    });
+    
+    test('ska ta bort medlemmar och publicera OrganizationMemberLeftEvent', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      const userId = new UniqueId();
+      const member = new OrganizationMember({
+        userId,
+        role: OrganizationRole.MEMBER,
+        joinedAt: new Date()
+      });
+      
+      const addResult = org.addMember(member);
+      expect(addResult.isOk()).toBe(true);
+      
+      mockDomainEvents.clearEvents(); // Rensa tidigare events
+      
+      // Act
+      const removeResult = org.removeMember(userId);
+      
+      // Assert
+      expect(removeResult.isOk()).toBe(true);
+      
+      // Kontrollera att medlemmen togs bort
+      const removedMember = org.members.find(m => m.userId.equals(userId));
+      expect(removedMember).toBeUndefined();
+      
+      // Kontrollera event
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBe(1);
+      
+      const event = events[0];
+      expect(event).toBeInstanceOf(OrganizationMemberLeftEvent);
+      
+      const leftEvent = event as OrganizationMemberLeftEvent;
+      expect(leftEvent.userId.toString()).toBe(userId.toString());
+    });
+    
+    test('ska inte tillåta borttagning av ägare', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      // Act
+      const removeResult = org.removeMember(ownerId);
+      
+      // Assert
+      expect(removeResult.isErr()).toBe(true);
+      expect(removeResult.error).toContain('ägaren');
+      
+      // Kontrollera att ägaren fortfarande är medlem
+      const ownerMember = org.members.find(m => m.userId.equals(ownerId));
+      expect(ownerMember).toBeDefined();
+      
+      // Kontrollera att inga events publicerades
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBe(0);
+    });
+    
+    test('ska uppdatera medlemsroll och publicera OrganizationMemberRoleChangedEvent', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      const userId = new UniqueId();
+      const member = new OrganizationMember({
+        userId,
+        role: OrganizationRole.MEMBER,
+        joinedAt: new Date()
+      });
+      
+      const addResult = org.addMember(member);
+      expect(addResult.isOk()).toBe(true);
+      
+      mockDomainEvents.clearEvents(); // Rensa tidigare events
+      
+      // Act
+      const updateResult = org.updateMemberRole(userId, OrganizationRole.ADMIN);
+      
+      // Assert
+      expect(updateResult.isOk()).toBe(true);
+      
+      // Kontrollera att medlemsrollen uppdaterades
+      const updatedMember = org.members.find(m => m.userId.equals(userId));
+      expect(updatedMember).toBeDefined();
+      expect(updatedMember?.role).toBe(OrganizationRole.ADMIN);
+      
+      // Kontrollera event
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBe(1);
+      
+      const event = events[0];
+      expect(event).toBeInstanceOf(OrganizationMemberRoleChangedEvent);
+      
+      const roleChangedEvent = event as OrganizationMemberRoleChangedEvent;
+      expect(roleChangedEvent.userId.toString()).toBe(userId.toString());
+      expect(roleChangedEvent.oldRole).toBe(OrganizationRole.MEMBER);
+      expect(roleChangedEvent.newRole).toBe(OrganizationRole.ADMIN);
+    });
+    
+    test('ska inte tillåta uppdatering av ägarrollen', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      // Act
+      const updateResult = org.updateMemberRole(ownerId, OrganizationRole.ADMIN);
+      
+      // Assert
+      expect(updateResult.isErr()).toBe(true);
+      expect(updateResult.error).toContain('ägaren');
+      
+      // Kontrollera att inga events publicerades
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBe(0);
+    });
+  });
+  
+  describe('Teamhantering', () => {
+    test('ska lägga till team och publicera TeamAddedToOrganizationEvent', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      const teamId = new UniqueId();
+      
+      mockDomainEvents.clearEvents(); // Rensa tidigare events
+      
+      // Act
+      const addResult = org.addTeam(teamId);
+      
+      // Assert
+      expect(addResult.isOk()).toBe(true);
+      
+      // Kontrollera att teamet lades till
+      expect(org.teamIds).toContainEqual(teamId);
+      
+      // Kontrollera event
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBe(1);
+      
+      const event = events[0];
+      expect(event).toBeInstanceOf(TeamAddedToOrganizationEvent);
+      
+      const addedEvent = event as TeamAddedToOrganizationEvent;
+      expect(addedEvent.teamId.toString()).toBe(teamId.toString());
+    });
+    
+    test('ska ta bort team och publicera TeamRemovedFromOrganizationEvent', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      const teamId = new UniqueId();
+      
+      const addResult = org.addTeam(teamId);
+      expect(addResult.isOk()).toBe(true);
+      
+      mockDomainEvents.clearEvents(); // Rensa tidigare events
+      
+      // Act
+      const removeResult = org.removeTeam(teamId);
+      
+      // Assert
+      expect(removeResult.isOk()).toBe(true);
+      
+      // Kontrollera att teamet togs bort
+      expect(org.teamIds).not.toContainEqual(teamId);
+      
+      // Kontrollera event
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBe(1);
+      
+      const event = events[0];
+      expect(event).toBeInstanceOf(TeamRemovedFromOrganizationEvent);
+      
+      const removedEvent = event as TeamRemovedFromOrganizationEvent;
+      expect(removedEvent.teamId.toString()).toBe(teamId.toString());
+    });
+    
+    test('ska inte tillåta duplicerade team', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      const teamId = new UniqueId();
+      
+      const addResult = org.addTeam(teamId);
+      expect(addResult.isOk()).toBe(true);
+      
+      mockDomainEvents.clearEvents(); // Rensa tidigare events
+      
+      // Act
+      const secondAddResult = org.addTeam(teamId);
+      
+      // Assert
+      expect(secondAddResult.isErr()).toBe(true);
+      expect(secondAddResult.error).toContain('redan kopplat');
+      
+      // Kontrollera att inga events publicerades
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBe(0);
+    });
+  });
+  
+  describe('Organisationsinställningar', () => {
+    test('ska uppdatera organisationsinställningar', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      mockDomainEvents.clearEvents(); // Rensa tidigare events
+      
+      // Act
+      const updateResult = org.update({
+        name: 'Updated Organization',
+        settings: {
+          maxMembers: 10,
+          maxTeams: 5
+        }
+      });
+      
+      // Assert
+      expect(updateResult.isOk()).toBe(true);
+      
+      // Kontrollera att namnet uppdaterades
+      expect(org.name).toBe('Updated Organization');
+      
+      // Kontrollera att inställningarna uppdaterades
+      expect(org.settings.maxMembers).toBe(10);
+      expect(org.settings.maxTeams).toBe(5);
+      
+      // Kontrollera event
+      const events = mockDomainEvents.getEvents();
+      expect(events.length).toBeGreaterThan(0);
+    });
+    
+    test('ska validera namn vid uppdatering', () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      // Act
+      const updateResult = org.update({
+        name: 'A'  // För kort namn
+      });
+      
+      // Assert
+      expect(updateResult.isErr()).toBe(true);
+      expect(updateResult.error).toContain('namn');
+      
+      // Kontrollera att namnet inte uppdaterades
+      expect(org.name).toBe('Test Organization');
+    });
+  });
+  
+  describe('Resursbegränsningar', () => {
+    test('ska hantera resursbegränsningar vid medlemsläggning', async () => {
+      // Arrange
+      const ownerId = new UniqueId();
+      const orgResult = Organization.create({
+        name: 'Test Organization',
+        ownerId
+      });
+      
+      expect(orgResult.isOk()).toBe(true);
+      const org = orgResult.value;
+      
+      // Sätt upp limit-strategifactory mock
+      const mockLimitStrategyFactory = {
+        getTeamMemberStrategy: jest.fn().mockReturnValue({
+          isActionAllowed: jest.fn().mockResolvedValue({
+            allowed: false,
+            reason: 'Medlemsgräns överskriden',
+            limit: 3,
+            currentUsage: 3,
+            usagePercentage: 100
+          })
+        })
+      };
+      
+      org.setLimitStrategyFactory(mockLimitStrategyFactory as any);
+      
+      const userId = new UniqueId();
+      const member = new OrganizationMember({
+        userId,
+        role: OrganizationRole.MEMBER,
+        joinedAt: new Date()
+      });
+      
+      // Act
+      const canAddResult = await org.canAddMoreMembers();
+      
+      // Assert
+      expect(canAddResult.isErr()).toBe(true);
+      expect(canAddResult.error).toContain('Medlemsgräns');
+    });
+  });
+});
 
 describe('Organization - Inbjudningar', () => {
   // Testdata
@@ -51,7 +586,7 @@ describe('Organization - Inbjudningar', () => {
       expect(invitations[0].isPending()).toBe(true);
       
       // Kontrollera att korrekt domänhändelse utlöstes med den nya hjälpmetoden
-      DomainEventTestHelper.expectEventDispatched(MemberInvitedToOrganization, {
+      DomainEventTestHelper.expectEventDispatched(OrganizationMemberInvitedEvent, {
         organizationId: organization.id,
         userId: userId,
         invitedBy: ownerId
@@ -78,7 +613,7 @@ describe('Organization - Inbjudningar', () => {
       expect(invitations.length).toBe(1);
       
       // Kontrollera att ingen händelse utlöstes
-      DomainEventTestHelper.expectEventCount(MemberInvitedToOrganization, 0);
+      DomainEventTestHelper.expectEventCount(OrganizationMemberInvitedEvent, 0);
     });
     
     it('ska hindra inbjudan av befintliga medlemmar', () => {
@@ -102,7 +637,7 @@ describe('Organization - Inbjudningar', () => {
       expect(result.error).toContain('redan medlem');
       
       // Kontrollera att ingen händelse utlöstes
-      DomainEventTestHelper.expectEventNotDispatched(MemberInvitedToOrganization);
+      DomainEventTestHelper.expectEventNotDispatched(OrganizationMemberInvitedEvent);
     });
   });
   
@@ -138,7 +673,7 @@ describe('Organization - Inbjudningar', () => {
       expect(pendingInvitations.length).toBe(0);
       
       // Kontrollera att korrekta domänhändelser utlöstes
-      DomainEventTestHelper.expectEventDispatched(OrganizationInvitationAccepted, {
+      DomainEventTestHelper.expectEventDispatched(OrganizationInvitationAcceptedEvent, {
         invitationId: invitationId
       });
     });
@@ -176,7 +711,7 @@ describe('Organization - Inbjudningar', () => {
       expect(members.length).toBe(1); // Bara ägaren
       
       // Kontrollera att ingen händelse utlöstes
-      DomainEventTestHelper.expectEventNotDispatched(OrganizationInvitationAccepted);
+      DomainEventTestHelper.expectEventNotDispatched(OrganizationInvitationAcceptedEvent);
     });
   });
   
@@ -208,7 +743,7 @@ describe('Organization - Inbjudningar', () => {
       expect(members.length).toBe(1); // Bara ägaren
       
       // Kontrollera att korrekt domänhändelse utlöstes
-      DomainEventTestHelper.expectEventDispatched(OrganizationInvitationDeclined, {
+      DomainEventTestHelper.expectEventDispatched(OrganizationInvitationDeclinedEvent, {
         invitationId: invitationId,
         userId: userId
       });
@@ -239,7 +774,7 @@ describe('Organization - Inbjudningar', () => {
       expect(pendingInvitations.length).toBe(1);
       
       // Kontrollera att ingen händelse utlöstes
-      DomainEventTestHelper.expectEventNotDispatched(OrganizationInvitationDeclined);
+      DomainEventTestHelper.expectEventNotDispatched(OrganizationInvitationDeclinedEvent);
     });
   });
 }); 

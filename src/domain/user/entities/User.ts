@@ -6,7 +6,6 @@ import { UserProfile } from '../value-objects/UserProfile';
 import { Email } from '../value-objects/Email';
 import { PhoneNumber } from '../value-objects/PhoneNumber';
 import {
-  UserCreated,
   UserProfileUpdated,
   UserSettingsUpdated,
   UserTeamAdded,
@@ -15,6 +14,8 @@ import {
   UserRoleRemoved,
   UserStatusChanged
 } from '../events/UserEvent';
+import { UserCreatedEvent } from '../events/UserCreatedEvent';
+import { UserProfileUpdatedEvent } from '../events/UserProfileUpdatedEvent';
 
 /**
  * UserProps
@@ -60,6 +61,52 @@ interface CreateUserProps {
 export class User extends AggregateRoot<UserProps> {
   private constructor(props: UserProps, id?: UniqueId) {
     super(props, id);
+  }
+
+  /**
+   * Validerar invarianter för användaraggregatet.
+   * 
+   * @returns Result som indikerar om alla invarianter är uppfyllda
+   */
+  private validateInvariants(): Result<void, string> {
+    try {
+      // Invariant: Användare måste ha en giltig e-post
+      if (!this.props.email) {
+        return Result.err('Användare måste ha en giltig e-post');
+      }
+
+      // Invariant: Användare måste ha ett namn
+      if (!this.props.name || this.props.name.trim().length < 2) {
+        return Result.err('Användare måste ha ett namn med minst 2 tecken');
+      }
+
+      // Invariant: Telefonnummer måste vara giltigt om det finns
+      if (this.props.phone && !this.props.phone.isValid()) {
+        return Result.err('Telefonnumret är ogiltigt');
+      }
+
+      // Invariant: Statusvärdet måste vara giltigt
+      const validStatusValues = ['pending', 'active', 'inactive', 'blocked'];
+      if (!validStatusValues.includes(this.props.status)) {
+        return Result.err('Ogiltig användarstatus');
+      }
+
+      // Invariant: TeamIds och RoleIds får inte innehålla duplicerade värden
+      const uniqueTeamIds = new Set(this.props.teamIds);
+      if (uniqueTeamIds.size !== this.props.teamIds.length) {
+        return Result.err('TeamIds får inte innehålla dubbletter');
+      }
+
+      const uniqueRoleIds = new Set(this.props.roleIds);
+      if (uniqueRoleIds.size !== this.props.roleIds.length) {
+        return Result.err('RoleIds får inte innehålla dubbletter');
+      }
+
+      // Alla invarianter uppfyllda
+      return Result.ok(undefined);
+    } catch (error) {
+      return Result.err(`Fel vid validering av invarianter: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**
@@ -117,12 +164,17 @@ export class User extends AggregateRoot<UserProps> {
         createdAt: now,
         updatedAt: now
       }, id);
+      
+      // Validera invarianter
+      const validationResult = user.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
-      // Lägg till domänhändelse för användarskapande
-      user.addDomainEvent(new UserCreated(
-        id,
-        emailResult.value.value,
-        props.name.trim()
+      // Lägg till domänhändelse för användarskapande med ny standardiserad händelseklass
+      user.addDomainEvent(new UserCreatedEvent(
+        user,
+        emailResult.value.value
       ));
 
       return ok(user);
@@ -212,6 +264,12 @@ export class User extends AggregateRoot<UserProps> {
       const previousSettings = { ...this.props.settings };
       this.props.settings = settings;
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
       // Publicera domänhändelse
       this.addDomainEvent(new UserSettingsUpdated(
@@ -235,11 +293,17 @@ export class User extends AggregateRoot<UserProps> {
     try {
       this.props.profile = profile;
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new UserProfileUpdated(
-        this.id,
-        profile.toDTO()
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new UserProfileUpdatedEvent(
+        this,
+        profile
       ));
 
       return ok(undefined);
@@ -262,6 +326,12 @@ export class User extends AggregateRoot<UserProps> {
     try {
       this.props.teamIds.push(teamId);
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
       // Publicera domänhändelse
       this.addDomainEvent(new UserTeamAdded(
@@ -290,6 +360,12 @@ export class User extends AggregateRoot<UserProps> {
     try {
       this.props.teamIds.splice(index, 1);
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
       // Publicera domänhändelse
       this.addDomainEvent(new UserTeamRemoved(
@@ -317,6 +393,12 @@ export class User extends AggregateRoot<UserProps> {
     try {
       this.props.roleIds.push(roleId);
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
       // Publicera domänhändelse
       this.addDomainEvent(new UserRoleAdded(
@@ -345,6 +427,12 @@ export class User extends AggregateRoot<UserProps> {
     try {
       this.props.roleIds.splice(index, 1);
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
       // Publicera domänhändelse
       this.addDomainEvent(new UserRoleRemoved(
@@ -369,6 +457,12 @@ export class User extends AggregateRoot<UserProps> {
       const oldStatus = this.props.status;
       this.props.status = newStatus;
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
       // Publicera domänhändelse
       this.addDomainEvent(new UserStatusChanged(
@@ -405,6 +499,12 @@ export class User extends AggregateRoot<UserProps> {
       const oldEmail = this.props.email;
       this.props.email = emailResult.value;
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
       
       return ok(undefined);
     } catch (error) {

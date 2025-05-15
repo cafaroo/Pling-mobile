@@ -704,10 +704,10 @@ global.__reanimatedWorkletInit = jest.fn();
 
 // React Native specifika mockar
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper', () => ({
-  default: {},
-}));
+  default: {}
+}), { virtual: true });
 
-jest.mock('react-native-gesture-handler/jestSetup', () => ({}));
+jest.mock('react-native-gesture-handler/jestSetup', () => ({}), { virtual: true });
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({

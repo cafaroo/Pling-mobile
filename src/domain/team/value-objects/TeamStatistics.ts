@@ -493,4 +493,7 @@ export class TeamStatistics {
         lastUpdated: new Date()
       }));
     } catch (error) {
-      return err(`
+      return err(`Ett fel uppstod vid beräkning av statistik: ${error}`);
+    }
+  }
+}

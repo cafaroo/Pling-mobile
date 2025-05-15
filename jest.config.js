@@ -41,7 +41,7 @@ module.exports = {
   ],
   testEnvironment: 'jsdom',
   moduleDirectories: ['node_modules', '<rootDir>'],
-  roots: ['<rootDir>/src', '<rootDir>/components'],
+  roots: ['<rootDir>/src'],
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   globalSetup: '<rootDir>/jest.global-setup.js',
   projects: [
@@ -54,6 +54,17 @@ module.exports = {
       testEnvironment: 'node',
       testMatch: [
         '<rootDir>/src/application/**/*.test.{ts,tsx,js,jsx}',
+      ],
+    },
+    {
+      displayName: 'subscription',
+      testEnvironment: 'jsdom',
+      testMatch: [
+        '<rootDir>/src/application/subscription/**/*.test.{ts,tsx,js,jsx}',
+      ],
+      setupFilesAfterEnv: [
+        '<rootDir>/src/application/subscription/hooks/__tests__/subscription-setup.js',
+        '<rootDir>/src/application/subscription/hooks/__tests__/jest-dom-setup.js'
       ],
     }
   ]

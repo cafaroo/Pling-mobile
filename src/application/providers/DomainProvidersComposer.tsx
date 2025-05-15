@@ -2,9 +2,11 @@ import React, { ReactNode, useEffect } from 'react';
 import { TeamContextProvider } from '../team/hooks/useTeamContext';
 import { UserContextProvider } from '../user/hooks/useUserContext';
 import { OrganizationContextProvider } from '../organization/hooks/useOrganizationContext';
+import { SubscriptionContextProvider } from '../subscription/hooks/useSubscriptionContext.tsx';
 import { SupabaseTeamRepository } from '@/infrastructure/supabase/repositories/TeamRepository';
 import { SupabaseUserRepository } from '@/infrastructure/supabase/repositories/UserRepository';
 import { SupabaseOrganizationRepository } from '@/infrastructure/supabase/repositories/OrganizationRepository';
+import { SupabaseSubscriptionRepository } from '@/infrastructure/supabase/repositories/subscription/SupabaseSubscriptionRepository';
 import { SupabaseTeamActivityRepository } from '@/infrastructure/supabase/repositories/TeamActivityRepository';
 import { DomainEventHandlerInitializer } from '@/infrastructure/events/DomainEventHandlers';
 import { DefaultLogger } from '@/infrastructure/logger/DefaultLogger';
@@ -21,7 +23,7 @@ interface DomainProvidersComposerProps {
  * Komponerar alla domän-providers för att konfigurera globala beroenden
  * 
  * Denna komponent initierar:
- * 1. Repositories för alla domäner
+ * 1. Repositories för alla domäner (team, user, organization, subscription)
  * 2. DomainEventPublisher och registrerar handlers
  * 3. Konfigurerar alla Context-providers för hooks
  */
@@ -34,6 +36,7 @@ export function DomainProvidersComposer({ children, supabaseClient }: DomainProv
   const userRepository = new SupabaseUserRepository(supabaseClient);
   const organizationRepository = new SupabaseOrganizationRepository(supabaseClient);
   const teamActivityRepository = new SupabaseTeamActivityRepository(supabaseClient);
+  const subscriptionRepository = new SupabaseSubscriptionRepository(supabaseClient);
   
   // Skapa och konfigurera event handlers via eventPublisher
   const domainEventHandlerInitializer = DomainEventHandlerInitializer.initializeWithDefaultRepositories(
@@ -52,8 +55,9 @@ export function DomainProvidersComposer({ children, supabaseClient }: DomainProv
   useEffect(() => {
     return () => {
       // Cleanup-logik för event handlers och andra resurser
+      eventPublisher.clearListeners();
     };
-  }, []);
+  }, [eventPublisher]);
   
   return (
     <TeamContextProvider
@@ -70,8 +74,13 @@ export function DomainProvidersComposer({ children, supabaseClient }: DomainProv
           organizationRepository={organizationRepository}
           eventPublisher={eventPublisher}
         >
-          {/* Andra domänproviders läggs till här */}
-          {children}
+          <SubscriptionContextProvider
+            subscriptionRepository={subscriptionRepository}
+            eventPublisher={eventPublisher}
+          >
+            {/* Andra domänproviders läggs till här */}
+            {children}
+          </SubscriptionContextProvider>
         </OrganizationContextProvider>
       </UserContextProvider>
     </TeamContextProvider>

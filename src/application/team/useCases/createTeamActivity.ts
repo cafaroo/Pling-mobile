@@ -1,10 +1,10 @@
 import { UniqueId } from '@/shared/core/UniqueId';
 import { Result, ok, err } from '@/shared/core/Result';
-import { UseCase } from '@/shared/core/UseCase';
 import { TeamActivity } from '@/domain/team/entities/TeamActivity';
 import { ActivityType } from '@/domain/team/value-objects/ActivityType';
 import { TeamActivityRepository } from '@/domain/team/repositories/TeamActivityRepository';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
+import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
 
 // DTO för att skapa en aktivitet
 export interface CreateTeamActivityDTO {
@@ -15,26 +15,59 @@ export interface CreateTeamActivityDTO {
   metadata?: Record<string, any>;
 }
 
+export interface CreateTeamActivityResponse {
+  success: boolean;
+  activityId: string;
+}
+
+type CreateTeamActivityError = { 
+  message: string; 
+  code: 'NOT_FOUND' | 'VALIDATION_ERROR' | 'DATABASE_ERROR' | 'UNEXPECTED_ERROR' 
+};
+
 /**
  * Användarfall för att skapa en teamaktivitet
+ * 
+ * Refaktorerad för att följa samma mönster som övriga use cases.
  */
-export class CreateTeamActivityUseCase implements UseCase<CreateTeamActivityDTO, Result<string, string>> {
+export class CreateTeamActivityUseCase {
   constructor(
-    private readonly activityRepository: TeamActivityRepository,
-    private readonly teamRepository: TeamRepository
+    private readonly teamActivityRepository: TeamActivityRepository,
+    private readonly teamRepository: TeamRepository,
+    private readonly eventPublisher: IDomainEventPublisher
   ) {}
   
   /**
    * Skapar en ny teamaktivitet
    */
-  async execute(dto: CreateTeamActivityDTO): Promise<Result<string, string>> {
+  async execute(dto: CreateTeamActivityDTO): Promise<Result<CreateTeamActivityResponse, CreateTeamActivityError>> {
     try {
+      // Validera indata
+      if (!dto.teamId || !dto.performedBy || !dto.activityType) {
+        return err({
+          message: 'Team-ID, utförare och aktivitetstyp måste anges',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+      
       // Validera om teamet existerar
       const teamId = new UniqueId(dto.teamId);
       const teamResult = await this.teamRepository.findById(teamId);
       
       if (teamResult.isErr()) {
-        return err(`Kunde inte skapa aktivitet: ${teamResult.error}`);
+        return err({
+          message: `Kunde inte hämta team: ${teamResult.error}`,
+          code: 'DATABASE_ERROR'
+        });
+      }
+      
+      const team = teamResult.value;
+      
+      if (!team) {
+        return err({
+          message: 'Team hittades inte',
+          code: 'NOT_FOUND'
+        });
       }
       
       // Skapa aktivitet
@@ -47,21 +80,33 @@ export class CreateTeamActivityUseCase implements UseCase<CreateTeamActivityDTO,
       });
       
       if (activityResult.isErr()) {
-        return err(`Kunde inte skapa aktivitet: ${activityResult.error}`);
+        return err({
+          message: `Kunde inte skapa aktivitet: ${activityResult.error}`,
+          code: 'VALIDATION_ERROR'
+        });
       }
       
-      const activity = activityResult.getValue();
+      const activity = activityResult.value;
       
       // Spara aktiviteten
-      const saveResult = await this.activityRepository.save(activity);
+      const saveResult = await this.teamActivityRepository.save(activity);
       
       if (saveResult.isErr()) {
-        return err(`Kunde inte spara aktivitet: ${saveResult.error}`);
+        return err({
+          message: `Kunde inte spara aktivitet: ${saveResult.error}`,
+          code: 'DATABASE_ERROR'
+        });
       }
       
-      return ok(activity.id.toString());
+      return ok({
+        success: true,
+        activityId: activity.id.toString()
+      });
     } catch (error) {
-      return err(`Ett oväntat fel uppstod: ${error instanceof Error ? error.message : String(error)}`);
+      return err({
+        message: `Ett oväntat fel inträffade: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'UNEXPECTED_ERROR'
+      });
     }
   }
   
@@ -74,8 +119,16 @@ export class CreateTeamActivityUseCase implements UseCase<CreateTeamActivityDTO,
     performedBy: string,
     eventName: string,
     eventPayload: Record<string, any>
-  ): Promise<Result<string, string>> {
+  ): Promise<Result<CreateTeamActivityResponse, CreateTeamActivityError>> {
     try {
+      // Validera indata
+      if (!teamId || !performedBy || !eventName) {
+        return err({
+          message: 'Team-ID, utförare och händelsenamn måste anges',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
       // Mappa domänhändelsenamn till aktivitetstyp
       let activityType: ActivityType;
       
@@ -96,7 +149,7 @@ export class CreateTeamActivityUseCase implements UseCase<CreateTeamActivityDTO,
           activityType = ActivityType.MEMBER_LEFT;
           break;
           
-        case 'RoleChanged':
+        case 'TeamMemberRoleChanged':
           activityType = ActivityType.ROLE_CHANGED;
           break;
           
@@ -117,7 +170,7 @@ export class CreateTeamActivityUseCase implements UseCase<CreateTeamActivityDTO,
           break;
       }
       
-      // Hitta eventuel targetId från eventet
+      // Hitta eventuell targetId från eventet
       let targetId = undefined;
       if (eventPayload.userId) {
         targetId = eventPayload.userId;
@@ -137,7 +190,10 @@ export class CreateTeamActivityUseCase implements UseCase<CreateTeamActivityDTO,
       
       return this.execute(dto);
     } catch (error) {
-      return err(`Kunde inte skapa aktivitet från händelse: ${error instanceof Error ? error.message : String(error)}`);
+      return err({
+        message: `Kunde inte skapa aktivitet från händelse: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'UNEXPECTED_ERROR'
+      });
     }
   }
 } 

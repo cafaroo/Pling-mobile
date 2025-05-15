@@ -9,6 +9,7 @@ import { UpdateTeamMemberRoleUseCase } from './useCases/updateTeamMemberRole';
 import { InviteTeamMemberUseCase } from './useCases/inviteTeamMember';
 import { GetTeamStatisticsUseCase } from './useCases/getTeamStatistics';
 import { GetTeamActivitiesUseCase } from './useCases/getTeamActivities';
+import { CreateTeamActivityUseCase } from './useCases/createTeamActivity';
 
 /**
  * Factory för att skapa Team-relaterade Use Cases
@@ -21,6 +22,7 @@ export interface TeamUseCasesFactory {
   createInviteTeamMemberUseCase(): InviteTeamMemberUseCase;
   createGetTeamStatisticsUseCase(): GetTeamStatisticsUseCase;
   createGetTeamActivitiesUseCase(): GetTeamActivitiesUseCase;
+  createCreateTeamActivityUseCase(): CreateTeamActivityUseCase;
   // Lägg till fler use cases här när de refaktoreras
 }
 
@@ -41,6 +43,7 @@ export const createTeamUseCasesFactory = (
     createInviteTeamMemberUseCase: () => new InviteTeamMemberUseCase(teamRepository, userRepository, eventPublisher),
     createGetTeamStatisticsUseCase: () => new GetTeamStatisticsUseCase(teamRepository, teamActivityRepository),
     createGetTeamActivitiesUseCase: () => new GetTeamActivitiesUseCase(teamActivityRepository, teamRepository),
+    createCreateTeamActivityUseCase: () => new CreateTeamActivityUseCase(teamActivityRepository, teamRepository, eventPublisher),
     // Lägg till fler use cases här när de refaktoreras
   };
 };
@@ -53,4 +56,5 @@ export * from './useCases/updateTeamMemberRole';
 export * from './useCases/inviteTeamMember';
 export * from './useCases/getTeamStatistics';
 export * from './useCases/getTeamActivities';
+export * from './useCases/createTeamActivity';
 // Lägg till fler exports här när de refaktoreras 

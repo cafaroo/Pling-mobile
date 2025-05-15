@@ -1,91 +1,70 @@
-import { DomainEvent } from '@/shared/core/DomainEvent';
+import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { TeamRole } from '../value-objects/TeamRole';
 
-export class MemberJoined extends DomainEvent {
+/**
+ * BasTeamEvent
+ * Abstrakt basklass för alla team-relaterade domänevents
+ */
+abstract class BaseTeamEvent implements IDomainEvent {
+  public readonly eventId: UniqueId;
+  public readonly occurredAt: Date;
+  public readonly eventType: string;
+  public readonly aggregateId: string;
+
+  constructor(eventType: string, teamId: UniqueId) {
+    this.eventId = new UniqueId();
+    this.occurredAt = new Date();
+    this.eventType = eventType;
+    this.aggregateId = teamId.toString();
+  }
+}
+
+export class MemberJoined extends BaseTeamEvent {
   constructor(
     public readonly teamId: UniqueId,
     public readonly userId: UniqueId,
     public readonly role: TeamRole
   ) {
-    super({
-      name: 'MemberJoined',
-      payload: {
-        teamId: teamId.toString(),
-        userId: userId.toString(),
-        role: role,
-        timestamp: new Date()
-      }
-    });
+    super('MemberJoined', teamId);
   }
 }
 
-export class MemberLeft extends DomainEvent {
+export class MemberLeft extends BaseTeamEvent {
   constructor(
     public readonly teamId: UniqueId,
     public readonly userId: UniqueId
   ) {
-    super({
-      name: 'MemberLeft',
-      payload: {
-        teamId: teamId.toString(),
-        userId: userId.toString(),
-        timestamp: new Date()
-      }
-    });
+    super('MemberLeft', teamId);
   }
 }
 
-export class TeamMemberRoleChanged extends DomainEvent {
+export class TeamMemberRoleChanged extends BaseTeamEvent {
   constructor(
     public readonly teamId: UniqueId,
     public readonly userId: UniqueId,
     public readonly oldRole: TeamRole,
     public readonly newRole: TeamRole
   ) {
-    super({
-      name: 'TeamMemberRoleChanged',
-      payload: {
-        teamId: teamId.toString(),
-        userId: userId.toString(),
-        oldRole: oldRole,
-        newRole: newRole,
-        timestamp: new Date()
-      }
-    });
+    super('TeamMemberRoleChanged', teamId);
   }
 }
 
-export class TeamCreated extends DomainEvent {
+export class TeamCreated extends BaseTeamEvent {
   constructor(
     public readonly teamId: UniqueId,
     public readonly ownerId: UniqueId,
     public readonly name: string
   ) {
-    super({
-      name: 'TeamCreated',
-      payload: {
-        teamId: teamId.toString(),
-        ownerId: ownerId.toString(),
-        name: name,
-        timestamp: new Date()
-      }
-    });
+    super('TeamCreated', teamId);
   }
 }
 
-export class TeamUpdated extends DomainEvent {
+export class TeamUpdated extends BaseTeamEvent {
   constructor(
     public readonly teamId: UniqueId,
     public readonly name: string
   ) {
-    super({
-      name: 'TeamUpdated',
-      payload: {
-        teamId: teamId.toString(),
-        name: name,
-        timestamp: new Date()
-      }
-    });
+    super('TeamUpdated', teamId);
   }
 } 

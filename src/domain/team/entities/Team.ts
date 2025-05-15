@@ -1,4 +1,4 @@
-import { AggregateRoot } from '@/shared/core/AggregateRoot';
+import { AggregateRoot } from '@/shared/domain/AggregateRoot';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { Result, ok, err } from '@/shared/core/Result';
 import { TeamMember } from '../value-objects/TeamMember';
@@ -9,7 +9,6 @@ import { TeamPermission } from '../value-objects/TeamPermission';
 import { MemberJoined, MemberLeft, TeamMemberRoleChanged, TeamCreated, TeamUpdated } from '../events/TeamEvents';
 
 export interface TeamProps {
-  id: UniqueId;
   name: string;
   description?: string;
   ownerId: UniqueId;
@@ -33,8 +32,8 @@ export type TeamUpdateDTO = {
 };
 
 export class Team extends AggregateRoot<TeamProps> {
-  private constructor(props: TeamProps) {
-    super(props);
+  private constructor(props: TeamProps, id?: UniqueId) {
+    super(props, id);
   }
 
   get name(): string {
@@ -72,7 +71,6 @@ export class Team extends AggregateRoot<TeamProps> {
   // Skapa ett nytt team
   public static create(props: TeamCreateDTO): Result<Team, string> {
     try {
-      const id = new UniqueId();
       const ownerId = props.ownerId instanceof UniqueId 
         ? props.ownerId 
         : new UniqueId(props.ownerId);
@@ -112,9 +110,10 @@ export class Team extends AggregateRoot<TeamProps> {
       }
 
       const now = new Date();
+      const id = new UniqueId();
 
+      // Skapa nytt team med den nya strukturen
       const team = new Team({
-        id,
         name: props.name.trim(),
         description: props.description?.trim(),
         ownerId,
@@ -123,7 +122,7 @@ export class Team extends AggregateRoot<TeamProps> {
         settings: teamSettingsResult.value,
         createdAt: now,
         updatedAt: now
-      });
+      }, id);
 
       // Lägg till domänhändelse
       team.addDomainEvent(new TeamCreated(
@@ -252,36 +251,25 @@ export class Team extends AggregateRoot<TeamProps> {
   // Uppdatera medlemsroll
   public updateMemberRole(userId: UniqueId, newRole: TeamRole): Result<void, string> {
     try {
-      // Kontrollera om användaren är ägare
-      if (this.props.ownerId && userId.equals(this.props.ownerId) && newRole !== TeamRole.OWNER) {
-        return err('Ägarrollen kan inte ändras');
-      }
-
       // Hitta medlemmen
-      const memberIndex = this.props.members.findIndex(m => 
+      const member = this.props.members.find(m => 
         m.userId.equals(userId)
       );
 
-      if (memberIndex === -1) {
+      if (!member) {
         return err('Användaren är inte medlem i teamet');
       }
 
-      const member = this.props.members[memberIndex];
-      const oldRole = member.role;
-
-      // Skapa ny medlem med uppdaterad roll
-      const memberResult = TeamMember.create({
-        userId: member.userId,
-        role: newRole,
-        joinedAt: member.joinedAt
-      });
-
-      if (memberResult.isErr()) {
-        return err(`Kunde inte uppdatera medlem: ${memberResult.error}`);
+      // Kontrollera om användaren är ägare (kan inte ändra ägarens roll)
+      if (this.props.ownerId.equals(userId) && newRole !== TeamRole.OWNER) {
+        return err('Ägarens roll kan inte ändras');
       }
 
-      // Ersätt medlemmen i listan
-      this.props.members[memberIndex] = memberResult.value;
+      // Spara gamla rollen för eventet
+      const oldRole = member.role;
+
+      // Uppdatera rollen
+      member.updateRole(newRole);
       this.props.updatedAt = new Date();
 
       // Lägg till domänhändelse
@@ -323,20 +311,17 @@ export class Team extends AggregateRoot<TeamProps> {
       this.props.invitations.push(invitation);
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelse
+      // Lägg till domänhändelse som implementerar IDomainEvent
       this.addDomainEvent({
-        name: 'InvitationSent',
-        payload: {
-          teamId: this.id.toString(),
-          userId: invitation.userId.toString(),
-          invitedBy: invitation.invitedBy.toString(),
-          timestamp: new Date()
-        }
+        eventId: new UniqueId(),
+        occurredAt: new Date(),
+        eventType: 'InvitationSent',
+        aggregateId: this.id.toString()
       });
 
       return ok(undefined);
     } catch (error) {
-      return err(`Kunde inte lägga till inbjudan: ${error.message}`);
+      return err(`Kunde inte lägga till inbjudan: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -360,14 +345,12 @@ export class Team extends AggregateRoot<TeamProps> {
         i.userId.toString() !== userId.toString()
       );
 
-      // Lägg till händelse för accept/decline
+      // Lägg till domänhändelse som implementerar IDomainEvent
       this.addDomainEvent({
-        name: accept ? 'InvitationAccepted' : 'InvitationDeclined',
-        payload: {
-          teamId: this.id.toString(),
-          userId: userId.toString(),
-          timestamp: new Date()
-        }
+        eventId: new UniqueId(),
+        occurredAt: new Date(),
+        eventType: accept ? 'InvitationAccepted' : 'InvitationDeclined',
+        aggregateId: this.id.toString()
       });
 
       // Om accepterad, lägg till medlem
@@ -383,37 +366,46 @@ export class Team extends AggregateRoot<TeamProps> {
 
       return ok(undefined);
     } catch (error) {
-      return err(`Kunde inte hantera inbjudan: ${error.message}`);
+      return err(`Kunde inte hantera inbjudan: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  // Kontrollera medlemskapsbehörighet
+  // Kontrollera om en användare har en specifik behörighet
   public hasMemberPermission(userId: UniqueId, permission: TeamPermission): boolean {
     // Hitta medlemmen
     const member = this.props.members.find(m => 
-      m.userId.toString() === userId.toString()
+      m.userId.equals(userId)
     );
 
     if (!member) {
       return false;
     }
 
-    // Ägaren har alla behörigheter
-    if (userId.toString() === this.props.ownerId.toString()) {
+    // Ägare har alltid alla behörigheter
+    if (member.role === TeamRole.OWNER) {
       return true;
     }
 
-    // Kontrollera baserat på roll och behörighet
-    if (member.role === TeamRole.ADMIN) {
-      return permission !== TeamPermission.DELETE_TEAM;
+    // Administratör har alla behörigheter förutom att ta bort teamet
+    if (member.role === TeamRole.ADMIN && permission !== TeamPermission.DELETE_TEAM) {
+      return true;
     }
 
-    // Vanliga medlemmar har begränsade behörigheter
-    const memberPermissions = [
-      TeamPermission.VIEW_TEAM,
-      TeamPermission.JOIN_ACTIVITIES
-    ];
+    // Moderator har begränsade behörigheter
+    if (member.role === TeamRole.MODERATOR) {
+      return [
+        TeamPermission.READ,
+        TeamPermission.WRITE,
+        TeamPermission.INVITE,
+        TeamPermission.REMOVE_MEMBER,
+        TeamPermission.MODERATE_CONTENT
+      ].includes(permission);
+    }
 
-    return memberPermissions.includes(permission);
+    // Vanlig medlem har bara grundläggande behörigheter
+    return [
+      TeamPermission.READ,
+      TeamPermission.WRITE
+    ].includes(permission);
   }
 } 

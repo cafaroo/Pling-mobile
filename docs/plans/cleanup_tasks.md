@@ -80,7 +80,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 
 ### 2.1 Entiteter
 - [x] Standardisera basklass för entiteter (`Entity`)
-- [ ] Refaktorera `User` entitet för att följa DDD-principer
+- [x] Refaktorera `User` entitet för att följa DDD-principer
 - [ ] Refaktorera `Team` entitet för att följa DDD-principer
 - [x] Refaktorera `Organization` entitet för att följa DDD-principer
 - [x] Säkerställ att alla entiteter använder Result-typen korrekt

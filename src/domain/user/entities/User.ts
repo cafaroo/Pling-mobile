@@ -1,9 +1,8 @@
 import { AggregateRoot } from '@/shared/domain/AggregateRoot';
-import { UniqueId } from '@/shared/core/UniqueId';
+import { UniqueId } from '@/shared/domain/UniqueId';
 import { Result, ok, err } from '@/shared/core/Result';
 import { UserSettings } from './UserSettings';
-import { UserProfile } from './UserProfile';
-import { UserRole } from '../value-objects/UserRole';
+import { UserProfile } from '../value-objects/UserProfile';
 import { Email } from '../value-objects/Email';
 import { PhoneNumber } from '../value-objects/PhoneNumber';
 import {
@@ -17,44 +16,100 @@ import {
   UserStatusChanged
 } from '../events/UserEvent';
 
-interface UserProps {
-  email: string;
+/**
+ * UserProps
+ * 
+ * Interface som definierar egenskaperna för User-entiteten.
+ */
+export interface UserProps {
+  email: Email;
   name: string;
+  phone?: PhoneNumber;
   settings: UserSettings;
   profile?: UserProfile;
   teamIds: string[];
-  roleIds?: string[];
-  status?: 'pending' | 'active' | 'inactive' | 'blocked';
+  roleIds: string[];
+  status: 'pending' | 'active' | 'inactive' | 'blocked';
   createdAt: Date;
   updatedAt: Date;
 }
 
+/**
+ * CreateUserProps
+ * 
+ * Interface för att skapa en ny User-entitet.
+ */
+interface CreateUserProps {
+  email: Email | string;
+  name: string;
+  phone?: PhoneNumber | string;
+  settings?: UserSettings;
+  profile?: UserProfile;
+  teamIds?: string[];
+  roleIds?: string[];
+  status?: 'pending' | 'active' | 'inactive' | 'blocked';
+}
+
+/**
+ * User
+ * 
+ * Aggregatrot för användardomänen som representerar en användare i systemet.
+ * Ansvarar för att upprätthålla konsistens för användarrelaterade entiteter
+ * och publicera domänevents för användardomänen.
+ */
 export class User extends AggregateRoot<UserProps> {
   private constructor(props: UserProps, id?: UniqueId) {
     super(props, id);
   }
 
-  public static create(props: Omit<Partial<UserProps>, 'createdAt' | 'updatedAt'> & {
-    email: string;
-    name: string;
-    settings: UserSettings;
-  }): Result<User, string> {
+  /**
+   * Skapar en ny User-entitet
+   * 
+   * @param props Egenskaper för den nya användaren
+   * @returns Result med User eller felmeddelande
+   */
+  public static create(props: CreateUserProps): Result<User, string> {
     try {
-      if (!props.email || !props.email.includes('@')) {
-        return err('Ogiltig e-postadress');
+      // Validera och skapa Email värde-objekt om det behövs
+      let emailResult: Result<Email, string>;
+      if (typeof props.email === 'string') {
+        emailResult = Email.create(props.email);
+        if (emailResult.isErr()) {
+          return err(emailResult.error);
+        }
+      } else {
+        emailResult = ok(props.email);
       }
 
+      // Validera namn
       if (!props.name || props.name.trim().length < 2) {
         return err('Namnet måste vara minst 2 tecken');
       }
+
+      // Hantera telefonnummer om det finns
+      let phoneResult: Result<PhoneNumber | undefined, string> = ok(undefined);
+      if (props.phone) {
+        if (typeof props.phone === 'string') {
+          phoneResult = PhoneNumber.create(props.phone);
+          if (phoneResult.isErr()) {
+            return err(phoneResult.error);
+          }
+        } else {
+          phoneResult = ok(props.phone);
+        }
+      }
+
+      // Skapa defaults för settings om det behövs
+      const settings = props.settings || UserSettings.createDefault();
 
       const id = new UniqueId();
       const now = new Date();
 
       const user = new User({
-        email: props.email,
-        name: props.name,
-        settings: props.settings,
+        email: emailResult.value,
+        name: props.name.trim(),
+        phone: phoneResult.value,
+        settings: settings,
         profile: props.profile,
         teamIds: props.teamIds || [],
         roleIds: props.roleIds || [],
@@ -66,8 +121,8 @@ export class User extends AggregateRoot<UserProps> {
       // Lägg till domänhändelse för användarskapande
       user.addDomainEvent(new UserCreated(
         id,
-        props.email,
-        props.name
+        emailResult.value.value,
+        props.name.trim()
       ));
 
       return ok(user);
@@ -76,152 +131,284 @@ export class User extends AggregateRoot<UserProps> {
     }
   }
 
-  public get email(): string {
+  /**
+   * Användares e-postadress som värde-objekt
+   */
+  public get email(): Email {
     return this.props.email;
   }
 
+  /**
+   * Användares namn
+   */
   public get name(): string {
     return this.props.name;
   }
 
+  /**
+   * Användares telefonnummer som värde-objekt
+   */
+  public get phone(): PhoneNumber | undefined {
+    return this.props.phone;
+  }
+
+  /**
+   * Användares inställningar
+   */
   public get settings(): UserSettings {
     return this.props.settings;
   }
 
+  /**
+   * Användares profil
+   */
   public get profile(): UserProfile | undefined {
     return this.props.profile;
   }
 
+  /**
+   * Lista över teamIDs som användaren tillhör (kopia för att undvika direkt ändring)
+   */
   public get teamIds(): string[] {
     return [...this.props.teamIds];
   }
 
+  /**
+   * Lista över rollIDs som användaren har (kopia för att undvika direkt ändring)
+   */
   public get roleIds(): string[] {
-    return [...(this.props.roleIds || [])];
+    return [...this.props.roleIds];
   }
 
+  /**
+   * Användares status
+   */
   public get status(): string {
-    return this.props.status || 'pending';
+    return this.props.status;
   }
 
+  /**
+   * Tidpunkt för när användaren skapades
+   */
   public get createdAt(): Date {
-    return this.props.createdAt;
+    return new Date(this.props.createdAt);
   }
 
+  /**
+   * Tidpunkt för när användaren senast uppdaterades
+   */
   public get updatedAt(): Date {
-    return this.props.updatedAt;
+    return new Date(this.props.updatedAt);
   }
 
+  /**
+   * Uppdaterar användarens inställningar
+   * 
+   * @param settings Nya inställningar
+   * @returns Result med success eller felmeddelande
+   */
   public updateSettings(settings: UserSettings): Result<void, string> {
-    this.props.settings = settings;
-    this.props.updatedAt = new Date();
+    try {
+      const previousSettings = { ...this.props.settings };
+      this.props.settings = settings;
+      this.props.updatedAt = new Date();
 
-    // Lägg till domänhändelse
-    this.addDomainEvent(new UserSettingsUpdated(
-      this.id,
-      { ...settings }
-    ));
+      // Publicera domänhändelse
+      this.addDomainEvent(new UserSettingsUpdated(
+        this.id,
+        settings
+      ));
 
-    return ok(undefined);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte uppdatera inställningar: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
+  /**
+   * Uppdaterar användarens profil
+   * 
+   * @param profile Ny profil
+   * @returns Result med success eller felmeddelande
+   */
   public updateProfile(profile: UserProfile): Result<void, string> {
-    this.props.profile = profile;
-    this.props.updatedAt = new Date();
+    try {
+      this.props.profile = profile;
+      this.props.updatedAt = new Date();
 
-    // Lägg till domänhändelse
-    this.addDomainEvent(new UserProfileUpdated(
-      this.id,
-      { ...profile }
-    ));
+      // Publicera domänhändelse
+      this.addDomainEvent(new UserProfileUpdated(
+        this.id,
+        profile.toDTO()
+      ));
 
-    return ok(undefined);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte uppdatera profil: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
+  /**
+   * Lägger till ett team för användaren
+   * 
+   * @param teamId Team-ID att lägga till
+   * @returns Result med success eller felmeddelande
+   */
   public addTeam(teamId: string): Result<void, string> {
     if (this.props.teamIds.includes(teamId)) {
       return err('Användaren är redan medlem i teamet');
     }
-    this.props.teamIds.push(teamId);
-    this.props.updatedAt = new Date();
+    
+    try {
+      this.props.teamIds.push(teamId);
+      this.props.updatedAt = new Date();
 
-    // Lägg till domänhändelse
-    this.addDomainEvent(new UserTeamAdded(
-      this.id,
-      teamId
-    ));
+      // Publicera domänhändelse
+      this.addDomainEvent(new UserTeamAdded(
+        this.id,
+        teamId
+      ));
 
-    return ok(undefined);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte lägga till team: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
+  /**
+   * Tar bort ett team från användaren
+   * 
+   * @param teamId Team-ID att ta bort
+   * @returns Result med success eller felmeddelande
+   */
   public removeTeam(teamId: string): Result<void, string> {
     const index = this.props.teamIds.indexOf(teamId);
     if (index === -1) {
       return err('Användaren är inte medlem i teamet');
     }
-    this.props.teamIds.splice(index, 1);
-    this.props.updatedAt = new Date();
+    
+    try {
+      this.props.teamIds.splice(index, 1);
+      this.props.updatedAt = new Date();
 
-    // Lägg till domänhändelse
-    this.addDomainEvent(new UserTeamRemoved(
-      this.id,
-      teamId
-    ));
+      // Publicera domänhändelse
+      this.addDomainEvent(new UserTeamRemoved(
+        this.id,
+        teamId
+      ));
 
-    return ok(undefined);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte ta bort team: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
+  /**
+   * Lägger till en roll för användaren
+   * 
+   * @param roleId Roll-ID att lägga till
+   * @returns Result med success eller felmeddelande
+   */
   public addRole(roleId: string): Result<void, string> {
-    if (!this.props.roleIds) {
-      this.props.roleIds = [];
-    }
     if (this.props.roleIds.includes(roleId)) {
       return err('Användaren har redan denna roll');
     }
-    this.props.roleIds.push(roleId);
-    this.props.updatedAt = new Date();
+    
+    try {
+      this.props.roleIds.push(roleId);
+      this.props.updatedAt = new Date();
 
-    // Lägg till domänhändelse
-    this.addDomainEvent(new UserRoleAdded(
-      this.id,
-      roleId
-    ));
+      // Publicera domänhändelse
+      this.addDomainEvent(new UserRoleAdded(
+        this.id,
+        roleId
+      ));
 
-    return ok(undefined);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte lägga till roll: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
+  /**
+   * Tar bort en roll från användaren
+   * 
+   * @param roleId Roll-ID att ta bort
+   * @returns Result med success eller felmeddelande
+   */
   public removeRole(roleId: string): Result<void, string> {
-    if (!this.props.roleIds) {
-      return err('Användaren har inga roller');
-    }
     const index = this.props.roleIds.indexOf(roleId);
     if (index === -1) {
       return err('Användaren har inte denna roll');
     }
-    this.props.roleIds.splice(index, 1);
-    this.props.updatedAt = new Date();
+    
+    try {
+      this.props.roleIds.splice(index, 1);
+      this.props.updatedAt = new Date();
 
-    // Lägg till domänhändelse
-    this.addDomainEvent(new UserRoleRemoved(
-      this.id,
-      roleId
-    ));
+      // Publicera domänhändelse
+      this.addDomainEvent(new UserRoleRemoved(
+        this.id,
+        roleId
+      ));
 
-    return ok(undefined);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte ta bort roll: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
+  /**
+   * Uppdaterar användarens status
+   * 
+   * @param newStatus Ny status
+   * @returns Result med success eller felmeddelande
+   */
   public updateStatus(newStatus: 'pending' | 'active' | 'inactive' | 'blocked'): Result<void, string> {
-    const oldStatus = this.props.status || 'pending';
-    this.props.status = newStatus;
-    this.props.updatedAt = new Date();
+    try {
+      const oldStatus = this.props.status;
+      this.props.status = newStatus;
+      this.props.updatedAt = new Date();
 
-    // Lägg till domänhändelse
-    this.addDomainEvent(new UserStatusChanged(
-      this.id,
-      oldStatus,
-      newStatus
-    ));
+      // Publicera domänhändelse
+      this.addDomainEvent(new UserStatusChanged(
+        this.id,
+        oldStatus,
+        newStatus
+      ));
 
-    return ok(undefined);
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte uppdatera status: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Uppdaterar användarens e-postadress
+   * 
+   * @param newEmail Ny e-postadress som string eller Email-värde-objekt
+   * @returns Result med success eller felmeddelande
+   */
+  public updateEmail(newEmail: string | Email): Result<void, string> {
+    try {
+      let emailResult: Result<Email, string>;
+      
+      if (typeof newEmail === 'string') {
+        emailResult = Email.create(newEmail);
+        if (emailResult.isErr()) {
+          return err(emailResult.error);
+        }
+      } else {
+        emailResult = ok(newEmail);
+      }
+      
+      const oldEmail = this.props.email;
+      this.props.email = emailResult.value;
+      this.props.updatedAt = new Date();
+      
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte uppdatera e-postadress: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 } 

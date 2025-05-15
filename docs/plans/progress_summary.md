@@ -115,9 +115,13 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
 5. **User-domänen** - Förbättrat repository-mönstret för User-domänen:
    - Standardiserat `UserRepository` interface enligt DDD-principer 
    - Refaktorerat User-entiteten för att använda AggregateRoot-basklass
-   - Implementerat BaseUserEvent för standardiserade domänevents
-   - Lagt till nya metoder som `search`, `exists` och `updateStatus`
-   - Förbättrat typhantering med Email och värde-objekt
+   - Uppgraderat User-entiteten med bättre typning, validering och felhantering
+   - Förbättrat struktur för UserSettings som ett riktigt värde-objekt
+   - Implementerat robusta BaseUserEvent för standardiserade domänevents
+   - Utökat eventhierarkin med rikare data och bättre felhantering 
+   - Implementerat djup kopiering och immutability för alla domänobjekt
+   - Lagt till nya metoder i User-entiteten, som `updateEmail`
+   - Förbättrat typhantering med Email, PhoneNumber och andra värde-objekt
 
 6. **Värde-objekt** - Genomfört omfattande förbättringar av värde-objekt:
    - Förbättrat `Email`-värde-objektet med robust validering och normalisering

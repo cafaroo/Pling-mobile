@@ -1,117 +1,76 @@
 import { Result, ok, err } from '@/shared/core/Result';
+import { UserProfile as UserProfileValueObject } from '../value-objects/UserProfile';
 
-export interface UserProfileProps {
-  firstName: string;
-  lastName: string;
-  displayName?: string;
-  bio?: string;
-  avatarUrl?: string;
-  location?: string;
-  birthDate?: Date;
-  interests?: string[];
-  socialLinks?: {
-    website?: string;
-    twitter?: string;
-    linkedin?: string;
-    github?: string;
-  };
-}
-
+/**
+ * @deprecated Använd UserProfile från value-objects istället
+ * 
+ * Detta är en wrapper-klass som använder den nya UserProfile värde-objektet
+ * för att behålla bakåtkompatibilitet med existerande kod.
+ */
 export class UserProfile {
-  private readonly props: UserProfileProps;
+  private readonly profile: UserProfileValueObject;
 
-  private constructor(props: UserProfileProps) {
-    this.props = props;
+  private constructor(profile: UserProfileValueObject) {
+    this.profile = profile;
   }
 
-  public static create(props: UserProfileProps): Result<UserProfile, string> {
-    if (!props.firstName || props.firstName.trim().length < 1) {
-      return err('Förnamn är obligatoriskt');
+  public static create(props: any): Result<UserProfile, string> {
+    const profileResult = UserProfileValueObject.create(props);
+    
+    if (profileResult.isErr()) {
+      return err(profileResult.error);
     }
-
-    if (!props.lastName || props.lastName.trim().length < 1) {
-      return err('Efternamn är obligatoriskt');
-    }
-
-    if (props.displayName && props.displayName.trim().length < 2) {
-      return err('Visningsnamn måste vara minst 2 tecken');
-    }
-
-    if (props.bio && props.bio.length > 500) {
-      return err('Bio får inte vara längre än 500 tecken');
-    }
-
-    if (props.interests && props.interests.length > 10) {
-      return err('Max 10 intressen är tillåtna');
-    }
-
-    if (props.birthDate && props.birthDate > new Date()) {
-      return err('Födelsedatum kan inte vara i framtiden');
-    }
-
-    // Validera URL-format för sociala länkar
-    const urlPattern = /^https?:\/\/.+/;
-    if (props.socialLinks) {
-      for (const [platform, url] of Object.entries(props.socialLinks)) {
-        if (url && !urlPattern.test(url)) {
-          return err(`Ogiltig URL för ${platform}`);
-        }
-      }
-    }
-
-    return ok(new UserProfile({
-      ...props,
-      firstName: props.firstName.trim(),
-      lastName: props.lastName.trim(),
-      displayName: props.displayName?.trim(),
-      bio: props.bio?.trim()
-    }));
+    
+    return ok(new UserProfile(profileResult.value));
   }
 
   public get firstName(): string {
-    return this.props.firstName;
+    return this.profile.props.firstName;
   }
 
   public get lastName(): string {
-    return this.props.lastName;
+    return this.profile.props.lastName;
   }
 
   public get displayName(): string | undefined {
-    return this.props.displayName;
+    return this.profile.props.displayName;
   }
 
   public get fullName(): string {
-    return `${this.props.firstName} ${this.props.lastName}`;
+    return this.profile.fullName;
   }
 
   public get bio(): string | undefined {
-    return this.props.bio;
+    return this.profile.props.bio;
   }
 
   public get avatarUrl(): string | undefined {
-    return this.props.avatarUrl;
+    return this.profile.props.avatarUrl;
   }
 
   public get location(): string | undefined {
-    return this.props.location;
+    return this.profile.props.location;
   }
 
   public get birthDate(): Date | undefined {
-    return this.props.birthDate;
+    return this.profile.props.birthDate;
   }
 
   public get interests(): string[] {
-    return this.props.interests || [];
+    return this.profile.interests;
   }
 
   public get socialLinks() {
-    return { ...this.props.socialLinks };
+    return this.profile.props.socialLinks ? { ...this.profile.props.socialLinks } : {};
   }
 
-  public update(profile: Partial<UserProfileProps>): Result<UserProfile, string> {
-    return UserProfile.create({
-      ...this.props,
-      ...profile
-    });
+  public update(props: Partial<any>): Result<UserProfile, string> {
+    const updatedProfileResult = this.profile.update(props);
+    
+    if (updatedProfileResult.isErr()) {
+      return err(updatedProfileResult.error);
+    }
+    
+    return ok(new UserProfile(updatedProfileResult.value));
   }
 } 

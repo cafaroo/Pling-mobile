@@ -89,7 +89,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 ### 2.2 Värde-objekt
 - [x] Standardisera bas-implementationen för värde-objekt
 - [x] Refaktorera `TeamName`, `TeamDescription` som värde-objekt
-- [ ] Refaktorera `UserProfile` som korrekt värde-objekt
+- [x] Refaktorera `UserProfile` som korrekt värde-objekt
 - [x] Säkerställ att värde-objekt är oföränderliga (immutable)
 - [x] Implementera validering i create-metoder för alla värde-objekt
 
@@ -231,6 +231,10 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 11. ~~Förbättra providers med fler domäner och tydliga gränssnitt~~
 12. [x] Skapa fullständig testning för hooks och providers
 13. [PAUSAD] UI-integration med de nya hooksen - flyttad till senare fas
+14. [ ] Åtgärda tester som misslyckas efter Result-typ och UserProfile-refaktoreringar
+    - [ ] Uppdatera test-helpers för att hantera nya Result-API (isOk/value istället för isSuccess/getValue)
+    - [ ] Anpassa tester som använder UserProfile för att hantera den nya implementationen
+    - [ ] Standardisera mockning av UserProfile i testerna
 
 ## Prioriteringsordning
 

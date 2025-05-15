@@ -119,6 +119,16 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
    - Lagt till nya metoder som `search`, `exists` och `updateStatus`
    - Förbättrat typhantering med Email och värde-objekt
 
+6. **Värde-objekt** - Genomfört omfattande förbättringar av värde-objekt:
+   - Förbättrat `Email`-värde-objektet med robust validering och normalisering
+   - Refaktorerat `TeamName` och `TeamDescription` som fullvärdiga värde-objekt
+   - Implementerat `UserProfile` som ett komplett värde-objekt med validering, immutability, och transformation
+   - Skapat wrapper-klass för bakåtkompatibilitet med existerande UserProfile-entitet
+   - Implementerat getters i wrappern för att spegla det nya värde-objektets struktur
+   - Dokumenterat teststrategier för värde-objekt i `value-objects-testing.md`
+   - Skapat omfattande testning för alla värde-objekt
+   - Identifierat att Result-API-ändringar (från isSuccess/getValue till isOk/value) kräver anpassningar i tester
+
 ### Infrastrukturlagret
 1. **EventBus** - Förbättrat implementation med `clearListeners`-metod och exporterat via interface, vilket möjliggör korrekt testning av event-driven funktionalitet.
 

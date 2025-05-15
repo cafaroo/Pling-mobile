@@ -40,6 +40,22 @@ export enum HookErrorCode {
 }
 
 /**
+ * Specificerar en felkontext för att ge mer detaljerad information om var felet uppstod
+ */
+export interface ErrorContext {
+  /** Domänen där felet uppstod (t.ex. 'team', 'user') */
+  domain?: string;
+  /** Funktion eller operation där felet uppstod */
+  operation?: string;
+  /** Detaljer som hjälper till att identifiera resursen (t.ex. teamId, userId) */
+  details?: Record<string, any>;
+  /** Timestamp när felet inträffade */
+  timestamp?: Date;
+  /** Antal gånger som operationen redan försökts */
+  attempts?: number;
+}
+
+/**
  * Konfiguration för felmeddelanden baserat på felkoder
  */
 export interface ErrorMessageConfig {
@@ -239,4 +255,55 @@ export function isRetryableError(code: HookErrorCode): boolean {
 export function isUserFriendlyError(code: HookErrorCode): boolean {
   const config = DEFAULT_ERROR_CONFIG[code];
   return config ? config.userFriendly : true;
+}
+
+/**
+ * Standardiserad fel-typ som används av hooks
+ */
+export interface EnhancedHookError {
+  /** Felkod som kategoriserar felet */
+  code: HookErrorCode;
+  /** Användarvänligt felmeddelande */
+  message: string;
+  /** Det ursprungliga felet */
+  originalError?: unknown;
+  /** Om felet kan återförsökas */
+  retryable: boolean;
+  /** Om felet är användarvänligt */
+  userFriendly: boolean;
+  /** Loggningsnivå för felet */
+  logLevel: 'info' | 'warn' | 'error';
+  /** Kontext där felet uppstod */
+  context?: ErrorContext;
+}
+
+/**
+ * Skapar ett standardiserat hook-fel med utökad information
+ * @param error Det ursprungliga felet
+ * @param context Felkontext med information om var felet uppstod
+ * @param statusCode HTTP-statuskod om tillgänglig
+ * @param customMessage Anpassat felmeddelande
+ * @returns Ett standardiserat EnhancedHookError-objekt
+ */
+export function createEnhancedHookError(
+  error: unknown,
+  context?: ErrorContext,
+  statusCode?: number,
+  customMessage?: string
+): EnhancedHookError {
+  const errorCode = categorizeError(error, statusCode);
+  const config = DEFAULT_ERROR_CONFIG[errorCode];
+  
+  return {
+    code: errorCode,
+    message: customMessage || config.defaultMessage,
+    originalError: error,
+    retryable: config.retryable,
+    userFriendly: config.userFriendly,
+    logLevel: config.logLevel,
+    context: {
+      ...context,
+      timestamp: new Date()
+    }
+  };
 } 

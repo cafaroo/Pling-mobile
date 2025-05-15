@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, QueryKey, UseQueryResult, UseMutationResult } from '@tanstack/react-query';
-import { HookError, unwrapResult } from './BaseHook';
+import { EnhancedHookError, createEnhancedHookError, ErrorContext } from './HookErrorTypes';
+import { ProgressInfo } from './useStandardizedHook';
 
 /**
  * Konfiguration för en standardiserad query hook 
@@ -23,6 +24,10 @@ export interface StandardQueryConfig<TData, TParams extends any[] = []> {
   retry?: number | boolean;
   /** Om en tidigare cache ska returneras medan en ny förfrågan körs */
   keepPreviousData?: boolean;
+  /** Felkontext för detaljerad felrapportering */
+  errorContext?: ErrorContext | ((...params: TParams) => ErrorContext);
+  /** Callback för laddningsframsteg */
+  onProgress?: (progress: ProgressInfo) => void;
 }
 
 /**
@@ -30,13 +35,26 @@ export interface StandardQueryConfig<TData, TParams extends any[] = []> {
  */
 export interface StandardMutationConfig<TData, TVariables> {
   /** Funktion som utför mutation */
-  mutationFn: (variables: TVariables) => Promise<TData>;
+  mutationFn: (variables: TVariables, updateProgress?: (progress: ProgressInfo) => void) => Promise<TData>;
   /** Funktion som anropas vid framgång */
   onSuccess?: (data: TData, variables: TVariables) => void | Promise<void>;
   /** Funktion som anropas vid fel */
-  onError?: (error: HookError, variables: TVariables) => void | Promise<void>;
+  onError?: (error: EnhancedHookError, variables: TVariables) => void | Promise<void>;
   /** Nyckel för att invalidera query efter framgångsrik mutation */
   invalidateQueryKey?: QueryKey | ((variables: TVariables) => QueryKey | QueryKey[]);
+  /** Erbjuder optimistisk uppdatering */
+  optimisticUpdate?: {
+    /** Nyckel för queryn som ska uppdateras optimistiskt */
+    queryKey: QueryKey;
+    /** Funktion som uppdaterar cache med optimistiska data */
+    updateFn: (oldData: any, variables: TVariables) => any;
+    /** Funktion som återställer cache om mutationen misslyckas */
+    rollbackFn?: (oldData: any, variables: TVariables) => any;
+  };
+  /** Felkontext för detaljerad felrapportering */
+  errorContext?: ErrorContext | ((variables: TVariables) => ErrorContext);
+  /** Callback för laddningsframsteg */
+  onProgress?: (progress: ProgressInfo) => void;
 }
 
 /**
@@ -57,7 +75,7 @@ export interface StandardMutationConfig<TData, TVariables> {
  */
 export function createStandardizedQuery<TData, TParams extends any[] = []>(
   config: StandardQueryConfig<TData, TParams>
-): (...params: TParams) => UseQueryResult<TData, HookError> {
+): (...params: TParams) => UseQueryResult<TData, EnhancedHookError> {
   return (...params: TParams) => {
     const queryKey = config.buildQueryKey 
       ? config.buildQueryKey(params) 
@@ -67,9 +85,40 @@ export function createStandardizedQuery<TData, TParams extends any[] = []>(
       ? config.enabled(...params) 
       : config.enabled ?? true;
       
-    return useQuery<TData, HookError>({
+    // Skapa felkontexten om den finns
+    const errorContext = typeof config.errorContext === 'function'
+      ? config.errorContext(...params)
+      : config.errorContext;
+      
+    return useQuery<TData, EnhancedHookError>({
       queryKey,
-      queryFn: () => config.queryFn(...params),
+      queryFn: async () => {
+        try {
+          // Rapportera initialt laddningsframsteg
+          config.onProgress?.({ percent: 0, indeterminate: true });
+          
+          const result = await config.queryFn(...params);
+          
+          // Rapportera slutfört laddningsframsteg
+          config.onProgress?.({ percent: 100 });
+          
+          return result;
+        } catch (error) {
+          // Konvertera fel till rätt format med sammanhang
+          const enhancedError = createEnhancedHookError(
+            error,
+            errorContext
+              ? { 
+                  ...errorContext,
+                  operation: `query:${String(queryKey[0])}`,
+                  details: { params }
+                }
+              : undefined
+          );
+          
+          throw enhancedError;
+        }
+      },
       staleTime: config.staleTime,
       cacheTime: config.cacheTime,
       enabled,
@@ -98,28 +147,79 @@ export function createStandardizedQuery<TData, TParams extends any[] = []>(
  */
 export function createStandardizedMutation<TData, TVariables>(
   config: StandardMutationConfig<TData, TVariables>
-): () => UseMutationResult<TData, HookError, TVariables, unknown> {
+): () => UseMutationResult<TData, EnhancedHookError, TVariables, unknown> {
   return () => {
     const queryClient = useQueryClient();
     
-    return useMutation<TData, HookError, TVariables, unknown>({
+    return useMutation<TData, EnhancedHookError, TVariables, unknown>({
       mutationFn: async (variables) => {
-        try {
-          return await config.mutationFn(variables);
-        } catch (error) {
-          // Konvertera error till HookError format
-          if (error instanceof Error) {
-            throw {
-              message: error.message,
-              technical: error.stack,
-              originalError: error
-            } as HookError;
+        // Implementera optimistisk uppdatering om konfigurerad
+        let previousData: any = undefined;
+        
+        if (config.optimisticUpdate) {
+          // Spara nuvarande data för eventuell rollback
+          previousData = queryClient.getQueryData(config.optimisticUpdate.queryKey);
+          
+          // Uppdatera cache optimistiskt
+          if (previousData) {
+            queryClient.setQueryData(
+              config.optimisticUpdate.queryKey,
+              config.optimisticUpdate.updateFn(previousData, variables)
+            );
           }
-          throw {
-            message: 'Ett fel uppstod',
-            technical: JSON.stringify(error),
-            originalError: error
-          } as HookError;
+        }
+        
+        try {
+          // Initiera progressrapportering
+          config.onProgress?.({ percent: 0, indeterminate: true });
+          
+          // Definiera progress callback
+          const updateProgress = (progress: ProgressInfo) => {
+            config.onProgress?.(progress);
+          };
+          
+          // Utför mutation med progressuppdatering
+          const result = await config.mutationFn(variables, updateProgress);
+          
+          // Rapportera slutfört
+          config.onProgress?.({ percent: 100 });
+          
+          return result;
+        } catch (error) {
+          // Återställ optimistisk uppdatering vid fel
+          if (config.optimisticUpdate && previousData) {
+            if (config.optimisticUpdate.rollbackFn) {
+              queryClient.setQueryData(
+                config.optimisticUpdate.queryKey,
+                config.optimisticUpdate.rollbackFn(previousData, variables)
+              );
+            } else {
+              // Återställ till tidigare data
+              queryClient.setQueryData(
+                config.optimisticUpdate.queryKey,
+                previousData
+              );
+            }
+          }
+          
+          // Skapa felkontexten om den finns
+          const errorContext = typeof config.errorContext === 'function'
+            ? config.errorContext(variables)
+            : config.errorContext;
+          
+          // Konvertera fel till rätt format med sammanhang
+          const enhancedError = createEnhancedHookError(
+            error,
+            errorContext
+              ? { 
+                  ...errorContext,
+                  operation: `mutation:${config.mutationFn.name || 'anonymous'}`,
+                  details: { variables }
+                }
+              : undefined
+          );
+          
+          throw enhancedError;
         }
       },
       onSuccess: (data, variables) => {
@@ -147,4 +247,24 @@ export function createStandardizedMutation<TData, TVariables>(
       }
     });
   };
+}
+
+/**
+ * Hjälpfunktion för att extrahera data från ett Result-objekt och kasta fel om det misslyckas
+ * Används främst i react-query funktioner för att standardisera felhantering
+ */
+export function unwrapResult<T, E = unknown>(result: any): T {
+  // Om result är ett Result-objekt med isSuccess
+  if (result && typeof result.isSuccess === 'function') {
+    if (result.isSuccess()) {
+      return result.getValue();
+    }
+    
+    // Hämta feldetaljer
+    const error = result.getError();
+    throw error;
+  }
+  
+  // Om det inte är ett Result-objekt, returnera det direkt
+  return result as T;
 } 

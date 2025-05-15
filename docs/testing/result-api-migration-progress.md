@@ -16,14 +16,15 @@ Detta dokument spårar framstegen i migreringen från det gamla Result-API:et (i
 - [x] `TeamCreatedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
 - [x] `MemberJoinedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
 - [x] `UserProfileUpdatedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
+- [x] `UserTeamJoinedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
+- [x] `UserCreatedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
 
 ### Repository-implementationer
-- [x] `TeamRepository.ts` - Delvis uppdaterad (rad 118-130, 135-145, 155-170, 238-242)
+- [x] `TeamRepository.ts` - Helt uppdaterad (verkar att de flesta delar redan var uppdaterade)
 
 ## Pågående uppdateringar
 
 ### Repository-implementationer
-- [ ] `TeamRepository.ts` - Återstående delar behöver uppdateras
 - [ ] `OptimizedUserRepository.ts` - Använder getValue
 
 ### Hooks
@@ -46,7 +47,7 @@ Vi använder följande strategier för att migrera koden:
 
 ## Nästa steg
 
-1. Slutföra uppdateringen av TeamRepository.ts
-2. Fortsätta med andra repositories i infrastrukturlagret
-3. Uppdatera hook-implementationer i applikationslagret
+1. ~~Slutföra uppdateringen av TeamRepository.ts~~ ✓
+2. Uppdatera OptimizedUserRepository.ts
+3. Uppdatera hook-implementationer i applikationslagret, med fokus på useTeam och useTeamActivities
 4. Göra tester som verifierar att API:et används konsekvent 

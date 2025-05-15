@@ -216,7 +216,8 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 4. ~~Slutför refaktorering av team-relaterade use cases~~
 5. ~~Slutför refaktorering av user-relaterade use cases~~
 6. ~~Implementera event handlers för team-relaterade domänevents~~
-7. Implementera hooks för att använda de refaktorerade use cases
+7. ~~Implementera hooks för att använda de refaktorerade use cases~~
+8. Förbättra UI-integration med de nya hooksen
 
 ## Prioriteringsordning
 
@@ -228,7 +229,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
    - ~~User-relaterade use cases~~ ✓
 5. ~~Domäntjänster och Domänevents (Fas 2.5, 2.6)~~ ✓
    - ~~Event handlers~~ ✓
-6. Hooks (Fas 3.3)
+6. ~~Hooks (Fas 3.3)~~ ✓
 7. UI-integration (Fas 5)
 8. Testning och Dokumentation (Fas 6) - Delvis genomfört ✓
 

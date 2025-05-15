@@ -6,7 +6,16 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
 ## Genomförda förbättringar
 
 ### Nya implementationer (2024-05-XX)
-1. **Event Handlers för Team-domänen** - Implementerat strukturerad hantering av team-relaterade domänevents:
+1. **Standardiserade React-Hooks** - Implementerat hooks enligt DDD-principer:
+   - Skapat `useTeamStandardized` hook som använder alla refaktorerade use cases
+   - Implementerat `useTeamContext` för att tillhandahålla beroenden via React Context API
+   - Integrerat React Query för effektiv data-fetching och caching
+   - Skapat `DomainProvidersComposer` för att konfigurera alla domänberoenden
+   - Implementerat testning av hooks med React Testing Library
+   - Gradvis ersättningsstrategi för att migrera från gamla hooks
+   - Konsekvent hantering av laddningstillstånd och felhantering
+
+2. **Event Handlers för Team-domänen** - Implementerat strukturerad hantering av team-relaterade domänevents:
    - Skapat `BaseEventHandler` basklass med generisk typning för alla event handlers
    - Implementerat specifika handlers för grundläggande team-events:
      - `TeamCreatedHandler` för att hantera nya team och uppdatera användarens teammedlemskap
@@ -16,28 +25,28 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
    - Implementerat `DomainEventHandlerInitializer` för att registrera alla handlers vid appstart
    - Strukturerade enhetstester för validering av event handler-funktionalitet
 
-2. **Basklasser för Entiteter** - Implementerat grundläggande basklasser för alla domänkomponenter:
+3. **Basklasser för Entiteter** - Implementerat grundläggande basklasser för alla domänkomponenter:
    - Skapat `Entity<T>` basklass för alla entiteter med generisk typning
    - Implementerat `AggregateRoot<T>` som ärver från Entity med stöd för domänevents
    - Skapat `IDomainEvent` interface för alla domänevents
 
-3. **Domänentiteter** - Refaktorerat flera domänentiteter för att använda de nya basklasserna:
+4. **Domänentiteter** - Refaktorerat flera domänentiteter för att använda de nya basklasserna:
    - Uppdaterat `Team`-entiteten för att ärva från AggregateRoot<TeamProps>
    - Uppdaterat `User`-entiteten för att ärva från AggregateRoot<UserProps>
    - Standardiserat domänevents för Team och User
    - Implementerat domänevents som använder IDomainEvent-interface med BaseTeamEvent och BaseUserEvent
 
-4. **OrganizationRepository** - Implementerat repository-pattern för Organization-domänen:
+5. **OrganizationRepository** - Implementerat repository-pattern för Organization-domänen:
    - Definierat ett standardiserat `OrganizationRepository` interface
    - Dokumenterat alla metoder med tydliga beskrivningar och returtyper
    - Säkerställt korrekt användning av Result-typen
 
-5. **OrganizationMapper** - Implementerat mapper-klass för Organization-entiteten:
+6. **OrganizationMapper** - Implementerat mapper-klass för Organization-entiteten:
    - Skapad robust konvertering mellan domänmodell och databasobjekt
    - Implementerat validering av data vid konvertering
    - Förbättrad felhantering med detaljerade felmeddelanden
 
-6. **SupabaseOrganizationRepository** - Implementerat konkret repository:
+7. **SupabaseOrganizationRepository** - Implementerat konkret repository:
    - Implementerat alla metoder från OrganizationRepository-interfacet
    - Säkerställt korrekt hantering av domänevents
    - Implementerat transaktionshantering för relaterade entiteter

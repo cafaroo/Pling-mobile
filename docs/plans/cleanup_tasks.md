@@ -84,7 +84,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Refaktorera `Team` entitet för att följa DDD-principer
 - [x] Refaktorera `Organization` entitet för att följa DDD-principer
 - [x] Säkerställ att alla entiteter använder Result-typen korrekt
-- [ ] Implementera domänevent-publish i alla entiteter
+- [x] Implementera domänevent-publish i alla entiteter
 
 ### 2.2 Värde-objekt
 - [x] Standardisera bas-implementationen för värde-objekt
@@ -99,7 +99,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Implementera `AggregateRoot`-basklass korrekt
 - [x] Refaktorera `Organization` för korrekt aggregatrotsbeteende
 - [x] Refaktorera `Team` för korrekt aggregatrotsbeteende
-- [ ] Säkerställ att bara aggregatrötter publicerar domänevents
+- [x] Säkerställ att bara aggregatrötter publicerar domänevents
 
 ### 2.4 Repositories
 - [x] Standardisera interface för repositories
@@ -117,7 +117,8 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 ### 2.6 Domänevents
 - [x] Definiera standardstruktur för domänevents
 - [x] Refaktorera team-relaterade events
-- [x] Refaktorera user-relaterade events
+- [ ] Refaktorera user-relaterade events
+- [ ] Refaktorera organisation-relaterade events
 - [x] Säkerställ att events bara innehåller nödvändig information
 
 ## Fas 3: Applikationslager
@@ -238,12 +239,19 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
     - [x] Dokumentera migreringsstrategier för tester i result-api-migration.md
     - [x] Uppdatera alla kvarvarande filer som använder gamla Result-API:et
     - [ ] Standardisera mockning av entities och värde-objekt i alla tester
-15. [ ] Förbättra aggregatgränser i domänmodellen
+15. [x] Förbättra aggregatgränser i domänmodellen
     - [x] Dokumentera aggregatgränser och riktlinjer i aggregate-boundaries.md
-    - [ ] Säkerställ att alla domänevents följer namngivningsriktlinjer
-    - [ ] Standardisera event-innehåll för konsekvent användning
-    - [ ] Refaktorera entiteter för att endast aggregatrötter publicerar domänevents
-    - [ ] Identifiera och dokumentera invarianter för alla aggregat
+    - [x] Dokumentera riktlinjer för namngivning av domänevents i event-naming-guidelines.md
+    - [x] Dokumentera standarder för event-innehåll i event-structure-standards.md
+    - [x] Skapa riktlinjer för att endast aggregatrötter ska publicera events
+    - [x] Identifiera och dokumentera invarianter för alla aggregat
+    - [x] Skapa refaktoreringsplan för domänevents och publicering
+    - [x] Implementera standardiserade event-basklasser för alla domäner
+    - [x] Implementera validering av invarianter i aggregatrötter
+    - [x] Slutför refaktorering av events för Team-domänen
+    - [ ] Slutför refaktorering av events för User-domänen (påbörjat)
+    - [ ] Slutför refaktorering av events för Organization-domänen (påbörjat)
+    - [ ] Komplettera testning av invarianter och event-publicering
 16. [ ] Skapa visualiseringar för domänmodellen
     - [ ] Skapa diagram över aggregatgränser
     - [ ] Skapa diagram över entitetsrelationer

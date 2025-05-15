@@ -7,10 +7,6 @@ import { TeamSettings, TeamSettingsProps } from './TeamSettings';
 import { TeamRole } from '../value-objects/TeamRole';
 import { TeamPermission } from '../value-objects/TeamPermission';
 import { 
-  MemberJoined, 
-  MemberLeft, 
-  TeamMemberRoleChanged, 
-  TeamCreated, 
   TeamUpdated, 
   InvitationSent,
   InvitationAccepted,
@@ -20,6 +16,10 @@ import {
 import { TeamName } from '../value-objects/TeamName';
 import { TeamDescription } from '../value-objects/TeamDescription';
 import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
+import { TeamCreatedEvent } from '../events/TeamCreatedEvent';
+import { TeamMemberJoinedEvent } from '../events/TeamMemberJoinedEvent';
+import { TeamMemberLeftEvent } from '../events/TeamMemberLeftEvent';
+import { TeamMemberRoleChangedEvent } from '../events/TeamMemberRoleChangedEvent';
 
 /**
  * TeamProps - Interface som definierar egenskaperna för Team-entiteten.
@@ -63,6 +63,56 @@ export interface TeamUpdateDTO {
 export class Team extends AggregateRoot<TeamProps> {
   private constructor(props: TeamProps, id?: UniqueId) {
     super(props, id);
+  }
+
+  /**
+   * Validerar invarianter för teamaggregatet.
+   * 
+   * @returns Result som indikerar om alla invarianter är uppfyllda
+   */
+  private validateInvariants(): Result<void, string> {
+    try {
+      // Invariant: Ett team måste ha ett namn
+      if (!this.props.name) {
+        return Result.err('Team måste ha ett namn');
+      }
+
+      // Invariant: Ett team måste ha en ägare
+      if (!this.props.ownerId) {
+        return Result.err('Team måste ha en ägare');
+      }
+
+      // Invariant: Ägaren måste vara medlem i teamet med OWNER-roll
+      const ownerIsMember = this.props.members.some(
+        member => member.userId.equals(this.props.ownerId) && 
+                 member.role === TeamRole.OWNER
+      );
+      
+      if (!ownerIsMember) {
+        return Result.err('Ägaren måste vara medlem i teamet med OWNER-roll');
+      }
+
+      // Invariant: Varje medlem kan bara ha en roll i teamet
+      const uniqueMembers = new Set();
+      for (const member of this.props.members) {
+        const memberId = member.userId.toString();
+        if (uniqueMembers.has(memberId)) {
+          return Result.err('En användare kan bara ha en roll i teamet');
+        }
+        uniqueMembers.add(memberId);
+      }
+
+      // Invariant: Antalet medlemmar får inte överstiga maxMembers från inställningarna
+      const maxMembers = this.props.settings.props.maxMembers;
+      if (maxMembers && this.props.members.length > maxMembers) {
+        return Result.err(`Teamet har överskridit sin medlemsgräns på ${maxMembers} medlemmar`);
+      }
+
+      // Alla invarianter uppfyllda
+      return Result.ok(undefined);
+    } catch (error) {
+      return Result.err(`Fel vid validering av invarianter: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**
@@ -184,10 +234,16 @@ export class Team extends AggregateRoot<TeamProps> {
         createdAt: now,
         updatedAt: now
       }, id);
+      
+      // Validera invarianter
+      const validationResult = team.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
-      // Lägg till domänhändelse för teamskapande
-      team.addDomainEvent(new TeamCreated(
-        id,
+      // Lägg till domänhändelse för teamskapande med ny standardiserad händelseklass
+      team.addDomainEvent(new TeamCreatedEvent(
+        team,
         ownerId,
         nameResult.value.value
       ));
@@ -285,10 +341,16 @@ export class Team extends AggregateRoot<TeamProps> {
       // Lägg till medlemmen och uppdatera tidsstämpel
       this.props.members.push(member);
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new MemberJoined(
-        this.id,
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new TeamMemberJoinedEvent(
+        this,
         member.userId,
         member.role
       ));
@@ -321,10 +383,16 @@ export class Team extends AggregateRoot<TeamProps> {
       // Ta bort medlemmen och uppdatera tidsstämpel
       this.props.members.splice(memberIndex, 1);
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new MemberLeft(
-        this.id,
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new TeamMemberLeftEvent(
+        this,
         userId
       ));
 
@@ -373,10 +441,16 @@ export class Team extends AggregateRoot<TeamProps> {
       // Ersätt den gamla medlemmen med den uppdaterade
       this.props.members[memberIndex] = updatedMemberResult.value;
       this.props.updatedAt = new Date();
+      
+      // Validera invarianter efter ändring
+      const validationResult = this.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new TeamMemberRoleChanged(
-        this.id,
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new TeamMemberRoleChangedEvent(
+        this,
         userId,
         oldRole,
         newRole

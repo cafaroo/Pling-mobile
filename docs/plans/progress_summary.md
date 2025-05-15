@@ -1,3 +1,62 @@
+# Förbättringar av aggregatgränser i domänmodellen
+
+## Genomförda förbättringar (2024-06-XX)
+
+Vi har gjort betydande framsteg i förbättringen av aggregatgränser och domänevents i vår domänmodell enligt DDD-principer:
+
+1. **Dokumentation av riktlinjer för namngivning av domänevents**
+   - Skapat omfattande dokumentation i `docs/architecture/event-naming-guidelines.md`
+   - Definierat tydliga principer för konsekvent namngivning (perfekt form, aggregatrotsprefix)
+   - Etablerat standardiserad struktur för eventnamn: `<AggregateRoot><Entity/ValueObject><Action>`
+   - Dokumenterat basklasser och standardegenskaper för alla domänevents
+   - Definierat strategier för att migrera befintliga events till nya standarder
+
+2. **Standardisering av event-innehåll**
+   - Skapat detaljerade standarder i `docs/architecture/event-structure-standards.md` 
+   - Definierat obligatoriska egenskaper för alla domänevents
+   - Etablerat riktlinjer för innehållsbegränsning och datatyper
+   - Skapat konkreta exempel på korrekt eventstruktur
+   - Dokumenterat strategier för serialisering, deserialisering och versionshantering
+   - Definierat testningsstrategier och kodgranskningskontroller
+
+3. **Säkerställande att endast aggregatrötter publicerar events**
+   - Skapat tydliga riktlinjer i `docs/architecture/aggregate-root-event-publishing.md`
+   - Identifierat nuvarande implementation och problem att åtgärda
+   - Definierat refaktoreringsåtgärder för att flytta event-publicering från entiteter till aggregatrötter
+   - Standardiserat mönster för event-publicering i aggregatrötter
+   - Skapat implementationsplan och testningsstrategi
+
+4. **Dokumentation av invarianter för alla aggregat**
+   - Skapat omfattande dokumentation i `docs/architecture/aggregate-invariants.md`
+   - Definierat invarianter för Team-, User-, Organization- och TeamMessage-aggregaten
+   - Kategoriserat invarianter i grundläggande, operativa och säkerhetsrelaterade
+   - Givit konkreta kodexempel för hur invarianter bör verifieras
+   - Tillhandahållit implementationstips för att upprätthålla invarianter
+   - Dokumenterat strategier för hantering av invarianter över aggregatgränser
+
+5. **Implementation av förbättringarna**
+   - Skapat detaljerad refaktoreringsplan i `docs/architecture/refactoring-plan-events.md`
+   - Implementerat standardiserade basklasser för domänevents:
+     - `BaseOrganizationEvent` för alla organisationsrelaterade events
+     - `BaseTeamEvent` för alla teamrelaterade events
+     - `BaseUserEvent` för alla användarrelaterade events
+   - Skapat nya standardiserade event-klasser:
+     - `OrganizationCreatedEvent` och `OrganizationMemberJoinedEvent` 
+     - `TeamCreatedEvent`, `TeamMemberJoinedEvent`, `TeamMemberLeftEvent` och `TeamMemberRoleChangedEvent`
+     - `UserCreatedEvent` och `UserProfileUpdatedEvent`
+   - Uppdaterat entitetsklasser för att använda de nya event-klasserna:
+     - `Team.ts` - Ersatt gamla events med nya standardiserade
+     - `Organization.ts` - Påbörjat ersättning av gamla events
+     - `User.ts` - Påbörjat ersättning av gamla events
+   - Implementerat robust validering av invarianter
+     - Skapat `validateInvariants()`-metod i alla aggregatrötter
+     - Säkerställt att invariantvalidering körs efter alla tillståndsförändringar
+     - Implementerat kontroller för aggregatregler som ägarskap, medlemsgränser och unika roller
+   - Förbättrat typning och felhantering i hela event-flödet
+   - Säkerställt att repositories publicerar events korrekt från aggregatrötter
+
+Dessa förbättringar ger oss en solid grund för att fortsätta arbetet med att refaktorera entiteter och säkerställa konsekvent användning av domänevents i hela kodbasen. Vår Team-domän har nu fullt standardiserade events, och vi har påbörjat samma refaktorering för User- och Organization-domänerna.
+
 # Framstegsrapport för DDD-implementation
 
 ## Sammanfattning

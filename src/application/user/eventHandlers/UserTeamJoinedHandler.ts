@@ -35,20 +35,20 @@ export class UserTeamJoinedHandler extends BaseEventHandler<UserTeamJoined> {
     try {
       // 1. Hämta användaren
       const userResult = await this.userRepository.findById(event.userId);
-      if (userResult.isFailure) {
+      if (userResult.isErr()) {
         return Result.fail(`Kunde inte hitta användaren: ${userResult.error}`);
       }
       
-      const user = userResult.getValue();
+      const user = userResult.value;
       
       // 2. Hämta teamet
       const teamId = new UniqueId(event.teamId);
       const teamResult = await this.teamRepository.findById(teamId);
-      if (teamResult.isFailure) {
+      if (teamResult.isErr()) {
         return Result.fail(`Kunde inte hitta teamet: ${teamResult.error}`);
       }
       
-      const team = teamResult.getValue();
+      const team = teamResult.value;
       
       // 3. Uppdatera användarens statistik
       if (user.hasStatistics()) {

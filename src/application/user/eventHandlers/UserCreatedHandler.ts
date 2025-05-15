@@ -36,11 +36,11 @@ export class UserCreatedHandler extends BaseEventHandler<UserCreated> {
     try {
       // 1. Hämta den skapade användaren
       const userResult = await this.userRepository.findById(event.userId);
-      if (userResult.isFailure) {
+      if (userResult.isErr()) {
         return Result.fail(`Kunde inte hitta den skapade användaren: ${userResult.error}`);
       }
       
-      const user = userResult.getValue();
+      const user = userResult.value;
       
       // 2. Initiera användarstatistik om inte redan gjorts
       if (!user.hasStatistics()) {

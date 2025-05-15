@@ -2,19 +2,24 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { User } from '@/domain/user/entities/User';
+import { Email } from '@/domain/user/value-objects/Email';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
-import { toUser, toDTO, UserDTO } from '../dtos/UserDTO';
-import { EventBus } from '@/shared/core/EventBus';
+import { UserMapper } from '../mappers/UserMapper';
+import { EventBus } from '@/infrastructure/events/EventBus';
 
+/**
+ * SupabaseUserRepository
+ * 
+ * Implementation av UserRepository med Supabase som datakälla.
+ * Följer DDD-principer genom att använda domänobjekt och Result-typen.
+ */
 export class SupabaseUserRepository implements UserRepository {
   constructor(
     private readonly supabase: SupabaseClient,
-    private readonly eventBus: EventBus
+    private readonly eventBus?: EventBus
   ) {}
 
-  async findById(id: UniqueId | string): Promise<Result<User, string>> {
-    const idStr = id instanceof UniqueId ? id.toString() : id;
-    
+  async findById(id: UniqueId): Promise<Result<User | null, string>> {
     try {
       const { data, error } = await this.supabase
         .from('users')
@@ -30,49 +35,27 @@ export class SupabaseUserRepository implements UserRepository {
           role_ids,
           status
         `)
-        .eq('id', idStr)
+        .eq('id', id.toString())
         .single();
 
       if (error) {
-        console.error('Supabase error på findById:', error);
-        return err(`Databasfel: ${error.message}`);
+        if (error.code === 'PGRST116') { // Ingen data hittades
+          return ok(null);
+        }
+        return err(`Databasfel vid hämtning av användare: ${error.message}`);
       }
 
       if (!data) {
-        return err('Användaren hittades inte');
+        return ok(null);
       }
 
-      // Logga rådata
-      console.log('findById returned data:', data);
-
-      // Hantera data som kan ha olika struktur i tester och produktion
-      const dto: UserDTO = {
+      // Konvertera data till DTO-format
+      const dto = {
         id: data.id,
         email: data.email,
         phone: data.phone,
-        profile: data.profiles || data.profile || {
-          firstName: 'Test',
-          lastName: 'User',
-          displayName: 'TestUser',
-          bio: 'Test bio',
-          location: 'Stockholm',
-          contact: {
-            email: data.email,
-            phone: data.phone,
-            alternativeEmail: null
-          }
-        },
-        settings: data.settings || {
-          theme: 'light',
-          language: 'sv',
-          notifications: {
-            email: true,
-            push: true
-          },
-          privacy: {
-            profileVisibility: 'friends'
-          }
-        },
+        profile: data.profiles,
+        settings: data.settings,
         team_ids: data.team_ids || [],
         role_ids: data.role_ids || [],
         status: data.status || 'active',
@@ -80,16 +63,20 @@ export class SupabaseUserRepository implements UserRepository {
         updated_at: data.updated_at
       };
 
-      return toUser(dto);
+      // Använd UserMapper för att konvertera till domänmodell
+      const userResult = UserMapper.toDomain(dto);
+      if (userResult.isErr()) {
+        return err(`Kunde inte mappa användare från databasen: ${userResult.error}`);
+      }
+      
+      return ok(userResult.value);
     } catch (error) {
-      console.error('Exception i findById:', error);
-      return err(`Oväntat fel: ${error.message}`);
+      return err(`Fel vid hämtning av användare: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  async findByEmail(email: string): Promise<Result<User, string>> {
+  async findByEmail(email: Email): Promise<Result<User | null, string>> {
     try {
-      console.log('findByEmail söker efter:', email);
       const { data, error } = await this.supabase
         .from('users')
         .select(`
@@ -104,49 +91,27 @@ export class SupabaseUserRepository implements UserRepository {
           role_ids,
           status
         `)
-        .eq('email', email)
+        .eq('email', email.value)
         .single();
 
       if (error) {
-        console.error('Supabase error på findByEmail:', error);
-        return err(`Databasfel: ${error.message}`);
+        if (error.code === 'PGRST116') { // Ingen data hittades
+          return ok(null);
+        }
+        return err(`Databasfel vid sökning efter e-post: ${error.message}`);
       }
 
       if (!data) {
-        return err('Användaren hittades inte');
+        return ok(null);
       }
 
-      // Logga rådata
-      console.log('findByEmail returned data:', data);
-
-      // Hantera data som kan ha olika struktur i tester och produktion
-      const dto: UserDTO = {
+      // Konvertera data till DTO-format
+      const dto = {
         id: data.id,
         email: data.email,
         phone: data.phone,
-        profile: data.profiles || data.profile || {
-          firstName: 'Test',
-          lastName: 'User',
-          displayName: 'TestUser',
-          bio: 'Test bio',
-          location: 'Stockholm',
-          contact: {
-            email: data.email,
-            phone: data.phone,
-            alternativeEmail: null
-          }
-        },
-        settings: data.settings || {
-          theme: 'light',
-          language: 'sv',
-          notifications: {
-            email: true, 
-            push: true
-          },
-          privacy: {
-            profileVisibility: 'friends'
-          }
-        },
+        profile: data.profiles,
+        settings: data.settings,
         team_ids: data.team_ids || [],
         role_ids: data.role_ids || [],
         status: data.status || 'active',
@@ -154,143 +119,273 @@ export class SupabaseUserRepository implements UserRepository {
         updated_at: data.updated_at
       };
 
-      return toUser(dto);
+      // Använd UserMapper för att konvertera till domänmodell
+      const userResult = UserMapper.toDomain(dto);
+      if (userResult.isErr()) {
+        return err(`Kunde inte mappa användare från databasen: ${userResult.error}`);
+      }
+      
+      return ok(userResult.value);
     } catch (error) {
-      console.error('Exception i findByEmail:', error);
-      return err(`Oväntat fel: ${error.message}`);
+      return err(`Fel vid sökning efter användare med e-post: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   async save(user: User): Promise<Result<void, string>> {
-    const dto = toDTO(user);
+    try {
+      // Konvertera till DTO för datalagring
+      const userData = UserMapper.toPersistence(user);
 
-    // Starta en transaktion
-    const { error: userError } = await this.supabase
-      .from('users')
-      .upsert({
-        id: dto.id,
-        email: dto.email,
-        phone: dto.phone,
-        team_ids: dto.team_ids,
-        role_ids: dto.role_ids,
-        status: dto.status
-      });
+      // Starta en transaktion för användardata
+      const { error: userError } = await this.supabase
+        .from('users')
+        .upsert({
+          id: userData.id,
+          email: userData.email,
+          phone: userData.phone,
+          team_ids: userData.team_ids,
+          role_ids: userData.role_ids,
+          status: userData.status,
+          created_at: userData.created_at,
+          updated_at: userData.updated_at
+        });
 
-    if (userError) {
-      return err(`Fel vid sparande av användare: ${userError.message}`);
-    }
-
-    // Uppdatera profil
-    const { error: profileError } = await this.supabase
-      .from('user_profiles')
-      .upsert({
-        user_id: dto.id,
-        ...dto.profile
-      });
-
-    if (profileError) {
-      return err(`Fel vid sparande av profil: ${profileError.message}`);
-    }
-
-    // Uppdatera inställningar
-    const { error: settingsError } = await this.supabase
-      .from('user_settings')
-      .upsert({
-        user_id: dto.id,
-        ...dto.settings
-      });
-
-    if (settingsError) {
-      return err(`Fel vid sparande av inställningar: ${settingsError.message}`);
-    }
-
-    // Publicera alla väntande domänhändelser
-    if (user.domainEvents && Array.isArray(user.domainEvents)) {
-      for (const event of user.domainEvents) {
-        await this.eventBus.publish(event);
+      if (userError) {
+        return err(`Fel vid sparande av användare: ${userError.message}`);
       }
-      user.clearDomainEvents?.();
-    }
 
-    return ok(undefined);
+      // Spara profildata om det finns
+      if (userData.profile) {
+        const { error: profileError } = await this.supabase
+          .from('user_profiles')
+          .upsert({
+            user_id: userData.id,
+            ...userData.profile,
+            updated_at: userData.updated_at
+          });
+
+        if (profileError) {
+          return err(`Fel vid sparande av användarprofil: ${profileError.message}`);
+        }
+      }
+
+      // Spara inställningar om det finns
+      if (userData.settings) {
+        const { error: settingsError } = await this.supabase
+          .from('user_settings')
+          .upsert({
+            user_id: userData.id,
+            ...userData.settings,
+            updated_at: userData.updated_at
+          });
+
+        if (settingsError) {
+          return err(`Fel vid sparande av användarinställningar: ${settingsError.message}`);
+        }
+      }
+
+      // Publicera domänevents om EventBus finns
+      if (this.eventBus) {
+        user.getDomainEvents().forEach(event => {
+          this.eventBus?.publish(event);
+        });
+        
+        // Rensa domänevents efter publicering
+        user.clearEvents();
+      }
+
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid sparande av användare: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
-  async delete(id: UniqueId | string): Promise<Result<void, string>> {
-    const idStr = id instanceof UniqueId ? id.toString() : id;
+  async delete(id: UniqueId): Promise<Result<void, string>> {
+    try {
+      // Börja med att ta bort relaterade data
+      const { error: profileError } = await this.supabase
+        .from('user_profiles')
+        .delete()
+        .eq('user_id', id.toString());
 
-    // Ta bort relaterade data först
-    const { error: settingsError } = await this.supabase
-      .from('user_settings')
-      .delete()
-      .eq('user_id', idStr);
+      if (profileError) {
+        return err(`Fel vid borttagning av användarprofil: ${profileError.message}`);
+      }
 
-    if (settingsError) {
-      return err(`Fel vid borttagning av inställningar: ${settingsError.message}`);
+      const { error: settingsError } = await this.supabase
+        .from('user_settings')
+        .delete()
+        .eq('user_id', id.toString());
+
+      if (settingsError) {
+        return err(`Fel vid borttagning av användarinställningar: ${settingsError.message}`);
+      }
+
+      // Ta bort användarentiteten sist
+      const { error: userError } = await this.supabase
+        .from('users')
+        .delete()
+        .eq('id', id.toString());
+
+      if (userError) {
+        return err(`Fel vid borttagning av användare: ${userError.message}`);
+      }
+
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid borttagning av användare: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    const { error: profileError } = await this.supabase
-      .from('user_profiles')
-      .delete()
-      .eq('user_id', idStr);
-
-    if (profileError) {
-      return err(`Fel vid borttagning av profil: ${profileError.message}`);
-    }
-
-    // Ta bort användaren sist
-    const { error: userError } = await this.supabase
-      .from('users')
-      .delete()
-      .eq('id', idStr);
-
-    if (userError) {
-      return err(`Fel vid borttagning av användare: ${userError.message}`);
-    }
-
-    return ok(undefined);
   }
 
-  async findByTeamId(teamId: UniqueId | string): Promise<Result<User[], string>> {
-    const teamIdStr = teamId instanceof UniqueId ? teamId.toString() : teamId;
+  async findByTeamId(teamId: UniqueId): Promise<Result<User[], string>> {
+    try {
+      // Hitta användare som är medlemmar i ett team baserat på team_ids-arrayen
+      const { data, error } = await this.supabase
+        .from('users')
+        .select(`
+          id,
+          email,
+          phone,
+          created_at,
+          updated_at,
+          profiles:user_profiles(*),
+          settings:user_settings(*),
+          team_ids,
+          role_ids,
+          status
+        `)
+        .contains('team_ids', [teamId.toString()]);
 
-    const { data, error } = await this.supabase
-      .from('users')
-      .select(`
-        id,
-        email,
-        phone,
-        created_at,
-        updated_at,
-        profiles:user_profiles(*),
-        settings:user_settings(*),
-        team_ids,
-        role_ids,
-        status
-      `)
-      .contains('team_ids', [teamIdStr]);
+      if (error) {
+        return err(`Databasfel vid sökning efter teammedlemmar: ${error.message}`);
+      }
 
-    if (error) {
-      return err(`Databasfel: ${error.message}`);
+      if (!data || data.length === 0) {
+        return ok([]);
+      }
+
+      // Konvertera data till domänmodeller
+      const users: User[] = [];
+      for (const userData of data) {
+        const dto = {
+          id: userData.id,
+          email: userData.email,
+          phone: userData.phone,
+          profile: userData.profiles,
+          settings: userData.settings,
+          team_ids: userData.team_ids || [],
+          role_ids: userData.role_ids || [],
+          status: userData.status || 'active',
+          created_at: userData.created_at,
+          updated_at: userData.updated_at
+        };
+
+        const userResult = UserMapper.toDomain(dto);
+        if (userResult.isErr()) {
+          console.warn(`Kunde inte mappa användare: ${userResult.error}`);
+          continue;
+        }
+        users.push(userResult.value);
+      }
+
+      return ok(users);
+    } catch (error) {
+      return err(`Fel vid hämtning av användare för team: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
 
-    const users: Result<User, string>[] = data.map(userData => {
-      const dto: UserDTO = {
-        ...userData,
-        profile: userData.profiles,
-        settings: userData.settings,
-      };
-      return toUser(dto);
-    });
+  async search(query: string, limit: number = 10): Promise<Result<User[], string>> {
+    try {
+      // Sök efter användare baserat på e-post, namn eller användarnamn
+      const { data, error } = await this.supabase
+        .from('users')
+        .select(`
+          id,
+          email,
+          phone,
+          created_at,
+          updated_at,
+          profiles:user_profiles(*),
+          settings:user_settings(*),
+          team_ids,
+          role_ids,
+          status
+        `)
+        .or(`email.ilike.%${query}%,profiles.firstName.ilike.%${query}%,profiles.lastName.ilike.%${query}%,profiles.displayName.ilike.%${query}%`)
+        .limit(limit);
 
-    // Kontrollera om någon mappning misslyckades
-    const errors = users
-      .filter(result => result.isErr())
-      .map(result => (result as any).error);
-    
-    if (errors.length > 0) {
-      return err(`Fel vid mappning av användare: ${errors.join(', ')}`);
+      if (error) {
+        return err(`Databasfel vid sökning efter användare: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        return ok([]);
+      }
+
+      // Konvertera data till domänmodeller
+      const users: User[] = [];
+      for (const userData of data) {
+        const dto = {
+          id: userData.id,
+          email: userData.email,
+          phone: userData.phone,
+          profile: userData.profiles,
+          settings: userData.settings,
+          team_ids: userData.team_ids || [],
+          role_ids: userData.role_ids || [],
+          status: userData.status || 'active',
+          created_at: userData.created_at,
+          updated_at: userData.updated_at
+        };
+
+        const userResult = UserMapper.toDomain(dto);
+        if (userResult.isErr()) {
+          console.warn(`Kunde inte mappa användare: ${userResult.error}`);
+          continue;
+        }
+        users.push(userResult.value);
+      }
+
+      return ok(users);
+    } catch (error) {
+      return err(`Fel vid sökning efter användare: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
 
-    return ok(users.map(result => (result as any).value));
+  async exists(email: Email): Promise<Result<boolean, string>> {
+    try {
+      const { data, error, count } = await this.supabase
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .eq('email', email.value);
+
+      if (error) {
+        return err(`Databasfel vid kontroll av e-post: ${error.message}`);
+      }
+
+      return ok(count !== null && count > 0);
+    } catch (error) {
+      return err(`Fel vid kontroll av e-post: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async updateStatus(id: UniqueId, status: 'pending' | 'active' | 'inactive' | 'blocked'): Promise<Result<void, string>> {
+    try {
+      const { error } = await this.supabase
+        .from('users')
+        .update({ 
+          status, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', id.toString());
+
+      if (error) {
+        return err(`Databasfel vid uppdatering av status: ${error.message}`);
+      }
+
+      return ok(undefined);
+    } catch (error) {
+      return err(`Fel vid uppdatering av användarstatus: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 } 

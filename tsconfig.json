@@ -5,18 +5,12 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@shared/*": ["src/shared/*"],
-      "@domain/*": ["src/domain/*"],
-      "@application/*": ["src/application/*"],
-      "@utils/*": ["src/utils/*"],
-      "@components/*": ["components/*"],
-      "@constants/*": ["constants/*"],
-      "@hooks/*": ["hooks/*"],
-      "@context/*": ["context/*"],
-      "@services/*": ["services/*"],
-      "@styles/*": ["styles/*"],
-      "@types/*": ["types/*"],
-      "@assets/*": ["assets/*"]
+      "@/domain/*": ["src/domain/*"],
+      "@/application/*": ["src/application/*"],
+      "@/infrastructure/*": ["src/infrastructure/*"],
+      "@/ui/*": ["src/ui/*"],
+      "@/shared/*": ["src/shared/*"],
+      "@/assets/*": ["assets/*"]
     },
     "typeRoots": ["./types", "./node_modules/@types"],
     "resolveJsonModule": true,
@@ -26,8 +20,7 @@
     "jsx": "react-native"
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
+    "src",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts",

@@ -39,6 +39,13 @@ export class EventBus {
       handlers.map(handler => handler(event))
     );
   }
+
+  /**
+   * Tar bort alla event listeners
+   */
+  public clearListeners(): void {
+    this.handlers = new Map();
+  }
 }
 
 /**
@@ -50,4 +57,6 @@ export const getEventBus = (): EventBus => {
 
 export interface EventBus {
   publish(event: DomainEvent): Promise<void>;
+  subscribe(eventType: string, handler: EventHandler): () => void;
+  clearListeners(): void;
 } 

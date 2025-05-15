@@ -1,6 +1,7 @@
 import { DomainEvent } from '@/shared/domain/events/DomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { ResourceType } from '../value-objects/ResourceType';
+import { ResourcePermission } from '../value-objects/ResourcePermission';
 
 export class ResourceCreated implements DomainEvent {
   public readonly name = 'resource.created';
@@ -54,10 +55,10 @@ export class ResourcePermissionAdded implements DomainEvent {
   constructor(
     public readonly resourceId: UniqueId,
     public readonly organizationId: UniqueId,
+    public readonly permissions: ResourcePermission[],
     public readonly userId?: UniqueId,
     public readonly teamId?: UniqueId,
-    public readonly role?: string,
-    public readonly permissions: string[]
+    public readonly role?: string
   ) {
     this.occurredAt = new Date();
   }

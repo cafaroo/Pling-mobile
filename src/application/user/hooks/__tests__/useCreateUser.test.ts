@@ -232,15 +232,3 @@ describe('useCreateUser Hook', () => {
     expect(createUser).toHaveBeenCalled();
   });
 }); 
-          profileVisibility: 'public',
-          showEmail: true,
-          showPhone: true
-        }
-      }
-    };
-    
-    await mutation.mutateAsync(userData);
-    
-    expect(createUser).toHaveBeenCalled();
-  });
-}); 

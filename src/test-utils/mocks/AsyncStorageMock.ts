@@ -1,67 +1,73 @@
 /**
- * Standardiserad mock för AsyncStorage
- * 
- * Använd denna fil för att konsekvent mocka AsyncStorage i tester.
- * 
- * Exempel på användning:
- * ```
- * jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
- * ```
+ * Mock för @react-native-async-storage/async-storage
+ * Används för att mocka AsyncStorage i tester
  */
 
-// In-memory mock storage
-const mockStorage = new Map<string, string>();
+interface StorageData {
+  [key: string]: string;
+}
 
-// Skapa ett mockAsyncStorage-objekt som kan återanvändas
+/**
+ * In-memory mock-implementation av AsyncStorage
+ */
 export const mockAsyncStorage = {
-  getItem: jest.fn((key: string) => {
-    return Promise.resolve(mockStorage.get(key) || null);
+  store: {} as StorageData,
+  
+  // Huvudmetoder
+  setItem: jest.fn((key: string, value: string) => {
+    mockAsyncStorage.store[key] = value;
+    return Promise.resolve();
   }),
   
-  setItem: jest.fn((key: string, value: string) => {
-    mockStorage.set(key, value);
-    return Promise.resolve();
+  getItem: jest.fn((key: string) => {
+    return Promise.resolve(mockAsyncStorage.store[key] || null);
   }),
   
   removeItem: jest.fn((key: string) => {
-    mockStorage.delete(key);
+    delete mockAsyncStorage.store[key];
     return Promise.resolve();
   }),
   
+  // Batch-operationer
+  multiSet: jest.fn((keyValuePairs: Array<[string, string]>) => {
+    keyValuePairs.forEach(([key, value]) => {
+      mockAsyncStorage.store[key] = value;
+    });
+    return Promise.resolve();
+  }),
+  
+  multiGet: jest.fn((keys: string[]) => {
+    const results = keys.map(key => [key, mockAsyncStorage.store[key] || null]);
+    return Promise.resolve(results);
+  }),
+  
+  multiRemove: jest.fn((keys: string[]) => {
+    keys.forEach(key => {
+      delete mockAsyncStorage.store[key];
+    });
+    return Promise.resolve();
+  }),
+  
+  // Förvaltningsmetoder
   clear: jest.fn(() => {
-    mockStorage.clear();
+    mockAsyncStorage.store = {};
     return Promise.resolve();
   }),
   
   getAllKeys: jest.fn(() => {
-    return Promise.resolve(Array.from(mockStorage.keys()));
+    return Promise.resolve(Object.keys(mockAsyncStorage.store));
   }),
   
-  multiGet: jest.fn((keys: string[]) => {
-    const pairs = keys.map(key => [key, mockStorage.get(key) || null]);
-    return Promise.resolve(pairs);
-  }),
-  
-  multiSet: jest.fn((pairs: [string, string][]) => {
-    pairs.forEach(([key, value]) => mockStorage.set(key, value));
-    return Promise.resolve();
-  }),
-  
-  multiRemove: jest.fn((keys: string[]) => {
-    keys.forEach(key => mockStorage.delete(key));
-    return Promise.resolve();
-  }),
-  
-  // Hjälpfunktioner för tester
-  _getStorage: () => mockStorage,
-  _reset: () => {
-    mockStorage.clear();
-    jest.clearAllMocks();
+  // Hjälpmetoder för tester
+  reset: () => {
+    mockAsyncStorage.store = {};
+    mockAsyncStorage.setItem.mockClear();
+    mockAsyncStorage.getItem.mockClear();
+    mockAsyncStorage.removeItem.mockClear();
+    mockAsyncStorage.multiSet.mockClear();
+    mockAsyncStorage.multiGet.mockClear();
+    mockAsyncStorage.multiRemove.mockClear();
+    mockAsyncStorage.clear.mockClear();
+    mockAsyncStorage.getAllKeys.mockClear();
   }
-};
-
-// Återställ mock vid varje test
-export const resetMockAsyncStorage = () => {
-  mockStorage.clear();
-  jest.clearAllMocks();
 }; 

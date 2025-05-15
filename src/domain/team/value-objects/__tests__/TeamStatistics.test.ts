@@ -425,30 +425,3 @@ describe('TeamStatistics', () => {
     });
   });
 }); 
-      const activities = [
-        createActivity({ timestamp: new Date('2024-01-10T10:00:00Z') }),
-        createActivity({ timestamp: new Date('2024-01-09T10:00:00Z') }),
-        createActivity({ timestamp: new Date('2024-01-08T12:00:00Z') }),
-        createActivity({ timestamp: new Date('2024-01-07T12:00:00Z') }),
-        createActivity({ timestamp: new Date('2024-01-06T12:00:00Z') }),
-        createActivity({ timestamp: new Date('2024-01-05T12:00:00Z') }),
-        createActivity({ timestamp: new Date('2024-01-04T12:00:00Z') }),
-      ];
-
-      const result = TeamStatistics.calculateFromGoals(
-        teamId,
-        [],
-        activities,
-        StatisticsPeriod.WEEKLY,
-        new Date('2024-01-10T12:00:00Z')
-      );
-
-      expect(result.isOk()).toBe(true);
-      const stats = result.value;
-      
-      // Kontrollera trenddata
-      expect(stats.activityTrend).toHaveLength(7);
-      expect(stats.getActivityTrend()).toBe('stable'); // Jämn fördelning av aktivitet
-    });
-  });
-}); 

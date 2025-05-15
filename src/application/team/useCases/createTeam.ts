@@ -1,12 +1,9 @@
 import { Result, ok, err } from '@/shared/core/Result';
-import { UniqueId } from '@/shared/domain/UniqueId';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { Team } from '@/domain/team/entities/Team';
-import { TeamMember } from '@/domain/team/entities/TeamMember';
-import { TeamName } from '@/domain/team/value-objects/TeamName';
-import { TeamDescription } from '@/domain/team/value-objects/TeamDescription';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
-import { TeamError } from '@/domain/team/errors/TeamError';
 import { TeamRole } from '@/domain/team/value-objects/TeamRole';
+import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
 
 export interface CreateTeamDTO {
   name: string;
@@ -14,109 +11,90 @@ export interface CreateTeamDTO {
   ownerId: string;
 }
 
-type CreateTeamError = 
-  | TeamError 
-  | { message: string; name: 'UNEXPECTED_ERROR' };
+export interface CreateTeamResponse {
+  teamId: string;
+  name: string;
+  ownerId: string;
+}
+
+type CreateTeamError = { 
+  message: string; 
+  code: 'VALIDATION_ERROR' | 'DATABASE_ERROR' | 'UNEXPECTED_ERROR'
+};
 
 interface Dependencies {
   teamRepo: TeamRepository;
+  eventPublisher: IDomainEventPublisher;
 }
 
-export const createTeam = ({ teamRepo }: Dependencies) => {
-  return async (dto: CreateTeamDTO): Promise<Result<Team, CreateTeamError>> => {
-    try {
-      // Validera och skapa värde-objekt
-      const nameOrError = TeamName.create(dto.name);
-      if (nameOrError.isErr()) {
-        return err(nameOrError.error);
-      }
-
-      const descriptionOrError = dto.description 
-        ? TeamDescription.create(dto.description)
-        : ok(undefined);
-
-      if (descriptionOrError.isErr()) {
-        return err(descriptionOrError.error);
-      }
-
-      const ownerId = new UniqueId(dto.ownerId);
-      
-      // Skapa owner som första medlem
-      const ownerMember = TeamMember.create({
-        userId: ownerId,
-        role: TeamRole.OWNER,
-        joinedAt: new Date()
-      });
-
-      if (ownerMember.isErr()) {
-        return err(ownerMember.error);
-      }
-
-      // Skapa team
-      const teamOrError = Team.create({
-        name: nameOrError.value,
-        description: descriptionOrError.value,
-        ownerId,
-        members: [ownerMember.value]
-      });
-
-      if (teamOrError.isErr()) {
-        return err(teamOrError.error);
-      }
-
-      const team = teamOrError.value;
-
-      // Spara i databasen
-      await teamRepo.save(team);
-
-      return ok(team);
-    } catch (error) {
-      return err({
-        message: 'Ett oväntat fel inträffade vid skapande av team',
-        name: 'UNEXPECTED_ERROR'
-      });
-    }
-  };
-};
-
 export class CreateTeamUseCase {
-  constructor(private teamRepository: TeamRepository) {}
+  constructor(
+    private teamRepository: TeamRepository,
+    private eventPublisher: IDomainEventPublisher
+  ) {}
 
-  async execute(dto: CreateTeamDTO): Promise<Result<string, string>> {
+  async execute(dto: CreateTeamDTO): Promise<Result<CreateTeamResponse, CreateTeamError>> {
     try {
       // Validera indata
-      if (!dto.name) {
-        return err('Teamnamn är obligatoriskt');
+      if (!dto.name || dto.name.trim().length < 2) {
+        return err({
+          message: 'Teamnamn måste vara minst 2 tecken',
+          code: 'VALIDATION_ERROR'
+        });
       }
 
       if (!dto.ownerId) {
-        return err('Ägar-ID är obligatoriskt');
+        return err({
+          message: 'Ägar-ID är obligatoriskt',
+          code: 'VALIDATION_ERROR'
+        });
       }
 
-      // Skapa team-entitet
-      const ownerId = new UniqueId(dto.ownerId);
+      // Skapa team med den förbättrade domänmodellen
       const teamResult = Team.create({
         name: dto.name,
         description: dto.description,
-        ownerId
+        ownerId: dto.ownerId instanceof UniqueId ? dto.ownerId : new UniqueId(dto.ownerId)
       });
 
       if (teamResult.isErr()) {
-        return err(teamResult.error);
+        return err({
+          message: teamResult.error,
+          code: 'VALIDATION_ERROR'
+        });
       }
 
-      const team = teamResult.getValue();
+      const team = teamResult.value;
 
       // Spara team
       const saveResult = await this.teamRepository.save(team);
       if (saveResult.isErr()) {
-        return err(`Kunde inte spara team: ${saveResult.error}`);
+        return err({
+          message: `Kunde inte spara team: ${saveResult.error}`,
+          code: 'DATABASE_ERROR'
+        });
       }
 
-      // Returnera team-ID
-      return ok(team.id.toString());
+      // Publicera alla domänhändelser från aggregatroten
+      const domainEvents = team.getDomainEvents();
+      for (const event of domainEvents) {
+        await this.eventPublisher.publish(event);
+      }
+      
+      // Rensa händelser efter publicering
+      team.clearEvents();
+
+      // Skapa och returnera response
+      return ok({
+        teamId: team.id.toString(),
+        name: team.name,
+        ownerId: team.ownerId.toString()
+      });
     } catch (error) {
-      return err(`Ett fel uppstod vid skapande av team: ${error.message}`);
+      return err({
+        message: `Ett fel uppstod vid skapande av team: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'UNEXPECTED_ERROR'
+      });
     }
   }
 } 

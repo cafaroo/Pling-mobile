@@ -1,4 +1,4 @@
-import { Entity } from '@/shared/core/Entity';
+import { AggregateRoot, AggregateRootProps } from '@/shared/core/AggregateRoot';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { Result, ok, err } from '@/shared/core/Result';
 import { ResourceType } from '../value-objects/ResourceType';
@@ -12,8 +12,7 @@ export interface ResourcePermissionAssignment {
   permissions: ResourcePermission[];
 }
 
-export interface OrganizationResourceProps {
-  id: UniqueId;
+export interface OrganizationResourceProps extends AggregateRootProps {
   organizationId: UniqueId;
   name: string;
   description?: string;
@@ -43,7 +42,7 @@ export interface OrganizationResourceUpdateDTO {
   permissionAssignments?: ResourcePermissionAssignment[];
 }
 
-export class OrganizationResource extends Entity<OrganizationResourceProps> {
+export class OrganizationResource extends AggregateRoot<OrganizationResourceProps> {
   private constructor(props: OrganizationResourceProps) {
     super(props);
   }
@@ -123,7 +122,7 @@ export class OrganizationResource extends Entity<OrganizationResourceProps> {
         return err('Behörighetstilldelning måste innehålla minst en behörighet');
       }
 
-      // Ta bort befintlig tilldelning om den finns
+      // Hitta befintlig tilldelning om den finns
       let existingIndex = -1;
       
       if (assignment.userId) {
@@ -140,17 +139,43 @@ export class OrganizationResource extends Entity<OrganizationResourceProps> {
         );
       }
 
+      // Om det finns en befintlig tilldelning
       if (existingIndex >= 0) {
-        this.props.permissionAssignments.splice(existingIndex, 1);
+        const existing = this.props.permissionAssignments[existingIndex];
+        
+        // Kontrollera om vi försöker lägga till exakt samma behörigheter som redan finns
+        const allPermissionsAlreadyExist = assignment.permissions.every(p => 
+          existing.permissions.includes(p)
+        );
+        
+        if (allPermissionsAlreadyExist) {
+          return err('Dessa behörigheter finns redan för denna tilldelning');
+        }
+        
+        // Slå samman existerande och nya behörigheter, se till att inga dubbletter
+        const mergedPermissions = [...existing.permissions];
+        
+        // Lägg till nya behörigheter som inte redan finns
+        for (const permission of assignment.permissions) {
+          if (!mergedPermissions.includes(permission)) {
+            mergedPermissions.push(permission);
+          }
+        }
+        
+        // Uppdatera den befintliga tilldelningen
+        this.props.permissionAssignments[existingIndex] = {
+          ...existing,
+          permissions: mergedPermissions
+        };
+      } else {
+        // Lägg till ny tilldelning om den inte finns
+        this.props.permissionAssignments.push({
+          userId: assignment.userId,
+          teamId: assignment.teamId,
+          role: assignment.role,
+          permissions: [...assignment.permissions]
+        });
       }
-
-      // Lägg till den nya tilldelningen
-      this.props.permissionAssignments.push({
-        userId: assignment.userId,
-        teamId: assignment.teamId,
-        role: assignment.role,
-        permissions: [...assignment.permissions]
-      });
 
       this.props.updatedAt = new Date();
 
@@ -158,10 +183,10 @@ export class OrganizationResource extends Entity<OrganizationResourceProps> {
       this.addDomainEvent(new ResourcePermissionAdded(
         this.id,
         this.organizationId,
+        assignment.permissions,
         assignment.userId,
         assignment.teamId,
-        assignment.role,
-        assignment.permissions
+        assignment.role
       ));
 
       return ok(undefined);
@@ -303,6 +328,18 @@ export class OrganizationResource extends Entity<OrganizationResourceProps> {
       // Validera input
       if (!data.name || data.name.trim().length < 2) {
         return err('Resursnamn måste vara minst 2 tecken');
+      }
+
+      if (!data.type) {
+        return err('Resurstyp måste anges');
+      }
+
+      if (!data.organizationId) {
+        return err('OrganizationId måste anges');
+      }
+
+      if (!data.ownerId) {
+        return err('OwnerId måste anges');
       }
 
       const id = new UniqueId();

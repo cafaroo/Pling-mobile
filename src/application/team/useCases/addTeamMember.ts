@@ -1,71 +1,116 @@
 import { Result, ok, err } from '@/shared/core/Result';
-import { UniqueId } from '@/shared/domain/UniqueId';
-import { TeamMember } from '@/domain/team/entities/TeamMember';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
-import { TeamError } from '@/domain/team/errors/TeamError';
 import { TeamRole } from '@/domain/team/value-objects/TeamRole';
+import { TeamMember } from '@/domain/team/value-objects/TeamMember';
+import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
+import { TeamPermission } from '@/domain/team/value-objects/TeamPermission';
 
-interface AddTeamMemberDTO {
+export interface AddTeamMemberDTO {
   teamId: string;
   userId: string;
-  role: string;
+  role: TeamRole;
   addedByUserId: string;
 }
 
-type AddTeamMemberError = 
-  | TeamError 
-  | { message: string; name: 'UNAUTHORIZED' | 'UNEXPECTED_ERROR' };
-
-interface Dependencies {
-  teamRepo: TeamRepository;
+export interface AddTeamMemberResponse {
+  success: boolean;
 }
 
-export const addTeamMember = ({ teamRepo }: Dependencies) => {
-  return async (dto: AddTeamMemberDTO): Promise<Result<void, AddTeamMemberError>> => {
+type AddTeamMemberError = { 
+  message: string; 
+  code: 'NOT_FOUND' | 'UNAUTHORIZED' | 'VALIDATION_ERROR' | 'DATABASE_ERROR' | 'UNEXPECTED_ERROR' 
+};
+
+export class AddTeamMemberUseCase {
+  constructor(
+    private teamRepository: TeamRepository,
+    private eventPublisher: IDomainEventPublisher
+  ) {}
+
+  async execute(dto: AddTeamMemberDTO): Promise<Result<AddTeamMemberResponse, AddTeamMemberError>> {
     try {
-      // Hämta team
-      const team = await teamRepo.findById(new UniqueId(dto.teamId));
+      // Validera indata
+      if (!dto.teamId || !dto.userId || !dto.addedByUserId) {
+        return err({
+          message: 'Alla obligatoriska fält måste anges',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Hämta team från repository
+      const teamId = new UniqueId(dto.teamId);
+      const teamResult = await this.teamRepository.findById(teamId);
+      
+      if (teamResult.isErr()) {
+        return err({
+          message: `Kunde inte hämta team: ${teamResult.error}`,
+          code: 'DATABASE_ERROR'
+        });
+      }
+      
+      const team = teamResult.value;
+      
       if (!team) {
         return err({
           message: 'Team hittades inte',
-          name: 'UNEXPECTED_ERROR'
+          code: 'NOT_FOUND'
         });
       }
 
-      // Kontrollera behörighet
-      if (!team.canManageMembers(new UniqueId(dto.addedByUserId))) {
+      // Kontrollera behörighet för användaren som lägger till
+      const addedByUserId = new UniqueId(dto.addedByUserId);
+      if (!team.hasMemberPermission(addedByUserId, TeamPermission.INVITE)) {
         return err({
           message: 'Du har inte behörighet att lägga till medlemmar',
-          name: 'UNAUTHORIZED'
+          code: 'UNAUTHORIZED'
         });
       }
 
-      // Skapa ny medlem
-      const memberOrError = TeamMember.create({
+      // Skapa och lägg till medlemmen
+      const memberResult = TeamMember.create({
         userId: new UniqueId(dto.userId),
         role: dto.role,
         joinedAt: new Date()
       });
 
-      if (memberOrError.isErr()) {
-        return err(memberOrError.error);
+      if (memberResult.isErr()) {
+        return err({
+          message: memberResult.error,
+          code: 'VALIDATION_ERROR'
+        });
       }
 
-      // Lägg till medlem i team
-      const result = team.addMember(memberOrError.value);
-      if (result.isErr()) {
-        return err(result.error);
+      const addResult = team.addMember(memberResult.value);
+      if (addResult.isErr()) {
+        return err({
+          message: addResult.error,
+          code: 'VALIDATION_ERROR'
+        });
       }
 
       // Spara uppdaterat team
-      await teamRepo.save(team);
+      const saveResult = await this.teamRepository.save(team);
+      if (saveResult.isErr()) {
+        return err({
+          message: `Kunde inte spara team: ${saveResult.error}`,
+          code: 'DATABASE_ERROR'
+        });
+      }
 
-      return ok(undefined);
+      // Publicera domänevents
+      const domainEvents = team.getDomainEvents();
+      await this.eventPublisher.publishAll(domainEvents);
+      
+      // Rensa händelser efter publicering
+      team.clearEvents();
+
+      return ok({ success: true });
     } catch (error) {
       return err({
-        message: 'Ett oväntat fel inträffade vid tillägg av medlem',
-        name: 'UNEXPECTED_ERROR'
+        message: `Ett oväntat fel inträffade: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'UNEXPECTED_ERROR'
       });
     }
-  };
-}; 
+  }
+} 

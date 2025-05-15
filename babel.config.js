@@ -7,22 +7,17 @@ module.exports = function (api) {
       [
         'module-resolver',
         {
-          root: ['.'],
+          root: ['./src'],
           extensions: ['.ios.js', '.android.js', '.js', '.ts', '.tsx', '.json'],
           alias: {
             '@': './src',
-            '@shared': './src/shared',
-            '@domain': './src/domain',
-            '@application': './src/application',
-            '@utils': './src/utils',
-            '@components': './components',
-            '@constants': './constants',
-            '@hooks': './hooks',
-            '@services': './services',
-            '@styles': './styles',
-            '@types': './types',
-            '@assets': './assets',
-            '@domain': './src'                  // Nytt tydligt domänalias          }
+            '@/domain': './src/domain',
+            '@/application': './src/application',
+            '@/infrastructure': './src/infrastructure',
+            '@/ui': './src/ui',
+            '@/shared': './src/shared',
+            '@/assets': './assets'
+          }
         }
       ]
     ],
@@ -32,4 +27,4 @@ module.exports = function (api) {
       }
     }
   };
-}; 
+};

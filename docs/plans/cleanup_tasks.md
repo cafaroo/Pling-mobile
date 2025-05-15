@@ -94,15 +94,17 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 ## Fas 3: Applikationslager
 
 ### 3.1 Use Cases
-- [ ] Definiera standardstruktur för use cases
+- [x] Definiera standardstruktur för use cases
 - [ ] Refaktorera team-relaterade use cases
+  - [x] Refaktorera grundläggande team use cases (createTeam, addTeamMember, removeTeamMember, updateTeamMemberRole, inviteTeamMember)
+  - [ ] Refaktorera återstående team use cases
 - [ ] Refaktorera user-relaterade use cases
 - [ ] Säkerställ korrekt felhantering med Result-typen
-- [ ] Implementera tydlig beroendehantering
+- [x] Implementera tydlig beroendehantering
 
 ### 3.2 DTOs
-- [ ] Definiera standard för DTOs
-- [ ] Skapa DTOs för team-relaterad data
+- [x] Definiera standard för DTOs
+- [x] Skapa DTOs för team-relaterad data
 - [ ] Skapa DTOs för user-relaterad data
 - [ ] Implementera mappers mellan domänentiteter och DTOs
 
@@ -182,21 +184,25 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 
 ## Nästa steg
 
-1. Refaktorera User och Team-entiteter för att använda de nya basklasserna
-2. Refaktorera domänevents för att implementera IDomainEvent
-3. Förbättra domäntestning med den nya strukturen
-4. Implementera applikationslagrets use cases med standardiserad struktur
-5. Refaktorera UI-lager för att använda applikationslager enligt DDD
+1. ~~Refaktorera User och Team-entiteter för att använda de nya basklasserna~~
+2. ~~Refaktorera domänevents för att implementera IDomainEvent~~
+3. ~~Förbättra domäntestning med den nya strukturen~~
+4. Slutför refaktorering av team-relaterade use cases
+5. Implementera event handlers för team-relaterade domänevents
+6. Refaktorera user-relaterade use cases med standardiserad struktur
 
 ## Prioriteringsordning
 
 1. ~~Förberedelse och Analys (Fas 1)~~ ✓
-2. Domänlager - Entiteter och Värde-objekt (Fas 2.1, 2.2) - Delvis slutfört ✓
+2. ~~Domänlager - Entiteter och Värde-objekt (Fas 2.1, 2.2)~~ ✓
 3. ~~Repositories (Fas 2.4, 4.1)~~ ✓
-4. Use Cases och Hooks (Fas 3.1, 3.3)
-5. Domäntjänster och Domänevents (Fas 2.5, 2.6) - Delvis genomfört
+4. Use Cases och Hooks (Fas 3.1, 3.3) - Delvis genomfört ✓
+   - Team-relaterade use cases - Delvis genomfört ✓
+   - User-relaterade use cases
+5. Domäntjänster och Domänevents (Fas 2.5, 2.6) - Delvis genomfört ✓
+   - Event handlers
 6. UI-integration (Fas 5)
-7. Testning och Dokumentation (Fas 6) - Delvis genomfört
+7. Testning och Dokumentation (Fas 6) - Delvis genomfört ✓
 
 ## Definition av Klar
 

@@ -1,74 +1,122 @@
 import { Result, ok, err } from '@/shared/core/Result';
-import { UniqueId } from '@/shared/domain/UniqueId';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
-import { TeamError } from '@/domain/team/errors/TeamError';
 import { TeamRole } from '@/domain/team/value-objects/TeamRole';
+import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
+import { TeamPermission } from '@/domain/team/value-objects/TeamPermission';
 
-interface UpdateTeamMemberRoleDTO {
+export interface UpdateTeamMemberRoleDTO {
   teamId: string;
   userId: string;
-  newRole: string;
+  newRole: TeamRole;
   updatedByUserId: string;
 }
 
-type UpdateTeamMemberRoleError = 
-  | TeamError 
-  | { message: string; name: 'UNAUTHORIZED' | 'UNEXPECTED_ERROR' };
-
-interface Dependencies {
-  teamRepo: TeamRepository;
+export interface UpdateTeamMemberRoleResponse {
+  success: boolean;
+  previousRole?: string;
+  newRole: string;
 }
 
-export const updateTeamMemberRole = ({ teamRepo }: Dependencies) => {
-  return async (dto: UpdateTeamMemberRoleDTO): Promise<Result<void, UpdateTeamMemberRoleError>> => {
+type UpdateTeamMemberRoleError = { 
+  message: string; 
+  code: 'NOT_FOUND' | 'UNAUTHORIZED' | 'VALIDATION_ERROR' | 'DATABASE_ERROR' | 'UNEXPECTED_ERROR' 
+};
+
+export class UpdateTeamMemberRoleUseCase {
+  constructor(
+    private teamRepository: TeamRepository,
+    private eventPublisher: IDomainEventPublisher
+  ) {}
+
+  async execute(dto: UpdateTeamMemberRoleDTO): Promise<Result<UpdateTeamMemberRoleResponse, UpdateTeamMemberRoleError>> {
     try {
-      // Hämta team
-      const team = await teamRepo.findById(new UniqueId(dto.teamId));
+      // Validera indata
+      if (!dto.teamId || !dto.userId || !dto.newRole || !dto.updatedByUserId) {
+        return err({
+          message: 'Alla obligatoriska fält måste anges',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Validera roll
+      if (!Object.values(TeamRole).includes(dto.newRole)) {
+        return err({
+          message: 'Ogiltig roll angiven',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Hämta team från repository
+      const teamId = new UniqueId(dto.teamId);
+      const teamResult = await this.teamRepository.findById(teamId);
+      
+      if (teamResult.isErr()) {
+        return err({
+          message: `Kunde inte hämta team: ${teamResult.error}`,
+          code: 'DATABASE_ERROR'
+        });
+      }
+      
+      const team = teamResult.value;
+      
       if (!team) {
         return err({
           message: 'Team hittades inte',
-          name: 'UNEXPECTED_ERROR'
+          code: 'NOT_FOUND'
         });
       }
 
-      // Kontrollera behörighet
+      // Kontrollera behörighet för användaren som uppdaterar
       const updatedByUserId = new UniqueId(dto.updatedByUserId);
-      if (!team.canManageMembers(updatedByUserId)) {
+      if (!team.hasMemberPermission(updatedByUserId, TeamPermission.MANAGE_ROLES)) {
         return err({
           message: 'Du har inte behörighet att ändra roller',
-          name: 'UNAUTHORIZED'
+          code: 'UNAUTHORIZED'
         });
       }
 
-      // Validera ny roll
-      try {
-        TeamRole.create(dto.newRole);
-      } catch (error) {
-        return err({
-          message: 'Ogiltig roll',
-          name: 'UNEXPECTED_ERROR'
-        });
-      }
+      // Hitta tidigare roll (för response)
+      const member = team.members.find(m => m.userId.toString() === dto.userId);
+      const previousRole = member ? member.role : undefined;
 
       // Uppdatera roll
-      const result = team.updateMemberRole(
-        new UniqueId(dto.userId),
-        dto.newRole as typeof TeamRole.ADMIN | typeof TeamRole.MEMBER
-      );
-
-      if (result.isErr()) {
-        return err(result.error);
+      const userId = new UniqueId(dto.userId);
+      const updateResult = team.updateMemberRole(userId, dto.newRole);
+      
+      if (updateResult.isErr()) {
+        return err({
+          message: updateResult.error,
+          code: 'VALIDATION_ERROR'
+        });
       }
 
       // Spara uppdaterat team
-      await teamRepo.save(team);
+      const saveResult = await this.teamRepository.save(team);
+      if (saveResult.isErr()) {
+        return err({
+          message: `Kunde inte spara team: ${saveResult.error}`,
+          code: 'DATABASE_ERROR'
+        });
+      }
 
-      return ok(undefined);
+      // Publicera domänevents
+      const domainEvents = team.getDomainEvents();
+      await this.eventPublisher.publishAll(domainEvents);
+      
+      // Rensa händelser efter publicering
+      team.clearEvents();
+
+      return ok({ 
+        success: true,
+        previousRole: previousRole,
+        newRole: dto.newRole
+      });
     } catch (error) {
       return err({
-        message: 'Ett oväntat fel inträffade vid uppdatering av roll',
-        name: 'UNEXPECTED_ERROR'
+        message: `Ett oväntat fel inträffade: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'UNEXPECTED_ERROR'
       });
     }
-  };
-}; 
+  }
+} 

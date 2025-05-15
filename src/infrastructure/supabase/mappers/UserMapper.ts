@@ -1,17 +1,30 @@
+import { Result, ok, err } from '@/shared/core/Result';
 import { User } from '@/domain/user/entities/User';
 import { UserProfile } from '@/domain/user/entities/UserProfile';
 import { UserSettings } from '@/domain/user/entities/UserSettings';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { Email } from '@/domain/user/value-objects/Email';
 import { PhoneNumber } from '@/domain/user/value-objects/PhoneNumber';
-import { Result, ok, err } from '@/shared/core/Result';
-import { UniqueId } from '@/shared/core/UniqueId';
 
-// Interface för användarens DTO i databasen
+/**
+ * DTO från Supabase-databasen
+ */
 export interface UserDTO {
   id: string;
   email: string;
-  name?: string;
-  phone?: string | null;
+  phone?: string;
+  profile?: {
+    firstName: string;
+    lastName: string;
+    displayName?: string;
+    bio?: string;
+    location?: string;
+    contact?: {
+      email?: string;
+      phone?: string;
+      alternativeEmail?: string | null;
+    };
+  };
   settings?: {
     theme?: string;
     language?: string;
@@ -19,34 +32,38 @@ export interface UserDTO {
       email?: boolean;
       push?: boolean;
       sms?: boolean;
-      frequency?: string;
     };
     privacy?: {
       profileVisibility?: string;
-      showEmail?: boolean;
-      showPhone?: boolean;
+      allowSearchByEmail?: boolean;
+      showOnlineStatus?: boolean;
+      showLastSeen?: boolean;
     };
   };
-  profile?: {
-    firstName?: string;
-    lastName?: string;
-    displayName?: string;
-    bio?: string;
-    location?: string;
-    contact?: {
-      email?: string;
-      phone?: string | null;
-    };
-  };
+  team_ids?: string[];
+  role_ids?: string[];
+  status?: string;
   created_at?: string;
   updated_at?: string;
 }
 
-// Mapper-klass för att konvertera mellan DTO och domänmodell
+/**
+ * UserMapper
+ * 
+ * Ansvarar för konvertering mellan domänobjekt och databasformat.
+ * Följer DDD-principer genom att hantera mappning och konvertering.
+ */
 export class UserMapper {
-  // Konvertera DTO till domänentitet
+  /**
+   * Konverterar UserDTO från databas till domänmodell
+   */
   static toDomain(dto: UserDTO): Result<User, string> {
     try {
+      // Validera basdata
+      if (!dto.id || !dto.email) {
+        return err('Ofullständig användardata från databasen');
+      }
+
       // Validera e-post
       const emailResult = Email.create(dto.email);
       if (emailResult.isErr()) {
@@ -54,122 +71,136 @@ export class UserMapper {
       }
       
       // Validera telefonnummer om det finns
-      let phone = null;
-      // Få telefonnummer från profile.contact.phone eller från profile.phone_number
-      const phoneStr = dto.profile?.contact?.phone || 
-                     (dto.profile as any)?.phone_number || 
-                     null;
-      
-      if (phoneStr) {
-        const phoneResult = PhoneNumber.create(phoneStr);
+      let phoneResult = undefined;
+      if (dto.phone) {
+        phoneResult = PhoneNumber.create(dto.phone);
         if (phoneResult.isErr()) {
           return err(`Ogiltigt telefonnummer: ${phoneResult.error}`);
         }
-        phone = phoneResult.getValue();
       }
-      
-      // Skapa profil med standardvärden om de saknas
-      const profile = dto.profile || {};
-      const profileResult = UserProfile.create({
-        firstName: profile.firstName || 'Förnamn',
-        lastName: profile.lastName || 'Efternamn',
-        displayName: profile.displayName || 'Användare',
-        bio: profile.bio || '',
-        location: profile.location || '',
-        contact: profile.contact || {
-          email: dto.email,
-          phone: dto.phone,
-          alternativeEmail: null
-        }
-      });
+
+      // Skapa profil
+      const profileResult = dto.profile 
+        ? UserProfile.create({
+            firstName: dto.profile.firstName,
+            lastName: dto.profile.lastName,
+            displayName: dto.profile.displayName || `${dto.profile.firstName} ${dto.profile.lastName}`,
+            bio: dto.profile.bio || '',
+            location: dto.profile.location || '',
+            contact: dto.profile.contact || {
+              email: dto.email,
+              phone: dto.phone,
+              alternativeEmail: null
+            }
+          })
+        : UserProfile.create({
+            firstName: 'Användare',
+            lastName: '',
+            displayName: 'Användare',
+            bio: '',
+            location: '',
+            contact: {
+              email: dto.email,
+              phone: dto.phone,
+              alternativeEmail: null
+            }
+          });
       
       if (profileResult.isErr()) {
         return err(`Ogiltig profil: ${profileResult.error}`);
       }
       
-      // Skapa inställningar med standardvärden om de saknas
-      const settings = dto.settings || {};
-      const settingsResult = UserSettings.create({
-        theme: settings.theme || 'light',
-        language: settings.language || 'sv',
-        notifications: settings.notifications || {
+      // Skapa inställningar
+      const defaultSettings = {
+        theme: 'light',
+        language: 'sv',
+        notifications: {
           email: true,
           push: true,
-          sms: false,
-          frequency: 'daily'
+          sms: false
         },
-        privacy: settings.privacy || {
+        privacy: {
           profileVisibility: 'public',
-          showEmail: false,
-          showPhone: false
+          allowSearchByEmail: true,
+          showOnlineStatus: true,
+          showLastSeen: true
+        }
+      };
+
+      const settingsData = dto.settings || defaultSettings;
+      const settingsResult = UserSettings.create({
+        theme: settingsData.theme || defaultSettings.theme,
+        language: settingsData.language || defaultSettings.language,
+        notifications: {
+          ...defaultSettings.notifications,
+          ...settingsData.notifications
+        },
+        privacy: {
+          ...defaultSettings.privacy,
+          ...settingsData.privacy
         }
       });
       
       if (settingsResult.isErr()) {
         return err(`Ogiltiga inställningar: ${settingsResult.error}`);
       }
-      
+
       // Skapa användarentitet
-      const userResult = User.create({
+      const user = new User({
         id: new UniqueId(dto.id),
-        email: emailResult.getValue(),
-        name: dto.name || `${profile.firstName || 'Förnamn'} ${profile.lastName || 'Efternamn'}`,
-        phone,
-        profile: profileResult.getValue(),
-        settings: settingsResult.getValue(),
-        teamIds: [],
-        roleIds: [],
-        status: 'active'
+        email: emailResult.value.value,
+        phone: phoneResult ? phoneResult.value.value : undefined,
+        profile: profileResult.value,
+        settings: settingsResult.value,
+        teamIds: dto.team_ids || [],
+        roleIds: dto.role_ids || [],
+        status: (dto.status as any) || 'active',
+        createdAt: dto.created_at ? new Date(dto.created_at) : new Date(),
+        updatedAt: dto.updated_at ? new Date(dto.updated_at) : new Date()
       });
       
-      if (userResult.isErr()) {
-        return err(`Kunde inte skapa användare: ${userResult.error}`);
-      }
-      
-      return ok(userResult.getValue());
+      return ok(user);
     } catch (error) {
-      return err(`Oväntat fel vid mappning: ${error}`);
+      return err(`UserMapper.toDomain fel: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
-  // Konvertera domänentitet till DTO för datalagring
+
+  /**
+   * Konverterar User-domänmodell till databasobjekt
+   */
   static toPersistence(user: User): UserDTO {
-    return {
-      id: user.id.toString(),
-      email: user.email.toString(),
-      name: user.name,
-      profile: user.profile ? {
-        firstName: user.profile.firstName,
-        lastName: user.profile.lastName,
-        displayName: user.profile.displayName,
-        bio: user.profile.bio,
-        location: user.profile.location,
-        contact: {
-          ...user.profile.contact,
-          phone: user.phone ? user.phone.toString() : null
-        }
-      } : undefined,
-      settings: user.settings ? {
-        theme: user.settings.theme,
-        language: user.settings.language,
-        notifications: user.settings.notifications,
-        privacy: user.settings.privacy
-      } : undefined,
-      created_at: user.createdAt?.toISOString(),
-      updated_at: user.updatedAt?.toISOString()
-    };
-  }
-  
-  // Konvertera domänentitet till DTO för API (utesluter känslig information)
-  static toDTO(user: User): UserDTO {
-    const dto = this.toPersistence(user);
-    
-    // Ta bort känslig information
-    if (dto.settings && 'secretKey' in dto.settings) {
-      const { secretKey, ...safeSettings } = dto.settings as any;
-      dto.settings = safeSettings;
+    try {
+      return {
+        id: user.id.toString(),
+        email: user.email,
+        phone: user.phone,
+        profile: user.profile ? {
+          firstName: user.profile.firstName,
+          lastName: user.profile.lastName,
+          displayName: user.profile.displayName,
+          bio: user.profile.bio,
+          location: user.profile.location,
+          contact: {
+            email: user.profile.contact?.email || user.email,
+            phone: user.profile.contact?.phone,
+            alternativeEmail: user.profile.contact?.alternativeEmail
+          }
+        } : undefined,
+        settings: {
+          theme: user.settings.theme,
+          language: user.settings.language,
+          notifications: user.settings.notifications,
+          privacy: user.settings.privacy
+        },
+        team_ids: user.teamIds,
+        role_ids: user.roleIds,
+        status: user.status,
+        created_at: user.createdAt.toISOString(),
+        updated_at: user.updatedAt.toISOString()
+      };
+    } catch (error) {
+      console.error(`UserMapper.toPersistence fel: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
     }
-    
-    return dto;
   }
 } 

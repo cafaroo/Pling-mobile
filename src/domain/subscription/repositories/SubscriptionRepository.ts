@@ -1,33 +1,68 @@
-import { UniqueId } from '../../core/UniqueId';
+import { Result } from '@/shared/core/Result';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { Subscription } from '../entities/Subscription';
-import { SubscriptionPlan } from '../entities/SubscriptionPlan';
+import { SubscriptionStatus, SubscriptionUsage } from '../value-objects/SubscriptionTypes';
 
+/**
+ * SubscriptionRepository Interface
+ * 
+ * Abstrakt repository för hantering av prenumerationer enligt DDD-principer.
+ * Implementeras av konkreta klasser i infrastrukturlagret.
+ */
 export interface SubscriptionRepository {
-  // Subscription methods
-  getSubscriptionById(id: UniqueId): Promise<Subscription | null>;
-  getSubscriptionByOrganizationId(organizationId: UniqueId): Promise<Subscription | null>;
-  saveSubscription(subscription: Subscription): Promise<void>;
-  deleteSubscription(id: UniqueId): Promise<void>;
+  /**
+   * Hämta en prenumeration med specifikt ID
+   */
+  getById(id: UniqueId): Promise<Result<Subscription | null, string>>;
   
-  // SubscriptionPlan methods
-  getSubscriptionPlanById(id: UniqueId): Promise<SubscriptionPlan | null>;
-  getAllSubscriptionPlans(): Promise<SubscriptionPlan[]>;
-  saveSubscriptionPlan(plan: SubscriptionPlan): Promise<void>;
-  deleteSubscriptionPlan(id: UniqueId): Promise<void>;
+  /**
+   * Spara en ny eller uppdaterad prenumeration
+   */
+  save(subscription: Subscription): Promise<Result<void, string>>;
+
+  /**
+   * Hämta aktiv prenumeration för en organisation
+   */
+  getActiveByOrganizationId(organizationId: UniqueId): Promise<Result<Subscription | null, string>>;
   
-  // Usage tracking methods
-  updateSubscriptionUsage(subscriptionId: UniqueId, metricName: string, value: number): Promise<void>;
-  getSubscriptionUsageHistory(
-    subscriptionId: UniqueId, 
-    metricName: string, 
+  /**
+   * Hämta alla prenumerationer för en organisation
+   */
+  getAllByOrganizationId(organizationId: UniqueId): Promise<Result<Subscription[], string>>;
+  
+  /**
+   * Hämta prenumerationer med specifik status
+   */
+  getByStatus(status: SubscriptionStatus): Promise<Result<Subscription[], string>>;
+  
+  /**
+   * Hämta prenumerationer som förnyas inom ett visst tidsintervall
+   */
+  getSubscriptionsRenewingBetween(
     startDate: Date, 
     endDate: Date
-  ): Promise<Array<{ timestamp: Date; value: number }>>;
+  ): Promise<Result<Subscription[], string>>;
   
-  // Subscription history methods
-  getSubscriptionHistory(subscriptionId: UniqueId): Promise<Array<{
-    eventType: string;
-    eventData: Record<string, any>;
-    createdAt: Date;
-  }>>;
+  /**
+   * Hämta prenumerationer som har förfallit
+   */
+  getExpiredSubscriptions(referenceDate: Date): Promise<Result<Subscription[], string>>;
+  
+  /**
+   * Hämta prenumerationer med angivet plan-ID
+   */
+  getByPlanId(planId: string): Promise<Result<Subscription[], string>>;
+  
+  /**
+   * Uppdatera användningsinformation för en prenumeration
+   */
+  updateSubscriptionUsage(
+    subscriptionId: UniqueId, 
+    usage: Partial<SubscriptionUsage>
+  ): Promise<Result<void, string>>;
+  
+  /**
+   * Hämta en prenumerationsplan med specifikt ID
+   */
+  getSubscriptionPlanById(planId: string): Promise<Result<any, string>>;
 } 

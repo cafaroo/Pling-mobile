@@ -99,24 +99,3 @@ describe('useUpdateSettings', () => {
   });
   */
 }); 
-  });
-  
-  // Skippa hela testsviten tills vi har löst problemen
-  it.skip('Filen är skippad p.g.a. komplikationer med React Query-integration', () => {
-    // Denna test körs inte
-    expect(true).toBe(true);
-  });
-  
-  // Dessa tester är kommenterade ut tills vi har löst problemen med mockning
-  /*
-  it('ska vara en funktion', () => {
-    expect(typeof useUpdateSettings).toBe('function');
-  });
-  
-  it('ska ha rätt API', () => {
-    // Vi gör bara en enkel kontroll på att modulen exporteras korrekt
-    // utan att anropa hooken (för att undvika komplikationer med React hooks)
-    expect(useUpdateSettings).toBeDefined();
-  });
-  */
-}); 

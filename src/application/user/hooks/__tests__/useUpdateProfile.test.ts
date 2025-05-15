@@ -102,24 +102,3 @@ describe('useUpdateProfile', () => {
     expect(useUpdateProfile).toBeDefined();
   });
 }); 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-  
-  // Testa en enkel mock för att säkerställa att testet alltid passerar
-  it('ska vara en funktion', () => {
-    expect(typeof useUpdateProfile).toBe('function');
-  });
-  
-  // Testa att mocken fungerar
-  it('ska använda updateProfile useCase', () => {
-    expect(mockUpdateProfile).toBeDefined();
-  });
-  
-  // Testa de vanligaste aspekterna men utan att anropa hooken direkt
-  it('ska ha rätt API', () => {
-    // Vi gör bara en enkel kontroll på att modulen exporteras korrekt
-    // utan att anropa hooken (för att undvika komplikationer med React hooks)
-    expect(useUpdateProfile).toBeDefined();
-  });
-}); 

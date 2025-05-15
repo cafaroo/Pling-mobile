@@ -36,28 +36,41 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
    - Förbättrat felhantering vid eventbehandling med detaljerade felmeddelanden
    - Implementerat konsekventa loggningsrutiner för felsökning och övervakning
 
-3. **Basklasser för Entiteter** - Implementerat grundläggande basklasser för alla domänkomponenter:
+3. **Event Handlers för User-domänen** - Implementerat strukturerad hantering av user-relaterade domänevents:
+   - Använt samma `BaseEventHandler` mönster för user event handlers
+   - Implementerat specifika handlers för användarrelaterade events:
+     - `UserCreatedHandler` för att hantera användarregistrering och initiera statistik
+     - `UserProfileUpdatedHandler` för att synkronisera profilinformation över teammedlemskap
+     - `UserTeamJoinedHandler` för att hantera användarspecifik logik när en användare ansluter till ett team
+     - `UserStatusChangedHandler` för att hantera ändringar i användares status och uppdatera relaterade team
+   - Skapat `UserEventHandlerFactory` för enkel instansiering och registrering av user handlers
+   - Implementerat samma registreringsmekanism för att enhetligt hantera användarevent
+   - Skapat testinfrastruktur för att validera eventhanterbeteende
+   - Säkerställt felhantering specifik för användardomänen
+   - Implementerat loggningsstrategi för auditspårbarhet och debugginformation
+
+4. **Basklasser för Entiteter** - Implementerat grundläggande basklasser för alla domänkomponenter:
    - Skapat `Entity<T>` basklass för alla entiteter med generisk typning
    - Implementerat `AggregateRoot<T>` som ärver från Entity med stöd för domänevents
    - Skapat `IDomainEvent` interface för alla domänevents
 
-4. **Domänentiteter** - Refaktorerat flera domänentiteter för att använda de nya basklasserna:
+5. **Domänentiteter** - Refaktorerat flera domänentiteter för att använda de nya basklasserna:
    - Uppdaterat `Team`-entiteten för att ärva från AggregateRoot<TeamProps>
    - Uppdaterat `User`-entiteten för att ärva från AggregateRoot<UserProps>
    - Standardiserat domänevents för Team och User
    - Implementerat domänevents som använder IDomainEvent-interface med BaseTeamEvent och BaseUserEvent
 
-5. **OrganizationRepository** - Implementerat repository-pattern för Organization-domänen:
+6. **OrganizationRepository** - Implementerat repository-pattern för Organization-domänen:
    - Definierat ett standardiserat `OrganizationRepository` interface
    - Dokumenterat alla metoder med tydliga beskrivningar och returtyper
    - Säkerställt korrekt användning av Result-typen
 
-6. **OrganizationMapper** - Implementerat mapper-klass för Organization-entiteten:
+7. **OrganizationMapper** - Implementerat mapper-klass för Organization-entiteten:
    - Skapad robust konvertering mellan domänmodell och databasobjekt
    - Implementerat validering av data vid konvertering
    - Förbättrad felhantering med detaljerade felmeddelanden
 
-7. **SupabaseOrganizationRepository** - Implementerat konkret repository:
+8. **SupabaseOrganizationRepository** - Implementerat konkret repository:
    - Implementerat alla metoder från OrganizationRepository-interfacet
    - Säkerställt korrekt hantering av domänevents
    - Implementerat transaktionshantering för relaterade entiteter

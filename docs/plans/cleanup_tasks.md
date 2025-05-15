@@ -116,7 +116,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 ### 2.6 Domänevents
 - [x] Definiera standardstruktur för domänevents
 - [x] Refaktorera team-relaterade events
-- [ ] Refaktorera user-relaterade events
+- [x] Refaktorera user-relaterade events
 - [x] Säkerställ att events bara innehåller nödvändig information
 
 ## Fas 3: Applikationslager
@@ -224,12 +224,13 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 4. ~~Slutför refaktorering av team-relaterade use cases~~
 5. ~~Slutför refaktorering av user-relaterade use cases~~
 6. [x] Implementera event handlers för team-relaterade domänevents
-7. ~~Implementera hooks för att använda de refaktorerade use cases~~
-8. [x] Utöka hooks-implementationen med ytterligare beteenden och förbättrad felhantering
-9. ~~Implementera standardiserade hooks för user-domänen~~
-10. ~~Förbättra providers med fler domäner och tydliga gränssnitt~~
-11. [x] Skapa fullständig testning för hooks och providers
-12. [PAUSAD] UI-integration med de nya hooksen - flyttad till senare fas
+7. [x] Implementera event handlers för user-relaterade domänevents
+8. ~~Implementera hooks för att använda de refaktorerade use cases~~
+9. [x] Utöka hooks-implementationen med ytterligare beteenden och förbättrad felhantering
+10. ~~Implementera standardiserade hooks för user-domänen~~
+11. ~~Förbättra providers med fler domäner och tydliga gränssnitt~~
+12. [x] Skapa fullständig testning för hooks och providers
+13. [PAUSAD] UI-integration med de nya hooksen - flyttad till senare fas
 
 ## Prioriteringsordning
 
@@ -241,6 +242,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
    - ~~User-relaterade use cases~~ ✓
 5. ~~Domäntjänster och Domänevents (Fas 2.5, 2.6)~~ ✓
    - [x] Event handlers ✓
+   - [x] User event handlers ✓
 6. ~~Hooks (Fas 3.3)~~ ✓
    - ~~Standardiserade hooks för team och user~~ ✓
    - Vidareutveckling av hooks och providers (Fokus i nästa fas)

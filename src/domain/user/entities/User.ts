@@ -6,16 +6,15 @@ import { UserProfile } from '../value-objects/UserProfile';
 import { Email } from '../value-objects/Email';
 import { PhoneNumber } from '../value-objects/PhoneNumber';
 import {
-  UserProfileUpdated,
-  UserSettingsUpdated,
-  UserTeamAdded,
-  UserTeamRemoved,
   UserRoleAdded,
-  UserRoleRemoved,
-  UserStatusChanged
+  UserRoleRemoved
 } from '../events/UserEvent';
 import { UserCreatedEvent } from '../events/UserCreatedEvent';
 import { UserProfileUpdatedEvent } from '../events/UserProfileUpdatedEvent';
+import { UserSettingsUpdatedEvent } from '../events/UserSettingsUpdatedEvent';
+import { UserStatusChangedEvent } from '../events/UserStatusChangedEvent';
+import { UserTeamAddedEvent } from '../events/UserTeamAddedEvent';
+import { UserTeamRemovedEvent } from '../events/UserTeamRemovedEvent';
 
 /**
  * UserProps
@@ -271,9 +270,9 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new UserSettingsUpdated(
-        this.id,
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new UserSettingsUpdatedEvent(
+        this,
         settings
       ));
 
@@ -333,9 +332,9 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new UserTeamAdded(
-        this.id,
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new UserTeamAddedEvent(
+        this,
         teamId
       ));
 
@@ -367,9 +366,9 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new UserTeamRemoved(
-        this.id,
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new UserTeamRemovedEvent(
+        this,
         teamId
       ));
 
@@ -464,9 +463,9 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new UserStatusChanged(
-        this.id,
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new UserStatusChangedEvent(
+        this,
         oldStatus,
         newStatus
       ));

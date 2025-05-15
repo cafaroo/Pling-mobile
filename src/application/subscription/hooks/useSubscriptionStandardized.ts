@@ -1,241 +1,249 @@
-import { useCallback } from 'react';
-import { Result } from '@/shared/core/Result';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { SubscriptionRepository } from '@/domain/subscription/repositories/SubscriptionRepository';
+import { FeatureFlagService } from '@/domain/subscription/services/FeatureFlagService';
+import { UsageTrackingService } from '@/domain/subscription/services/UsageTrackingService';
 import { UniqueId } from '@/shared/core/UniqueId';
+import { Result } from '@/shared/core/Result';
 import { 
   createStandardizedQuery, 
   createStandardizedMutation,
   unwrapResult 
 } from '@/application/shared/hooks/createStandardizedHook';
 import { ProgressInfo } from '@/application/shared/hooks/useStandardizedHook';
-import { useSubscriptionContext } from './useSubscriptionContext.tsx';
-import { Subscription } from '@/domain/subscription/entities/Subscription';
-import { SubscriptionStatus, SubscriptionUsage, FeatureFlag } from '@/domain/subscription/value-objects/SubscriptionTypes';
 import { createSubscriptionErrorContext } from '../utils/errorUtils';
+import { 
+  SubscriptionPlan, 
+  SubscriptionStatus,
+  FeatureFlag
+} from '@/domain/subscription/value-objects/SubscriptionTypes';
 
 /**
- * Hook för standardiserad interaktion med prenumerationer
- * 
- * Implementerar hooks för att:
- * - Hämta prenumerationer
- * - Kontrollera feature flags
- * - Spåra användning
- * - Uppdatera prenumerationer
+ * Hook för hantering av prenumerationer med standardiserad implementation
+ * Följer DDD-principer och använder React Query för datahantering
  */
-export function useSubscriptionStandardized() {
-  const {
-    subscriptionRepository,
-    subscriptionService,
-    featureFlagService,
-    usageTrackingService,
-    eventPublisher
-  } = useSubscriptionContext();
-  
+export function useSubscriptionStandardized(
+  subscriptionRepository: SubscriptionRepository,
+  featureFlagService: FeatureFlagService,
+  usageTrackingService: UsageTrackingService
+) {
+  const queryClient = useQueryClient();
+
   /**
-   * Hämtar prenumeration för en organisation
+   * Hämtar prenumerationsinformation för en organisation
    */
   const useOrganizationSubscription = createStandardizedQuery({
-    queryKeyPrefix: 'subscription',
+    queryKeyPrefix: 'organizationSubscription',
     buildQueryKey: (organizationId: string | undefined) => ['subscription', 'organization', organizationId],
     queryFn: async (organizationId: string | undefined) => {
       if (!organizationId) return null;
       
-      const result = await subscriptionRepository.getActiveByOrganizationId(new UniqueId(organizationId));
+      const id = new UniqueId(organizationId);
+      const result = await subscriptionRepository.findByOrganizationId(id);
       
       return unwrapResult(result);
     },
     enabled: (organizationId) => !!organizationId,
-    errorContext: (organizationId) => ({
-      ...createSubscriptionErrorContext('getOrganizationSubscription'),
-      details: { organizationId }
-    }),
-    staleTime: 300000 // 5 minuter
+    errorContext: (organizationId) => createSubscriptionErrorContext(
+      'getOrganizationSubscription', 
+      { organizationId }
+    ),
+    staleTime: 300000, // 5 minuter
+    cacheTime: 600000   // 10 minuter
   });
-  
+
   /**
-   * Hämtar alla prenumerationer för en organisation
-   */
-  const useAllOrganizationSubscriptions = createStandardizedQuery({
-    queryKeyPrefix: 'allSubscriptions',
-    buildQueryKey: (organizationId: string | undefined) => ['subscriptions', 'all', 'organization', organizationId],
-    queryFn: async (organizationId: string | undefined) => {
-      if (!organizationId) return [];
-      
-      const result = await subscriptionRepository.getAllByOrganizationId(new UniqueId(organizationId));
-      
-      return unwrapResult(result);
-    },
-    enabled: (organizationId) => !!organizationId,
-    errorContext: (organizationId) => ({
-      ...createSubscriptionErrorContext('getAllOrganizationSubscriptions'),
-      details: { organizationId }
-    }),
-    staleTime: 300000 // 5 minuter
-  });
-  
-  /**
-   * Kontrollerar om en feature är tillgänglig för en organisation
+   * Kollar om en specifik feature är aktiverad för en organisation
    */
   const useFeatureFlag = createStandardizedQuery({
     queryKeyPrefix: 'featureFlag',
-    buildQueryKey: (params: { organizationId: string, featureFlag: FeatureFlag }) => 
-      ['featureFlag', params.organizationId, params.featureFlag],
-    queryFn: async (params: { organizationId: string, featureFlag: FeatureFlag }) => {
-      if (!params.organizationId || !params.featureFlag) return false;
+    buildQueryKey: (params: [string | undefined, FeatureFlag]) => 
+      ['subscription', 'feature', params[0], params[1]],
+    queryFn: async ([organizationId, feature]: [string | undefined, FeatureFlag]) => {
+      if (!organizationId || !feature) return false;
       
-      const isFeatureEnabled = await featureFlagService.isFeatureEnabled(
-        new UniqueId(params.organizationId),
-        params.featureFlag
-      );
-      
-      return isFeatureEnabled;
-    },
-    enabled: (params) => {
-      if (!params) return false;
-      return !!params.organizationId && !!params.featureFlag;
-    },
-    errorContext: (params) => ({
-      ...createSubscriptionErrorContext('checkFeatureFlag'),
-      details: { 
-        organizationId: params.organizationId, 
-        featureFlag: params.featureFlag 
-      }
-    }),
-    staleTime: 600000 // 10 minuter
-  });
-  
-  /**
-   * Spårar användning av en feature
-   */
-  const useTrackUsage = createStandardizedMutation({
-    mutationFn: async (
-      params: { 
-        subscriptionId: string, 
-        usage: Partial<SubscriptionUsage> 
-      }, 
-      updateProgress?: (progress: ProgressInfo) => void
-    ) => {
-      updateProgress?.({ percent: 30, message: 'Spårar användning...' });
-      
-      const result = await usageTrackingService.trackUsage(
-        new UniqueId(params.subscriptionId),
-        params.usage
-      );
-      
-      updateProgress?.({ percent: 100, message: 'Användning spårad!' });
+      const id = new UniqueId(organizationId);
+      const result = await featureFlagService.isFeatureEnabled(id, feature);
       
       return unwrapResult(result);
     },
-    errorContext: (variables) => ({
-      ...createSubscriptionErrorContext('trackUsage'),
-      details: { 
-        subscriptionId: variables.subscriptionId,
-        usage: variables.usage
-      }
-    })
+    enabled: ([organizationId, feature]) => !!organizationId && !!feature,
+    errorContext: ([organizationId, feature]) => createSubscriptionErrorContext(
+      'checkFeatureFlag', 
+      { organizationId, feature }
+    ),
+    staleTime: 300000,  // 5 minuter 
+    cacheTime: 600000   // 10 minuter
   });
-  
+
   /**
-   * Uppdaterar status för en prenumeration
+   * Hämtar användningsstatistik för en organisation
    */
-  const useUpdateSubscriptionStatus = createStandardizedMutation({
+  const useUsageStatistics = createStandardizedQuery({
+    queryKeyPrefix: 'usageStatistics',
+    buildQueryKey: (organizationId: string | undefined) => 
+      ['subscription', 'usage', organizationId],
+    queryFn: async (organizationId: string | undefined) => {
+      if (!organizationId) return null;
+      
+      const id = new UniqueId(organizationId);
+      const result = await usageTrackingService.getUsageStatistics(id);
+      
+      return unwrapResult(result);
+    },
+    enabled: (organizationId) => !!organizationId,
+    errorContext: (organizationId) => createSubscriptionErrorContext(
+      'getUsageStatistics', 
+      { organizationId }
+    ),
+    staleTime: 60000,   // 1 minut
+    cacheTime: 300000   // 5 minuter
+  });
+
+  /**
+   * Hämtar prenumerationsplaner som är tillgängliga
+   */
+  const useSubscriptionPlans = createStandardizedQuery({
+    queryKeyPrefix: 'subscriptionPlans',
+    queryFn: async () => {
+      const result = await subscriptionRepository.getAllPlans();
+      return unwrapResult(result);
+    },
+    staleTime: 3600000, // 1 timme
+    cacheTime: 86400000, // 24 timmar
+    errorContext: () => createSubscriptionErrorContext('getSubscriptionPlans')
+  });
+
+  /**
+   * Uppdaterar en organisations prenumerationsplan
+   */
+  const useUpdateSubscriptionPlan = createStandardizedMutation({
     mutationFn: async (
-      params: { 
-        subscriptionId: string, 
-        status: SubscriptionStatus 
-      }, 
+      variables: { organizationId: string, newPlanId: string }, 
       updateProgress?: (progress: ProgressInfo) => void
     ) => {
-      updateProgress?.({ percent: 20, message: 'Uppdaterar prenumerationsstatus...' });
+      const { organizationId, newPlanId } = variables;
       
-      const id = new UniqueId(params.subscriptionId);
-      const getResult = await subscriptionRepository.getById(id);
+      updateProgress?.({ percent: 10, message: 'Validerar begäran...' });
       
-      if (getResult.isFailure()) {
-        throw new Error(`Could not find subscription with id ${params.subscriptionId}`);
+      if (!organizationId || !newPlanId) {
+        throw new Error('Ogiltiga parametrar för prenumerationsändring');
       }
       
-      const subscription = getResult.getValue();
-      if (!subscription) {
-        throw new Error(`Subscription not found with id ${params.subscriptionId}`);
-      }
+      updateProgress?.({ percent: 30, message: 'Uppdaterar prenumeration...' });
       
-      updateProgress?.({ percent: 50, message: 'Ändrar status...' });
+      const orgId = new UniqueId(organizationId);
+      const result = await subscriptionRepository.updatePlan(orgId, newPlanId);
       
-      subscription.updateStatus(params.status);
+      updateProgress?.({ percent: 80, message: 'Slutför ändringen...' });
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      const saveResult = await subscriptionRepository.save(subscription);
+      updateProgress?.({ percent: 100, message: 'Prenumeration uppdaterad!' });
       
-      updateProgress?.({ percent: 100, message: 'Status uppdaterad!' });
-      
-      return unwrapResult(saveResult);
+      return unwrapResult(result);
     },
-    errorContext: (variables) => ({
-      ...createSubscriptionErrorContext('updateSubscriptionStatus'),
-      details: { 
-        subscriptionId: variables.subscriptionId,
-        status: variables.status
-      }
-    }),
-    invalidateQueryKey: (variables) => [
-      ['subscription', 'organization'],
-      ['subscriptions', 'all', 'organization']
-    ]
+    onSuccess: (_, variables) => {
+      // Invalidera prenumerationsrelaterade queries
+      queryClient.invalidateQueries({ 
+        queryKey: ['subscription', 'organization', variables.organizationId] 
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['subscription', 'usage', variables.organizationId]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['subscription', 'feature']
+      });
+    },
+    errorContext: (variables) => createSubscriptionErrorContext(
+      'updateSubscriptionPlan',
+      { organizationId: variables.organizationId, newPlanId: variables.newPlanId }
+    )
   });
-  
+
   /**
-   * Kontrollmönster för vanliga prenumerationskontroller
-   * 
-   * En hjälpfunktion som förenklad kontroll av feature flags
+   * Spårar användning av en specifik resurs
    */
-  const useSubscriptionControls = (organizationId: string | undefined) => {
-    const { data: subscription, isLoading, error } = useOrganizationSubscription(organizationId);
-    
-    // Wrapper för att kontrollera feature flags
-    const hasFeature = useCallback(
-      (featureFlag: FeatureFlag) => {
-        if (!subscription) return false;
-        return featureFlagService.isFeatureEnabled(new UniqueId(organizationId || ''), featureFlag);
+  const useTrackResourceUsage = createStandardizedMutation({
+    mutationFn: async (
+      variables: { 
+        organizationId: string, 
+        resourceType: string, 
+        quantity: number 
       },
-      [subscription, organizationId]
-    );
-    
-    // Wrapper för att spåra användning
-    const trackFeatureUsage = useCallback(
-      async (usage: Partial<SubscriptionUsage>) => {
-        if (!subscription) return;
-        await usageTrackingService.trackUsage(
-          new UniqueId(subscription.id.toString()),
-          usage
-        );
-      },
-      [subscription]
-    );
-    
-    return {
-      subscription,
-      isLoading,
-      error,
-      hasFeature,
-      trackFeatureUsage,
-      isActive: subscription?.isActive() || false
-    };
-  };
-  
+      updateProgress?: (progress: ProgressInfo) => void
+    ) => {
+      const { organizationId, resourceType, quantity } = variables;
+      
+      updateProgress?.({ percent: 50, message: 'Registrerar användning...' });
+      
+      const orgId = new UniqueId(organizationId);
+      const result = await usageTrackingService.trackUsage(
+        orgId, 
+        resourceType, 
+        quantity
+      );
+      
+      updateProgress?.({ percent: 100, message: 'Användning registrerad' });
+      
+      return unwrapResult(result);
+    },
+    onSuccess: (_, variables) => {
+      // Invalidera användningsstatistik efter spårning
+      queryClient.invalidateQueries({ 
+        queryKey: ['subscription', 'usage', variables.organizationId] 
+      });
+    },
+    errorContext: (variables) => createSubscriptionErrorContext(
+      'trackResourceUsage',
+      { 
+        organizationId: variables.organizationId, 
+        resourceType: variables.resourceType,
+        quantity: variables.quantity 
+      }
+    )
+  });
+
+  /**
+   * Avbryter en prenumeration
+   */
+  const useCancelSubscription = createStandardizedMutation({
+    mutationFn: async (
+      variables: { organizationId: string, reason?: string },
+      updateProgress?: (progress: ProgressInfo) => void
+    ) => {
+      const { organizationId, reason } = variables;
+      
+      updateProgress?.({ percent: 20, message: 'Förbereder avbrytning...' });
+      
+      const orgId = new UniqueId(organizationId);
+      const result = await subscriptionRepository.cancelSubscription(orgId, reason);
+      
+      updateProgress?.({ percent: 70, message: 'Avbryter prenumeration...' });
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      updateProgress?.({ percent: 100, message: 'Prenumeration avbruten' });
+      
+      return unwrapResult(result);
+    },
+    onSuccess: (_, variables) => {
+      // Invalidera alla relevanta prenumerationsquery
+      queryClient.invalidateQueries({ 
+        queryKey: ['subscription', 'organization', variables.organizationId] 
+      });
+    },
+    errorContext: (variables) => createSubscriptionErrorContext(
+      'cancelSubscription',
+      { organizationId: variables.organizationId, reason: variables.reason }
+    )
+  });
+
+  // Returnera alla hooks
   return {
-    // Data hämtning
     useOrganizationSubscription,
-    useAllOrganizationSubscriptions,
-    
-    // Feature kontroll
     useFeatureFlag,
-    
-    // Användningsspårning
-    useTrackUsage,
-    
-    // Statusändringar
-    useUpdateSubscriptionStatus,
-    
-    // Kombinerad kontroll
-    useSubscriptionControls
+    useUsageStatistics,
+    useSubscriptionPlans,
+    useUpdateSubscriptionPlan,
+    useTrackResourceUsage,
+    useCancelSubscription
   };
 } 

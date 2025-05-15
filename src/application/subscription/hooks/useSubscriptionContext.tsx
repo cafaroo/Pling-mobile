@@ -1,22 +1,16 @@
 import { createContext, useContext } from 'react';
 import { SubscriptionRepository } from '@/domain/subscription/repositories/SubscriptionRepository';
-import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
-import { SupabaseSubscriptionRepository } from '@/infrastructure/supabase/repositories/subscription/SupabaseSubscriptionRepository';
-import { DefaultSubscriptionService } from '@/domain/subscription/services/DefaultSubscriptionService';
-import { DefaultFeatureFlagService } from '@/domain/subscription/services/DefaultFeatureFlagService';
+import { FeatureFlagService } from '@/domain/subscription/services/FeatureFlagService';
 import { UsageTrackingService } from '@/domain/subscription/services/UsageTrackingService';
-import { DomainEventPublisher } from '@/infrastructure/events/DomainEventPublisher';
-import { supabase } from '@/infrastructure/supabase';
+import { useSubscriptionStandardized } from './useSubscriptionStandardized';
 
 /**
- * Kontext för att hantera prenumerations-relaterade beroenden
+ * Kontext för att hantera subscription-relaterade beroenden
  */
 interface SubscriptionContextType {
   subscriptionRepository: SubscriptionRepository;
-  subscriptionService: DefaultSubscriptionService;
-  featureFlagService: DefaultFeatureFlagService;
+  featureFlagService: FeatureFlagService;
   usageTrackingService: UsageTrackingService;
-  eventPublisher: IDomainEventPublisher;
 }
 
 /**
@@ -29,40 +23,24 @@ const SubscriptionContext = createContext<SubscriptionContextType | null>(null);
  */
 interface SubscriptionContextProviderProps {
   subscriptionRepository: SubscriptionRepository;
-  subscriptionService?: DefaultSubscriptionService;
-  featureFlagService?: DefaultFeatureFlagService;
-  usageTrackingService?: UsageTrackingService;
-  eventPublisher: IDomainEventPublisher;
+  featureFlagService: FeatureFlagService;
+  usageTrackingService: UsageTrackingService;
   children: React.ReactNode;
 }
 
 /**
- * Provider för prenumerations-relaterade beroenden
+ * Provider för subscription-relaterade beroenden
  */
 export function SubscriptionContextProvider({
   subscriptionRepository,
-  subscriptionService,
   featureFlagService,
   usageTrackingService,
-  eventPublisher,
   children,
 }: SubscriptionContextProviderProps) {
-  // Skapa services om de inte tillhandahålls
-  const subscriptionServiceInstance = subscriptionService || 
-    new DefaultSubscriptionService(subscriptionRepository, eventPublisher);
-  
-  const featureFlagServiceInstance = featureFlagService ||
-    new DefaultFeatureFlagService(subscriptionRepository);
-  
-  const usageTrackingServiceInstance = usageTrackingService ||
-    new UsageTrackingService(subscriptionRepository, eventPublisher);
-
   const value = {
     subscriptionRepository,
-    subscriptionService: subscriptionServiceInstance,
-    featureFlagService: featureFlagServiceInstance,
-    usageTrackingService: usageTrackingServiceInstance,
-    eventPublisher,
+    featureFlagService,
+    usageTrackingService,
   };
 
   return (
@@ -73,53 +51,31 @@ export function SubscriptionContextProvider({
 }
 
 /**
- * Hook för att hämta beroenden till prenumerations-relaterade funktioner
+ * Hook för att hämta beroenden till subscription-relaterade funktioner
  */
 export function useSubscriptionDependencies(): SubscriptionContextType {
   const context = useContext(SubscriptionContext);
   
   if (!context) {
-    // Fallback till default implementationer om ingen provider finns
-    // I produktion bör detta ersättas med ett felmeddelande
-    const supabaseClient = supabase;
-    const subscriptionRepository = new SupabaseSubscriptionRepository(supabaseClient);
-    const eventPublisher = new DomainEventPublisher();
-    
-    return {
-      subscriptionRepository,
-      subscriptionService: new DefaultSubscriptionService(subscriptionRepository, eventPublisher),
-      featureFlagService: new DefaultFeatureFlagService(subscriptionRepository),
-      usageTrackingService: new UsageTrackingService(subscriptionRepository, eventPublisher),
-      eventPublisher
-    };
+    throw new Error('useSubscriptionDependencies måste användas inom en SubscriptionContextProvider');
   }
   
   return context;
 }
 
 /**
- * Hook för att hämta standardiserade prenumerations-relaterade beroenden
- */
-export function useSubscriptionContext(): SubscriptionContextType {
-  return useSubscriptionDependencies();
-}
-
-/**
- * Hook för att hämta prenumerationsdata via hook.
- * Detta är en fördefinerad hook som kombinerar de mest använda funktionerna.
+ * Hook för att hämta standardiserade subscription-relaterade hooks
  */
 export function useSubscription() {
   const {
-    subscriptionService,
-    featureFlagService
-  } = useSubscriptionContext();
-  
-  // Här skulle vi kunna implementera standardiserade hooks för att hämta prenumerationer
-  // och kontrollera funktioner baserat på prenumerationsstatus
-  
-  return {
-    subscriptionService,
+    subscriptionRepository,
     featureFlagService,
-    // Lägg till fler operationer här
-  };
+    usageTrackingService,
+  } = useSubscriptionDependencies();
+  
+  return useSubscriptionStandardized(
+    subscriptionRepository,
+    featureFlagService,
+    usageTrackingService
+  );
 } 

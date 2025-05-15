@@ -2,7 +2,7 @@ import React, { ReactNode, useEffect } from 'react';
 import { TeamContextProvider } from '../team/hooks/useTeamContext';
 import { UserContextProvider } from '../user/hooks/useUserContext';
 import { OrganizationContextProvider } from '../organization/hooks/useOrganizationContext';
-import { SubscriptionContextProvider } from '../subscription/hooks/useSubscriptionContext.tsx';
+import { SubscriptionContextProvider } from '../subscription/hooks/useSubscriptionContext';
 import { SupabaseTeamRepository } from '@/infrastructure/supabase/repositories/TeamRepository';
 import { SupabaseUserRepository } from '@/infrastructure/supabase/repositories/UserRepository';
 import { SupabaseOrganizationRepository } from '@/infrastructure/supabase/repositories/OrganizationRepository';
@@ -10,6 +10,8 @@ import { SupabaseSubscriptionRepository } from '@/infrastructure/supabase/reposi
 import { SupabaseTeamActivityRepository } from '@/infrastructure/supabase/repositories/TeamActivityRepository';
 import { DomainEventHandlerInitializer } from '@/infrastructure/events/DomainEventHandlers';
 import { DefaultLogger } from '@/infrastructure/logger/DefaultLogger';
+import { DefaultFeatureFlagService } from '@/domain/subscription/services/DefaultFeatureFlagService';
+import { UsageTrackingService } from '@/domain/subscription/services/UsageTrackingService';
 
 /**
  * Props för DomainProvidersComposer
@@ -47,6 +49,10 @@ export function DomainProvidersComposer({ children, supabaseClient }: DomainProv
   
   const eventPublisher = domainEventHandlerInitializer.publisher;
   
+  // Skapa domän-services
+  const featureFlagService = new DefaultFeatureFlagService(subscriptionRepository);
+  const usageTrackingService = new UsageTrackingService(subscriptionRepository, eventPublisher);
+  
   // Konfigurera publisher för repositories som behöver det
   teamRepository.setEventPublisher(eventPublisher);
   userRepository.setEventPublisher(eventPublisher);
@@ -76,7 +82,8 @@ export function DomainProvidersComposer({ children, supabaseClient }: DomainProv
         >
           <SubscriptionContextProvider
             subscriptionRepository={subscriptionRepository}
-            eventPublisher={eventPublisher}
+            featureFlagService={featureFlagService}
+            usageTrackingService={usageTrackingService}
           >
             {/* Andra domänproviders läggs till här */}
             {children}

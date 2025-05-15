@@ -11,17 +11,23 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
    - Implementerat `AggregateRoot<T>` som ärver från Entity med stöd för domänevents
    - Skapat `IDomainEvent` interface för alla domänevents
 
-2. **OrganizationRepository** - Implementerat repository-pattern för Organization-domänen:
+2. **Domänentiteter** - Refaktorerat flera domänentiteter för att använda de nya basklasserna:
+   - Uppdaterat `Team`-entiteten för att ärva från AggregateRoot<TeamProps>
+   - Uppdaterat `User`-entiteten för att ärva från AggregateRoot<UserProps>
+   - Standardiserat domänevents för Team och User
+   - Implementerat domänevents som använder IDomainEvent-interface med BaseTeamEvent och BaseUserEvent
+
+3. **OrganizationRepository** - Implementerat repository-pattern för Organization-domänen:
    - Definierat ett standardiserat `OrganizationRepository` interface
    - Dokumenterat alla metoder med tydliga beskrivningar och returtyper
    - Säkerställt korrekt användning av Result-typen
 
-3. **OrganizationMapper** - Implementerat mapper-klass för Organization-entiteten:
+4. **OrganizationMapper** - Implementerat mapper-klass för Organization-entiteten:
    - Skapad robust konvertering mellan domänmodell och databasobjekt
    - Implementerat validering av data vid konvertering
    - Förbättrad felhantering med detaljerade felmeddelanden
 
-4. **SupabaseOrganizationRepository** - Implementerat konkret repository:
+5. **SupabaseOrganizationRepository** - Implementerat konkret repository:
    - Implementerat alla metoder från OrganizationRepository-interfacet
    - Säkerställt korrekt hantering av domänevents
    - Implementerat transaktionshantering för relaterade entiteter
@@ -38,11 +44,15 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
 
 4. **Team-domänen** - Förbättrat repository-mönstret för Team-domänen:
    - Standardiserat `TeamRepository` interface med förbättrad dokumentation och Result-hantering
+   - Refaktorerat Team-entiteten för att använda AggregateRoot-basklass
+   - Implementerat BaseTeamEvent för standardiserade domänevents
    - Säkerställt korrekt användning av Result-typen för felhantering
    - Tydliggjort ansvarsområden för repository-metoderna
 
 5. **User-domänen** - Förbättrat repository-mönstret för User-domänen:
    - Standardiserat `UserRepository` interface enligt DDD-principer 
+   - Refaktorerat User-entiteten för att använda AggregateRoot-basklass
+   - Implementerat BaseUserEvent för standardiserade domänevents
    - Lagt till nya metoder som `search`, `exists` och `updateStatus`
    - Förbättrat typhantering med Email och värde-objekt
 
@@ -77,8 +87,8 @@ Förbättrat testbarhet genom:
 ## Nästa steg
 Baserat på den uppdaterade uppgiftslistan i `cleanup_tasks.md` kommer vi att fokusera på:
 
-1. Standardisera ytterligare entiteter med de nya basklasserna
-2. Refaktorera domänevents för att använda IDomainEvent
+1. Refaktorera övriga entiteter med de nya basklasserna
+2. Fortsätta refaktorera domänevents för att använda IDomainEvent
 3. Implementera återstående DTO-mappning mellan domän och infrastruktur
 4. Refaktorera Use Cases för att använda den förbättrade domänmodellen
 5. Refaktorera UI-lagret för att använda applikationslagrets hooks och DTOs

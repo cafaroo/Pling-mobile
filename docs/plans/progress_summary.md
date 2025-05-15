@@ -14,6 +14,10 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
    - Skapad utförlig dokumentation i `docs/testing/result-api-migration.md` med exempel och riktlinjer
    - Uppdaterat TeamDescription-testerna som exempel på den nya teststrategin
    - Förbättrat UserSettings-tester för att hantera ändringar i getter-struktur
+   - **Skapat automatiserat verifieringsverktyg för att validera konsekvent Result-API-användning i kodbasen**
+   - **Implementerat Jest-tester för att säkerställa att nya API:et används konsekvent**
+   - **Skapat rapporteringsfunktionalitet för att identifiera filer som fortfarande använder det gamla API:et**
+   - **Tillhandahållit enkla verktyg (batch-skript, node-skript) för att köra verifieringen som del av CI/CD**
 
 2. **UserProfile Testhantering**
    - Skapat testhjälpare i `userProfileTestHelper.ts` för att hantera det nya UserProfile-värde-objektet

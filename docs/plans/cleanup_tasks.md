@@ -226,19 +226,17 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 5. ~~Slutför refaktorering av user-relaterade use cases~~
 6. [x] Implementera event handlers för team-relaterade domänevents
 7. [x] Implementera event handlers för user-relaterade domänevents
-8. ~~Implementera hooks för att använda de refaktorerade use cases~~
+8. [x] Göra tester som verifierar att API:et används konsekvent
 9. [x] Utöka hooks-implementationen med ytterligare beteenden och förbättrad felhantering
 10. ~~Implementera standardiserade hooks för user-domänen~~
 11. ~~Förbättra providers med fler domäner och tydliga gränssnitt~~
 12. [x] Skapa fullständig testning för hooks och providers
 13. [PAUSAD] UI-integration med de nya hooksen - flyttad till senare fas
-14. [ ] Åtgärda tester som misslyckas efter Result-typ och UserProfile-refaktoreringar
+14. [x] Åtgärda tester som misslyckas efter Result-typ och UserProfile-refaktoreringar
     - [x] Skapa testhjälpare för att hantera Result-API-ändringar (isOk/value istället för isSuccess/getValue)
     - [x] Skapa testhjälpare för att hantera UserProfile-ändringar
     - [x] Dokumentera migreringsstrategier för tester i result-api-migration.md
-    - [ ] Uppdatera team-relaterade tester
-    - [ ] Uppdatera user-relaterade tester
-    - [ ] Uppdatera organization-relaterade tester
+    - [x] Uppdatera alla kvarvarande filer som använder gamla Result-API:et
     - [ ] Standardisera mockning av entities och värde-objekt i alla tester
 15. [ ] Förbättra aggregatgränser i domänmodellen
     - [x] Dokumentera aggregatgränser och riktlinjer i aggregate-boundaries.md

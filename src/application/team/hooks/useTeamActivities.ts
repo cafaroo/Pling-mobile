@@ -82,7 +82,7 @@ export function useTeamActivities({
         throw new Error(result.error);
       }
       
-      return result.getValue();
+      return result.value;
     },
     getNextPageParam: (lastPage) => {
       if (!lastPage.hasMore) return undefined;
@@ -112,7 +112,7 @@ export function useTeamActivities({
         throw new Error(result.error);
       }
       
-      return result.getValue();
+      return result.value;
     },
     enabled: enabled && !useLazyLoading
   });
@@ -143,7 +143,7 @@ export function useTeamActivities({
         throw new Error(result.error);
       }
       
-      return result.getValue();
+      return result.value;
     },
     enabled
   });
@@ -159,7 +159,7 @@ export function useTeamActivities({
         throw new Error(result.error);
       }
       
-      return result.getValue();
+      return result.value;
     },
     enabled
   });
@@ -190,7 +190,7 @@ export function useTeamActivities({
         throw new Error(result.error);
       }
       
-      return result.getValue();
+      return result.value;
     },
     onSuccess: () => {
       // Invalidera relevanta queries för att uppdatera data
@@ -250,7 +250,7 @@ export function useTeamActivities({
             throw new Error(result.error);
           }
           
-          return result.getValue();
+          return result.value;
         }
       });
     }

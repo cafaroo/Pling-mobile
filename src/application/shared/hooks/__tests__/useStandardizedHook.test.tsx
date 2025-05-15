@@ -55,8 +55,8 @@ describe('useStandardizedHook', () => {
       
       // Kontrollera returvärdet
       const resolvedResult = await operationResult;
-      expect(resolvedResult.isSuccess()).toBe(true);
-      expect(resolvedResult.getValue()).toEqual(mockData);
+      expect(resolvedResult.isOk()).toBe(true);
+      expect(resolvedResult.value).toEqual(mockData);
     });
     
     it('ska hantera misslyckade operationer korrekt (Result.fail)', async () => {
@@ -87,7 +87,7 @@ describe('useStandardizedHook', () => {
       
       // Kontrollera returvärdet
       const resolvedResult = await operationResult;
-      expect(resolvedResult.isFailure()).toBe(true);
+      expect(resolvedResult.isErr()).toBe(true);
     });
     
     it('ska hantera kastade fel korrekt', async () => {
@@ -119,7 +119,7 @@ describe('useStandardizedHook', () => {
       
       // Kontrollera returvärdet
       const resolvedResult = await operationResult;
-      expect(resolvedResult.isFailure()).toBe(true);
+      expect(resolvedResult.isErr()).toBe(true);
     });
     
     it('ska kunna återställa hook-tillståndet', async () => {

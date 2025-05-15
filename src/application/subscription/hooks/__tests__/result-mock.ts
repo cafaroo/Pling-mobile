@@ -28,11 +28,11 @@ export const Result = {
   }),
   
   combine: (results: any[]) => {
-    const failure = results.find(r => r.isFailure());
+    const failure = results.find(r => r.isErr());
     if (failure) {
-      return Result.fail(failure.getError());
+      return Result.fail(failure.error);
     }
-    return Result.ok(results.map(r => r.getValue()));
+    return Result.ok(results.map(r => r.value));
   }
 };
 

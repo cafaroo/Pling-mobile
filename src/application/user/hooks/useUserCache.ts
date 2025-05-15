@@ -79,7 +79,7 @@ export const useUserCache = () => {
     try {
       const cachedResult = await cacheService.get<Result<User, string>>(`user_${userId}`);
       if (cachedResult && cachedResult.isOk()) {
-        const user = cachedResult.getValue();
+        const user = cachedResult.value;
         
         // Synkronisera med React Query för kommande accesser
         queryClient.setQueryData(USER_CACHE_KEYS.user(userId), user);
@@ -105,7 +105,7 @@ export const useUserCache = () => {
     try {
       const cachedResult = await cacheService.get<Result<User, string>>(`user_email_${email}`);
       if (cachedResult && cachedResult.isOk()) {
-        const user = cachedResult.getValue();
+        const user = cachedResult.value;
         
         // Synkronisera med React Query för kommande accesser
         queryClient.setQueryData(USER_CACHE_KEYS.userByEmail(email), user);

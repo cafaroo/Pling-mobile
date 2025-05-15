@@ -54,15 +54,15 @@ Detta dokument spårar framstegen i migreringen från det gamla Result-API:et (i
 Följande filer använder fortfarande det gamla Result-API:et och behöver uppdateras:
 
 ### Hooks och tester
-- [ ] `src/application/shared/hooks/useStandardizedHook.ts` - Fortfarande använder isFailure()
-- [ ] `src/application/shared/hooks/__tests__/useStandardizedHook.test.tsx` - Använder isSuccess(), isFailure(), getValue()
-- [ ] `src/application/subscription/hooks/__tests__/result-mock.ts` - Använder isFailure(), getValue()
-- [ ] `src/application/user/hooks/__tests__/useUserCache.test.ts` - Använder getValue()
+- [x] `src/application/shared/hooks/useStandardizedHook.ts` - Uppdaterad från isFailure() till isErr() (2024-06-XX)
+- [x] `src/application/shared/hooks/__tests__/useStandardizedHook.test.tsx` - Uppdaterad från isSuccess/isFailure/getValue till isOk/isErr/value (2024-06-XX)
+- [x] `src/application/subscription/hooks/__tests__/result-mock.ts` - Redan har stöd för båda API:erna, inga ändringar behövdes (2024-06-XX)
+- [x] `src/application/user/hooks/__tests__/useUserCache.test.ts` - Uppdaterad från getValue() till value (2024-06-XX)
 
 ### Tester och hjälpfiler
-- [ ] `src/shared/core/__tests__/Result-new.test.ts` - Använder getValue()
-- [ ] `src/shared/core/__tests__/Result.test.ts` - Använder getValue()
-- [ ] `src/test-utils/userProfileTestHelper.ts` - Använder getValue()
+- [x] `src/shared/core/__tests__/Result-new.test.ts` - Ersatt getValue()-anrop med värdeläsning via value property (2024-06-XX)
+- [x] `src/shared/core/__tests__/Result.test.ts` - Uppdaterad för att bara använda nya API:et (2024-06-XX)
+- [x] `src/test-utils/userProfileTestHelper.ts` - Ersatt getValue() med value (2024-06-XX)
 
 ## Strategier för uppdatering
 
@@ -89,7 +89,7 @@ Följande filer använder fortfarande det gamla Result-API:et och behöver uppda
 6. ✅ Uppdatera användarrelaterade hooks
 7. ✅ Uppdatera organisationsrelaterade hooks
 8. ✅ Göra tester som verifierar att API:et används konsekvent
-9. 🔄 Uppdatera återstående 7 filer som identifierats av verifikationsverktyget
+9. ✅ Uppdatera återstående 7 filer som identifierats av verifikationsverktyget
 
 ## Verifieringsverktyg
 

@@ -34,7 +34,7 @@ export function useTeam() {
           throw new Error(result.error);
         }
         
-        return result.getValue();
+        return result.value;
       },
       enabled: !!teamId
     });
@@ -54,7 +54,7 @@ export function useTeam() {
           throw new Error(result.error);
         }
         
-        return result.getValue();
+        return result.value;
       },
       enabled: !!userId
     });
@@ -80,7 +80,7 @@ export function useTeam() {
           throw new Error(result.error);
         }
         
-        return result.getValue();
+        return result.value;
       },
       onSuccess: (_, variables) => {
         // Invalidera cache för användarens team
@@ -122,7 +122,7 @@ export function useTeam() {
           throw new Error(result.error);
         }
         
-        return result.getValue();
+        return result.value;
       },
       onSuccess: (_, variables) => {
         // Invalidera cache för teamets data
@@ -150,7 +150,7 @@ export function useTeam() {
           throw new Error(teamResult.error);
         }
         
-        const team = teamResult.getValue();
+        const team = teamResult.value;
         const updateResult = team.update({
           name,
           description
@@ -186,7 +186,7 @@ export function useTeam() {
           throw new Error(teamResult.error);
         }
         
-        const team = teamResult.getValue();
+        const team = teamResult.value;
         
         // Verifiera att användaren är ägare
         if (team.ownerId.toString() !== userId) {
@@ -222,7 +222,7 @@ export function useTeam() {
           throw new Error(teamResult.error);
         }
         
-        const team = teamResult.getValue();
+        const team = teamResult.value;
         
         // Verifiera att användaren inte är ägare
         if (team.ownerId.toString() === userId) {
@@ -275,7 +275,7 @@ export function useTeam() {
           throw new Error(teamResult.error);
         }
         
-        const team = teamResult.getValue();
+        const team = teamResult.value;
         
         // Verifiera att användaren har behörighet att ändra roller
         const currentUserIdObj = new UniqueId(currentUserId);

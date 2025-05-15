@@ -42,7 +42,7 @@ export const useUser = (userId?: string) => {
           throw new Error(userResult.error);
         }
         
-        const user = userResult.getValue();
+        const user = userResult.value;
         
         // Cacha för framtida användning
         await cacheUser(user);

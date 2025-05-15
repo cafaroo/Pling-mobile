@@ -106,7 +106,7 @@ export function useOrganizationWithStandardHook() {
         throw new Error(result.error);
       }
       
-      const org = result.getValue();
+      const org = result.value;
       await organizationRepository.save(org);
       
       // Publicera domänevents
@@ -134,7 +134,7 @@ export function useOrganizationWithStandardHook() {
         throw new Error(orgResult.error);
       }
       
-      const org = orgResult.getValue();
+      const org = orgResult.value;
       if (!org) {
         throw new Error('Organisationen hittades inte');
       }

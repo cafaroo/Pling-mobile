@@ -50,7 +50,7 @@ export function createMockUserProfile(overrides: Partial<{
 /**
  * Skapa ett fördefinierat UserProfile-värdesobjekt för testning
  */
-export const mockUserProfile = createMockUserProfile().getValue();
+export const mockUserProfile = createMockUserProfile().value;
 
 /**
  * Skapar ett objekt som beter sig som ett UserProfile för

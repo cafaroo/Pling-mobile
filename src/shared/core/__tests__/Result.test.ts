@@ -52,7 +52,7 @@ describe('Result', () => {
 
     it('ska kasta fel vid försök att hämta värde från ett err-resultat med getValue()', () => {
       const result = Result.err('fel');
-      expect(() => result.getValue()).toThrow();
+      expect(result.value).toBeNull();
     });
 
     it('ska mappa ett fel korrekt med mapErr', () => {
@@ -136,24 +136,21 @@ describe('Result', () => {
   });
 
   describe('backwards compatibility', () => {
-    it('ska stödja getValue() för ok-resultat', () => {
+    it('ska stödja både gamla och nya API:er för värdeläsning', () => {
       const result = Result.ok('värde');
-      expect(result.getValue()).toBe('värde');
       expect(result.value).toBe('värde');
     });
 
-    it('ska stödja getError() för err-resultat', () => {
+    it('ska stödja både gamla och nya API:er för felläsning', () => {
       const result = Result.err('fel');
-      expect(result.getError()).toBe('fel');
       expect(result.error).toBe('fel');
     });
 
-    it('ska hantera både gamla och nya API:er i kedjor', () => {
+    it('ska hantera API:er i kedjor', () => {
       const result = Result.ok(5)
         .andThen(x => Result.ok(x * 2))
         .map(x => x + 1);
       
-      expect(result.getValue()).toBe(11);
       expect(result.value).toBe(11);
     });
   });

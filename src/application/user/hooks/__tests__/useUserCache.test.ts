@@ -127,7 +127,7 @@ jest.mock('../useUserCache', () => {
         
         const cachedResult = await mockCacheService.get(`user_${userId}`);
         if (cachedResult && cachedResult.isOk()) {
-          return cachedResult.getValue();
+          return cachedResult.value;
         }
         
         return null;

@@ -14,8 +14,7 @@ describe('Result', () => {
       expect(result.error).toBeNull();
       
       // Verifiera bakåtkompatibilitet
-      expect(result.getValue()).toBe(42);
-      expect(() => result.getError()).toThrow();
+      // Gamla API-metoder bortplockade i API-migration
     });
 
     it('ska stödja map metoden', () => {
@@ -64,8 +63,7 @@ describe('Result', () => {
       expect(result.error).toBe('fel');
       
       // Verifiera bakåtkompatibilitet
-      expect(() => result.getValue()).toThrow();
-      expect(result.getError()).toBe('fel');
+      // Gamla API-metoder bortplockade i API-migration
     });
 
     it('ska stödja map metoden', () => {

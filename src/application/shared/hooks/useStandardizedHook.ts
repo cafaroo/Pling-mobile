@@ -317,7 +317,7 @@ export function useStandardizedRetryableOperation<TParams, TResult>(
       const result = await standardOperation.execute(params);
       
       // Om resultatet är en Error och vi ska auto-starta återförsök
-      if (result.isFailure() && standardOperation.error?.retryable && autoRetry) {
+      if (result.isErr() && standardOperation.error?.retryable && autoRetry) {
         const delay = calculateRetryDelay(0);
         setRetryDelay(delay);
         
@@ -362,7 +362,7 @@ export function useStandardizedRetryableOperation<TParams, TResult>(
     const result = await standardOperation.execute(lastParams);
     
     // Om vi fortfarande har ett fel och kan göra fler återförsök, schemalägg nästa
-    if (result.isFailure() && standardOperation.error?.retryable && autoRetry && nextRetryCount < maxRetries) {
+    if (result.isErr() && standardOperation.error?.retryable && autoRetry && nextRetryCount < maxRetries) {
       const nextDelay = calculateRetryDelay(nextRetryCount);
       setRetryDelay(nextDelay);
       

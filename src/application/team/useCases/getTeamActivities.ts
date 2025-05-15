@@ -1,6 +1,5 @@
 import { UniqueId } from '@/shared/core/UniqueId';
 import { Result, ok, err } from '@/shared/core/Result';
-import { UseCase } from '@/shared/core/UseCase';
 import { TeamActivity } from '@/domain/team/entities/TeamActivity';
 import { ActivityType } from '@/domain/team/value-objects/ActivityType';
 import { TeamActivityRepository, ActivityFilterOptions } from '@/domain/team/repositories/TeamActivityRepository';
@@ -18,13 +17,6 @@ export interface GetTeamActivitiesDTO {
   userIsTarget?: boolean; // Om true, sök på userId som target istället för performer
 }
 
-// Resultat av aktivitetssökning med sidnumrering
-export interface TeamActivitiesResult {
-  activities: TeamActivityDTO[];
-  total: number;
-  hasMore: boolean;
-}
-
 // DTO för teamaktivitetsdata
 export interface TeamActivityDTO {
   id: string;
@@ -37,29 +29,71 @@ export interface TeamActivityDTO {
   description: string; // Läsbar beskrivning av aktiviteten
 }
 
+// Resultat av aktivitetssökning med sidnumrering
+export interface GetTeamActivitiesResponse {
+  activities: TeamActivityDTO[];
+  total: number;
+  hasMore: boolean;
+}
+
+// Resultat av GetLatestActivities
+export interface GetLatestActivitiesResponse {
+  activities: TeamActivityDTO[];
+}
+
+// Resultat av GetActivityStats
+export interface GetActivityStatsResponse {
+  stats: Record<ActivityType, number>;
+}
+
+type GetTeamActivitiesError = { 
+  message: string; 
+  code: 'NOT_FOUND' | 'DATA_ACCESS_ERROR' | 'VALIDATION_ERROR' | 'UNEXPECTED_ERROR' 
+};
+
 /**
  * Användarfall för att hämta teamaktiviteter
+ * 
+ * Refaktorerad för att använda samma mönster som övriga use cases.
  */
-export class GetTeamActivitiesUseCase implements UseCase<GetTeamActivitiesDTO, Result<TeamActivitiesResult, string>> {
+export class GetTeamActivitiesUseCase {
   constructor(
-    private readonly activityRepository: TeamActivityRepository,
+    private readonly teamActivityRepository: TeamActivityRepository,
     private readonly teamRepository: TeamRepository
   ) {}
   
   /**
    * Hämta aktiviteter för ett team med filtrering och sidbrytning
    */
-  async execute(dto: GetTeamActivitiesDTO): Promise<Result<TeamActivitiesResult, string>> {
+  async execute(dto: GetTeamActivitiesDTO): Promise<Result<GetTeamActivitiesResponse, GetTeamActivitiesError>> {
     try {
+      // Validera indata
+      if (!dto.teamId) {
+        return err({
+          message: 'Team-ID är obligatoriskt',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
       // Validera att teamet existerar och att användaren har rätt att se aktiviteter
       const teamId = new UniqueId(dto.teamId);
       const teamResult = await this.teamRepository.findById(teamId);
       
       if (teamResult.isErr()) {
-        return err(`Kunde inte hämta aktiviteter: ${teamResult.error}`);
+        return err({
+          message: `Kunde inte hämta team: ${teamResult.error}`,
+          code: 'DATA_ACCESS_ERROR'
+        });
       }
       
-      const team = teamResult.getValue();
+      const team = teamResult.value;
+      
+      if (!team) {
+        return err({
+          message: 'Team hittades inte',
+          code: 'NOT_FOUND'
+        });
+      }
       
       // Skapa filteroptioner
       const filterOptions: ActivityFilterOptions = {
@@ -84,8 +118,8 @@ export class GetTeamActivitiesUseCase implements UseCase<GetTeamActivitiesDTO, R
       
       // Hämta aktiviteter och räkna totala antalet
       const [activitiesResult, countResult] = await Promise.all([
-        this.activityRepository.search(filterOptions),
-        this.activityRepository.count({
+        this.teamActivityRepository.search(filterOptions),
+        this.teamActivityRepository.count({
           ...filterOptions,
           limit: undefined,
           offset: undefined
@@ -93,15 +127,21 @@ export class GetTeamActivitiesUseCase implements UseCase<GetTeamActivitiesDTO, R
       ]);
       
       if (activitiesResult.isErr()) {
-        return err(`Kunde inte hämta aktiviteter: ${activitiesResult.error}`);
+        return err({
+          message: `Kunde inte hämta aktiviteter: ${activitiesResult.error}`,
+          code: 'DATA_ACCESS_ERROR'
+        });
       }
       
       if (countResult.isErr()) {
-        return err(`Kunde inte räkna aktiviteter: ${countResult.error}`);
+        return err({
+          message: `Kunde inte räkna aktiviteter: ${countResult.error}`,
+          code: 'DATA_ACCESS_ERROR'
+        });
       }
       
-      const activities = activitiesResult.getValue();
-      const total = countResult.getValue();
+      const activities = activitiesResult.value;
+      const total = countResult.value;
       
       // Konvertera till DTOs
       const activityDTOs: TeamActivityDTO[] = activities.map(activity => ({
@@ -121,7 +161,10 @@ export class GetTeamActivitiesUseCase implements UseCase<GetTeamActivitiesDTO, R
         hasMore: (filterOptions.offset || 0) + activityDTOs.length < total
       });
     } catch (error) {
-      return err(`Ett oväntat fel uppstod: ${error instanceof Error ? error.message : String(error)}`);
+      return err({
+        message: `Ett oväntat fel inträffade: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'UNEXPECTED_ERROR'
+      });
     }
   }
   
@@ -131,16 +174,26 @@ export class GetTeamActivitiesUseCase implements UseCase<GetTeamActivitiesDTO, R
   async getLatestActivities(
     teamId: string, 
     limit: number = 10
-  ): Promise<Result<TeamActivityDTO[], string>> {
+  ): Promise<Result<GetLatestActivitiesResponse, GetTeamActivitiesError>> {
     try {
+      if (!teamId) {
+        return err({
+          message: 'Team-ID är obligatoriskt',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
       const teamIdObj = new UniqueId(teamId);
-      const result = await this.activityRepository.getLatestForTeam(teamIdObj, limit);
+      const result = await this.teamActivityRepository.getLatestForTeam(teamIdObj, limit);
       
       if (result.isErr()) {
-        return err(`Kunde inte hämta senaste aktiviteter: ${result.error}`);
+        return err({
+          message: `Kunde inte hämta senaste aktiviteter: ${result.error}`,
+          code: 'DATA_ACCESS_ERROR'
+        });
       }
       
-      const activities = result.getValue();
+      const activities = result.value;
       
       // Konvertera till DTOs
       const activityDTOs: TeamActivityDTO[] = activities.map(activity => ({
@@ -154,27 +207,47 @@ export class GetTeamActivitiesUseCase implements UseCase<GetTeamActivitiesDTO, R
         description: activity.getDescription()
       }));
       
-      return ok(activityDTOs);
+      return ok({
+        activities: activityDTOs
+      });
     } catch (error) {
-      return err(`Ett oväntat fel uppstod: ${error instanceof Error ? error.message : String(error)}`);
+      return err({
+        message: `Ett oväntat fel inträffade: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'UNEXPECTED_ERROR'
+      });
     }
   }
   
   /**
    * Hämta aktivitetsstatistik för ett team
    */
-  async getActivityStats(teamId: string): Promise<Result<Record<ActivityType, number>, string>> {
+  async getActivityStats(teamId: string): Promise<Result<GetActivityStatsResponse, GetTeamActivitiesError>> {
     try {
+      if (!teamId) {
+        return err({
+          message: 'Team-ID är obligatoriskt',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
       const teamIdObj = new UniqueId(teamId);
-      const result = await this.activityRepository.getGroupedByType(teamIdObj);
+      const result = await this.teamActivityRepository.getGroupedByType(teamIdObj);
       
       if (result.isErr()) {
-        return err(`Kunde inte hämta aktivitetsstatistik: ${result.error}`);
+        return err({
+          message: `Kunde inte hämta aktivitetsstatistik: ${result.error}`,
+          code: 'DATA_ACCESS_ERROR'
+        });
       }
       
-      return ok(result.getValue());
+      return ok({
+        stats: result.value
+      });
     } catch (error) {
-      return err(`Ett oväntat fel uppstod: ${error instanceof Error ? error.message : String(error)}`);
+      return err({
+        message: `Ett oväntat fel inträffade: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'UNEXPECTED_ERROR'
+      });
     }
   }
 } 

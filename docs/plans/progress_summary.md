@@ -32,6 +32,16 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
    - Säkerställt korrekt hantering av domänevents
    - Implementerat transaktionshantering för relaterade entiteter
 
+### Applikationslagret (2024-05-XX)
+1. **Team Use Cases** - Refaktorerat team-relaterade use cases för att följa samma konsekventa mönster:
+   - Refaktorerat grundläggande use cases (CreateTeamUseCase, AddTeamMemberUseCase, RemoveTeamMemberUseCase, UpdateTeamMemberRoleUseCase, InviteTeamMemberUseCase)
+   - Refaktorerat statistik-relaterade use cases (GetTeamStatisticsUseCase, GetTeamActivitiesUseCase, CreateTeamActivityUseCase)
+   - Refaktorerat kommunikations-relaterade use cases (CreateTeamMessageUseCase, CreateThreadReplyUseCase)
+   - Implementerat konsekventa DTOs och response-objekt
+   - Förbättrat felhantering med typade felkoder
+   - Säkerställt korrekt domäneventshantering genom IDomainEventPublisher
+   - Tillämpat factory-mönster för enklare instansiering och beroendehantering
+
 ### Domänlagret
 1. **TeamStatistics** - Eliminerat duplicerad kod genom att extrahera den gemensamma logiken till hjälpmetoden `createStatisticsFromData`, vilket förbättrar både underhållbarhet och testbarhet.
    
@@ -87,19 +97,19 @@ Förbättrat testbarhet genom:
 ## Nästa steg
 Baserat på den uppdaterade uppgiftslistan i `cleanup_tasks.md` kommer vi att fokusera på:
 
-1. Refaktorera övriga entiteter med de nya basklasserna
-2. Fortsätta refaktorera domänevents för att använda IDomainEvent
-3. Implementera återstående DTO-mappning mellan domän och infrastruktur
-4. Refaktorera Use Cases för att använda den förbättrade domänmodellen
-5. Refaktorera UI-lagret för att använda applikationslagrets hooks och DTOs
+1. Refaktorera user-relaterade use cases enligt den etablerade strukturen
+2. Fortsätta standardisera övriga delar av applikationslagret
+3. Implementera event handlers för team-relaterade domänevents
+4. Refaktorera UI-lagret för att använda de nya standardiserade hooks och DTOs
+5. Förbättra dokumentationen kring arkitekturen och use case-implementation
 
 ## Fördelar med förbättringarna
 - **Enhetlig kodstruktur** - Standardiserade basklasser och mönster
 - **Renare domänmodell** - Tydligare separation mellan olika lager
 - **Förbättrad testbarhet** - Lättare att mocka externa beroenden
 - **Standardiserade interfaces** - Konsekvent mönster för repository och service-implementation
-- **Mer robust felhantering** - Genomgående användning av Result-typen
+- **Mer robust felhantering** - Genomgående användning av Result-typen med typade felkoder
 - **Bättre domänevents** - Tydligt definierade händelsestrukturer för domänmodellen
 - **Förbättrad typhantering** - Starkare typsäkerhet mellan lager
 
-Genom dessa förbättringar har vi tagit viktiga steg mot en mer underhållbar och skalbar kodstruktur enligt Domain-Driven Design principer. 
+Genom dessa förbättringar har vi tagit viktiga steg mot en mer underhållbar och skalbar kodstruktur enligt Domain-Driven Design principer. Särskilt har vi etablerat ett konsekvent mönster för applikationslagrets use cases, vilket gör koden mer förutsägbar och lättare att underhålla. 

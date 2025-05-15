@@ -1,104 +1,155 @@
 import { Result, ok, err } from '@/shared/core/Result';
-import { UniqueId } from '@/domain/core/UniqueId';
-import { UseCase } from '@/application/core/UseCase';
-import { TeamMessage, CreateTeamMessageProps } from '@/domain/team/entities/TeamMessage';
+import { UniqueId } from '@/shared/core/UniqueId';
+import { TeamMessage, MessageAttachmentData, MessageMentionData } from '@/domain/team/entities/TeamMessage';
 import { TeamMessageRepository } from '@/domain/team/repositories/TeamMessageRepository';
+import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
 // Importera eventuella nödvändiga domänhändelser om de ska publiceras härifrån,
 // t.ex. en specifik ThreadReplyCreatedEvent om den skiljer sig från TeamMessageCreated.
 
-export interface CreateThreadReplyUseCaseProps {
-  parentId: string; // ID för meddelandet som det svaras på
-  teamId: string;   // Team-ID där svaret skapas
-  senderId: string; // ID för användaren som skickar svaret
+export interface CreateThreadReplyDTO {
+  parentId: string;
+  teamId: string;
+  senderId: string;
   content: string;
-  // attachments och mentions kan läggas till här om de ska stödjas direkt i use caset
+  attachments?: MessageAttachmentData[];
+  mentions?: MessageMentionData[];
 }
 
-export class CreateThreadReplyUseCase implements UseCase<CreateThreadReplyUseCaseProps, Result<TeamMessage, string>> {
+export interface CreateThreadReplyResponse {
+  messageId: string;
+  parentId: string;
+  teamId: string;
+  senderId: string;
+  content: string;
+  createdAt: Date;
+}
+
+type CreateThreadReplyError = {
+  message: string;
+  code: 'VALIDATION_ERROR' | 'PARENT_MESSAGE_NOT_FOUND' | 'PARENT_MESSAGE_DELETED' | 'DATABASE_ERROR' | 'UNEXPECTED_ERROR';
+};
+
+interface Dependencies {
+  teamMessageRepository: TeamMessageRepository;
+  eventPublisher: IDomainEventPublisher;
+}
+
+export class CreateThreadReplyUseCase {
   constructor(
-    private readonly teamMessageRepository: TeamMessageRepository
-    // private readonly eventBus: EventBus // Om händelser publiceras här
+    private readonly teamMessageRepository: TeamMessageRepository,
+    private readonly eventPublisher: IDomainEventPublisher
   ) {}
 
-  async execute(props: CreateThreadReplyUseCaseProps): Promise<Result<TeamMessage, string>> {
+  static create(deps: Dependencies): CreateThreadReplyUseCase {
+    return new CreateThreadReplyUseCase(
+      deps.teamMessageRepository,
+      deps.eventPublisher
+    );
+  }
+
+  async execute(dto: CreateThreadReplyDTO): Promise<Result<CreateThreadReplyResponse, CreateThreadReplyError>> {
     try {
       // 1. Validera input
-      if (!props.parentId) {
-        return err('Parent ID (meddelandet som svaras på) måste anges.');
+      if (!dto.parentId) {
+        return err({
+          message: 'Parent ID (meddelandet som svaras på) måste anges',
+          code: 'VALIDATION_ERROR'
+        });
       }
-      if (!props.content || props.content.trim().length === 0) {
-        return err('Svarets innehåll kan inte vara tomt.');
+      
+      if (!dto.content || dto.content.trim().length === 0) {
+        return err({
+          message: 'Svarets innehåll kan inte vara tomt',
+          code: 'VALIDATION_ERROR'
+        });
       }
-      // Ytterligare valideringar (t.ex. längd på innehåll) kan läggas till här eller hanteras av TeamMessage.create
 
-      const parentIdResult = UniqueId.createExisting(props.parentId);
-      if (parentIdResult.isErr()) {
-        return err(parentIdResult.error);
-      }
-      const parentId = parentIdResult.value;
+      const parentId = new UniqueId(dto.parentId);
 
       // 2. Hämta och validera föräldrameddelandet
       const parentMessageResult = await this.teamMessageRepository.findById(parentId);
       if (parentMessageResult.isErr()) {
-        return err(parentMessageResult.error);
+        return err({
+          message: `Kunde inte hitta originalmeddelandet: ${parentMessageResult.error}`,
+          code: 'PARENT_MESSAGE_NOT_FOUND'
+        });
       }
+      
       const parentMessage = parentMessageResult.value;
 
       if (parentMessage.isDeleted) {
-        return err('Kan inte svara på ett raderat meddelande.');
+        return err({
+          message: 'Kan inte svara på ett raderat meddelande',
+          code: 'PARENT_MESSAGE_DELETED'
+        });
       }
-      // Man kan också lägga till en begränsning på hur djupt trådar kan gå, om önskvärt.
-      // t.ex. if (parentMessage.parentId) { return err('Kan inte svara på ett svar i en tråd (endast ett nivå djup tillåtet)'); }
-
 
       // 3. Skapa det nya svarsmeddelandet
       const replyMessageResult = TeamMessage.create({
-        teamId: props.teamId,
-        senderId: props.senderId,
-        content: props.content,
-        parentId: parentId.toString(), // Skickar med parentId här
-        // attachments: ..., // Hantera om det ska stödjas
-        // mentions: ...,    // Hantera om det ska stödjas
+        teamId: dto.teamId,
+        senderId: dto.senderId,
+        content: dto.content,
+        parentId: parentId.toString(),
+        attachments: dto.attachments || [],
+        mentions: dto.mentions || []
       });
 
       if (replyMessageResult.isErr()) {
-        return err(replyMessageResult.error);
+        return err({
+          message: replyMessageResult.error,
+          code: 'VALIDATION_ERROR'
+        });
       }
+      
       const newReplyMessage = replyMessageResult.value;
 
       // 4. Spara det nya svarsmeddelandet
       const saveReplyResult = await this.teamMessageRepository.save(newReplyMessage);
       if (saveReplyResult.isErr()) {
-        return err(saveReplyResult.error);
+        return err({
+          message: `Kunde inte spara svaret: ${saveReplyResult.error}`,
+          code: 'DATABASE_ERROR'
+        });
       }
-      const savedReply = saveReplyResult.value; // Använd det sparade meddelandet som kan ha uppdaterad `updatedAt` etc.
+      
+      const savedReply = saveReplyResult.value;
 
       // 5. Uppdatera föräldrameddelandets trådinformation
-      parentMessage.incrementReplyCount(savedReply.createdAt); // Använd svarets createdAt
+      parentMessage.incrementReplyCount(savedReply.createdAt);
       
-      const updateParentResult = await this.teamMessageRepository.save(parentMessage); // eller .update()
+      const updateParentResult = await this.teamMessageRepository.save(parentMessage);
       if (updateParentResult.isErr()) {
-        // Logga felet, men överväg om detta ska få hela operationen att misslyckas.
-        // Kanske är det acceptabelt att svaret skapades även om föräldern inte kunde uppdateras direkt?
-        // För nu, låt oss säga att det är ett fel som bör rapporteras men svaret är ändå skapat.
         console.error(`Kunde inte uppdatera trådinfo på föräldrameddelande ${parentId.toString()}: ${updateParentResult.error}`);
-        // Eventuellt returnera ett partiellt framgångsresultat eller en varning.
+        // Trots fel med föräldrauppdatering fortsätter vi, eftersom svaret är sparat
+      } else {
+        // Publicera domänevents från det uppdaterade föräldrameddelandet
+        const parentEvents = parentMessage.getDomainEvents();
+        for (const event of parentEvents) {
+          await this.eventPublisher.publish(event);
+        }
+        parentMessage.clearEvents();
       }
       
-      // TODO: Publicera domänhändelser, t.ex. en specifik ThreadReplyCreatedEvent
-      // newReplyMessage.domainEvents.forEach(event => this.eventBus.publish(event));
-      // newReplyMessage.clearEvents();
-      // if (updateParentResult.isOk()) {
-      //   const updatedParent = updateParentResult.value;
-      //   updatedParent.domainEvents.forEach(event => this.eventBus.publish(event));
-      //   updatedParent.clearEvents();
-      // }
+      // Publicera domänevents från svarsmeddelandet
+      const replyEvents = savedReply.getDomainEvents();
+      for (const event of replyEvents) {
+        await this.eventPublisher.publish(event);
+      }
+      savedReply.clearEvents();
 
-
-      return ok(savedReply);
+      return ok({
+        messageId: savedReply.id.toString(),
+        parentId: savedReply.parentId.toString(),
+        teamId: savedReply.teamId.toString(),
+        senderId: savedReply.senderId.toString(),
+        content: savedReply.content,
+        createdAt: savedReply.createdAt
+      });
     } catch (error) {
-      console.error('Oväntat fel i CreateThreadReplyUseCase:', error);
-      return err('Ett oväntat internt fel inträffade när svaret skulle skapas.');
+      return err({
+        message: `Ett oväntat fel inträffade: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'UNEXPECTED_ERROR'
+      });
     }
   }
 } 

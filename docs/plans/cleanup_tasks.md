@@ -28,6 +28,19 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Refaktorerat `SupabaseUserRepository` för att följa DDD-principer och hantera domänevents korrekt.
 - [x] Implementerat `SupabaseOrganizationRepository` enligt DDD-principer med events och transaktionshantering.
 
+### Applikationslager
+- [x] Refaktorerat team-relaterade use cases:
+  - [x] CreateTeamUseCase
+  - [x] AddTeamMemberUseCase
+  - [x] RemoveTeamMemberUseCase
+  - [x] UpdateTeamMemberRoleUseCase
+  - [x] InviteTeamMemberUseCase
+  - [x] GetTeamStatisticsUseCase
+  - [x] GetTeamActivitiesUseCase
+  - [x] CreateTeamActivityUseCase
+  - [x] CreateTeamMessageUseCase
+  - [x] CreateThreadReplyUseCase
+
 ### Testning
 - [x] Exporterat testmockar via `test-utils/index.ts` för enkel tillgång.
 - [x] Förbättrat testbarhet genom korrekt implementation av `EventBus` och mock-objekt.
@@ -95,11 +108,11 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 
 ### 3.1 Use Cases
 - [x] Definiera standardstruktur för use cases
-- [ ] Refaktorera team-relaterade use cases
+- [x] Refaktorera team-relaterade use cases
   - [x] Refaktorera grundläggande team use cases (createTeam, addTeamMember, removeTeamMember, updateTeamMemberRole, inviteTeamMember)
-  - [ ] Refaktorera återstående team use cases
+  - [x] Refaktorera återstående team use cases (getTeamStatistics, getTeamActivities, createTeamActivity, createTeamMessage, createThreadReply)
 - [ ] Refaktorera user-relaterade use cases
-- [ ] Säkerställ korrekt felhantering med Result-typen
+- [x] Säkerställ korrekt felhantering med Result-typen
 - [x] Implementera tydlig beroendehantering
 
 ### 3.2 DTOs
@@ -187,7 +200,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 1. ~~Refaktorera User och Team-entiteter för att använda de nya basklasserna~~
 2. ~~Refaktorera domänevents för att implementera IDomainEvent~~
 3. ~~Förbättra domäntestning med den nya strukturen~~
-4. Slutför refaktorering av team-relaterade use cases
+4. ~~Slutför refaktorering av team-relaterade use cases~~
 5. Implementera event handlers för team-relaterade domänevents
 6. Refaktorera user-relaterade use cases med standardiserad struktur
 
@@ -197,7 +210,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 2. ~~Domänlager - Entiteter och Värde-objekt (Fas 2.1, 2.2)~~ ✓
 3. ~~Repositories (Fas 2.4, 4.1)~~ ✓
 4. Use Cases och Hooks (Fas 3.1, 3.3) - Delvis genomfört ✓
-   - Team-relaterade use cases - Delvis genomfört ✓
+   - ~~Team-relaterade use cases~~ ✓
    - User-relaterade use cases
 5. Domäntjänster och Domänevents (Fas 2.5, 2.6) - Delvis genomfört ✓
    - Event handlers

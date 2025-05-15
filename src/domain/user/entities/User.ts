@@ -1,4 +1,4 @@
-import { Entity, EntityProps } from '@/shared/core/Entity';
+import { AggregateRoot } from '@/shared/domain/AggregateRoot';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { Result, ok, err } from '@/shared/core/Result';
 import { UserSettings } from './UserSettings';
@@ -6,8 +6,18 @@ import { UserProfile } from './UserProfile';
 import { UserRole } from '../value-objects/UserRole';
 import { Email } from '../value-objects/Email';
 import { PhoneNumber } from '../value-objects/PhoneNumber';
+import {
+  UserCreated,
+  UserProfileUpdated,
+  UserSettingsUpdated,
+  UserTeamAdded,
+  UserTeamRemoved,
+  UserRoleAdded,
+  UserRoleRemoved,
+  UserStatusChanged
+} from '../events/UserEvent';
 
-interface UserProps extends EntityProps {
+interface UserProps {
   email: string;
   name: string;
   settings: UserSettings;
@@ -19,16 +29,16 @@ interface UserProps extends EntityProps {
   updatedAt: Date;
 }
 
-export class User extends Entity<UserProps> {
-  private constructor(props: UserProps) {
-    super(props);
+export class User extends AggregateRoot<UserProps> {
+  private constructor(props: UserProps, id?: UniqueId) {
+    super(props, id);
   }
 
-  public static async create(props: Omit<Partial<UserProps>, 'id' | 'createdAt' | 'updatedAt'> & {
+  public static create(props: Omit<Partial<UserProps>, 'createdAt' | 'updatedAt'> & {
     email: string;
     name: string;
     settings: UserSettings;
-  }): Promise<Result<User, string>> {
+  }): Result<User, string> {
     try {
       if (!props.email || !props.email.includes('@')) {
         return err('Ogiltig e-postadress');
@@ -38,8 +48,10 @@ export class User extends Entity<UserProps> {
         return err('Namnet måste vara minst 2 tecken');
       }
 
-      return ok(new User({
-        id: new UniqueId(),
+      const id = new UniqueId();
+      const now = new Date();
+
+      const user = new User({
         email: props.email,
         name: props.name,
         settings: props.settings,
@@ -47,9 +59,18 @@ export class User extends Entity<UserProps> {
         teamIds: props.teamIds || [],
         roleIds: props.roleIds || [],
         status: props.status || 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }));
+        createdAt: now,
+        updatedAt: now
+      }, id);
+
+      // Lägg till domänhändelse för användarskapande
+      user.addDomainEvent(new UserCreated(
+        id,
+        props.email,
+        props.name
+      ));
+
+      return ok(user);
     } catch (error) {
       return err(`Kunde inte skapa användare: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -83,15 +104,37 @@ export class User extends Entity<UserProps> {
     return this.props.status || 'pending';
   }
 
+  public get createdAt(): Date {
+    return this.props.createdAt;
+  }
+
+  public get updatedAt(): Date {
+    return this.props.updatedAt;
+  }
+
   public updateSettings(settings: UserSettings): Result<void, string> {
     this.props.settings = settings;
     this.props.updatedAt = new Date();
+
+    // Lägg till domänhändelse
+    this.addDomainEvent(new UserSettingsUpdated(
+      this.id,
+      { ...settings }
+    ));
+
     return ok(undefined);
   }
 
   public updateProfile(profile: UserProfile): Result<void, string> {
     this.props.profile = profile;
     this.props.updatedAt = new Date();
+
+    // Lägg till domänhändelse
+    this.addDomainEvent(new UserProfileUpdated(
+      this.id,
+      { ...profile }
+    ));
+
     return ok(undefined);
   }
 
@@ -101,6 +144,13 @@ export class User extends Entity<UserProps> {
     }
     this.props.teamIds.push(teamId);
     this.props.updatedAt = new Date();
+
+    // Lägg till domänhändelse
+    this.addDomainEvent(new UserTeamAdded(
+      this.id,
+      teamId
+    ));
+
     return ok(undefined);
   }
 
@@ -111,6 +161,13 @@ export class User extends Entity<UserProps> {
     }
     this.props.teamIds.splice(index, 1);
     this.props.updatedAt = new Date();
+
+    // Lägg till domänhändelse
+    this.addDomainEvent(new UserTeamRemoved(
+      this.id,
+      teamId
+    ));
+
     return ok(undefined);
   }
 
@@ -123,6 +180,13 @@ export class User extends Entity<UserProps> {
     }
     this.props.roleIds.push(roleId);
     this.props.updatedAt = new Date();
+
+    // Lägg till domänhändelse
+    this.addDomainEvent(new UserRoleAdded(
+      this.id,
+      roleId
+    ));
+
     return ok(undefined);
   }
 
@@ -136,12 +200,28 @@ export class User extends Entity<UserProps> {
     }
     this.props.roleIds.splice(index, 1);
     this.props.updatedAt = new Date();
+
+    // Lägg till domänhändelse
+    this.addDomainEvent(new UserRoleRemoved(
+      this.id,
+      roleId
+    ));
+
     return ok(undefined);
   }
 
   public updateStatus(newStatus: 'pending' | 'active' | 'inactive' | 'blocked'): Result<void, string> {
+    const oldStatus = this.props.status || 'pending';
     this.props.status = newStatus;
     this.props.updatedAt = new Date();
+
+    // Lägg till domänhändelse
+    this.addDomainEvent(new UserStatusChanged(
+      this.id,
+      oldStatus,
+      newStatus
+    ));
+
     return ok(undefined);
   }
 } 

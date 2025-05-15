@@ -1,315 +1,210 @@
-import { DomainEvent } from '@/shared/domain/DomainEvent';
+import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { User } from '../entities/User';
 import { UserProfile } from '../entities/UserProfile';
 import { UserSettings } from '../entities/UserSettings';
 
-export interface UserEventData {
-  userId: string;
-  occurredAt: Date;
-}
+/**
+ * BaseUserEvent
+ * 
+ * Abstrakt basklass för alla användar-relaterade domänevents
+ */
+export abstract class BaseUserEvent implements IDomainEvent {
+  public readonly eventId: UniqueId;
+  public readonly occurredAt: Date;
+  public readonly eventType: string;
+  public readonly aggregateId: string;
 
-export abstract class UserEvent implements DomainEvent {
-  public readonly dateTimeOccurred: Date;
-  public readonly aggregateId: UniqueId;
-  public readonly user: User;
-
-  constructor(user: User) {
-    this.dateTimeOccurred = new Date();
-    this.aggregateId = user.id;
-    this.user = user;
-  }
-
-  abstract get eventName(): string;
-  
-  get name(): string {
-    return this.eventName;
-  }
-  
-  get data(): UserEventData {
-    return {
-      userId: this.user.id.toString(),
-      occurredAt: this.dateTimeOccurred
-    };
+  constructor(eventType: string, userId: UniqueId) {
+    this.eventId = new UniqueId();
+    this.occurredAt = new Date();
+    this.eventType = eventType;
+    this.aggregateId = userId.toString();
   }
 }
 
-export class UserCreated extends UserEvent {
-  constructor(user: User) {
-    super(user);
-  }
-
-  get eventName(): string {
-    return 'user.created';
-  }
-}
-
-export class UserProfileUpdated extends UserEvent {
-  public readonly profile: UserProfile;
-
-  constructor(user: User) {
-    super(user);
-    this.profile = user.profile;
-  }
-
-  get eventName(): string {
-    return 'user.profile.updated';
-  }
-}
-
-export class UserSettingsUpdated extends UserEvent {
-  public readonly settings: UserSettings;
-
-  constructor(user: User) {
-    super(user);
-    this.settings = user.settings;
-  }
-
-  get eventName(): string {
-    return 'user.settings.updated';
-  }
-}
-
-export class UserRoleAdded extends UserEvent {
+export class UserCreated extends BaseUserEvent {
   constructor(
-    user: User,
-    public readonly roleId: UniqueId
+    public readonly userId: UniqueId,
+    public readonly email: string,
+    public readonly name: string
   ) {
-    super(user);
-  }
-
-  get eventName(): string {
-    return 'user.role.added';
+    super('UserCreated', userId);
   }
 }
 
-export class UserRoleRemoved extends UserEvent {
+export class UserActivated extends BaseUserEvent {
   constructor(
-    user: User,
-    public readonly roleId: UniqueId
+    public readonly userId: UniqueId,
+    public readonly activationReason: string = ''
   ) {
-    super(user);
-  }
-
-  get eventName(): string {
-    return 'user.role.removed';
+    super('UserActivated', userId);
   }
 }
 
-export class UserTeamJoined extends UserEvent {
+export class UserDeactivated extends BaseUserEvent {
   constructor(
-    user: User,
-    public readonly teamId: UniqueId
+    public readonly userId: UniqueId,
+    public readonly deactivationReason: string = ''
   ) {
-    super(user);
-  }
-
-  get eventName(): string {
-    return 'user.team.joined';
+    super('UserDeactivated', userId);
   }
 }
 
-export class UserTeamLeft extends UserEvent {
+export class UserProfileUpdated extends BaseUserEvent {
   constructor(
-    user: User,
-    public readonly teamId: UniqueId
+    public readonly userId: UniqueId,
+    public readonly profileData: Record<string, any>
   ) {
-    super(user);
-  }
-
-  get eventName(): string {
-    return 'user.team.left';
+    super('UserProfileUpdated', userId);
   }
 }
 
-export class UserStatusChanged extends UserEvent {
+export class UserSettingsUpdated extends BaseUserEvent {
   constructor(
-    user: User,
+    public readonly userId: UniqueId,
+    public readonly settingsData: Record<string, any>
+  ) {
+    super('UserSettingsUpdated', userId);
+  }
+}
+
+export class UserTeamAdded extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly teamId: string
+  ) {
+    super('UserTeamAdded', userId);
+  }
+}
+
+export class UserTeamRemoved extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly teamId: string
+  ) {
+    super('UserTeamRemoved', userId);
+  }
+}
+
+export class UserRoleAdded extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly roleId: string
+  ) {
+    super('UserRoleAdded', userId);
+  }
+}
+
+export class UserRoleRemoved extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly roleId: string
+  ) {
+    super('UserRoleRemoved', userId);
+  }
+}
+
+export class UserStatusChanged extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
     public readonly oldStatus: string,
     public readonly newStatus: string
   ) {
-    super(user);
-  }
-
-  get eventName(): string {
-    return 'user.status.changed';
+    super('UserStatusChanged', userId);
   }
 }
 
-// Nya händelser för användaraktivering och konto
-
-export class UserActivated extends UserEvent {
-  public readonly activationReason: string;
-
-  constructor(user: User, activationReason: string = '') {
-    super(user);
-    this.activationReason = activationReason;
-  }
-
-  get eventName(): string {
-    return 'user.activated';
-  }
-  
-  get name(): string {
-    return 'user.account.activated';
-  }
-  
-  get data(): UserEventData {
-    return {
-      userId: this.user.id.toString(),
-      occurredAt: this.dateTimeOccurred
-    };
-  }
-}
-
-export class UserDeactivated extends UserEvent {
-  public readonly deactivationReason: string;
-
-  constructor(user: User, deactivationReason: string = '') {
-    super(user);
-    this.deactivationReason = deactivationReason;
-  }
-
-  get eventName(): string {
-    return 'user.deactivated';
-  }
-  
-  get name(): string {
-    return 'user.account.deactivated';
-  }
-  
-  get data(): UserEventData {
-    return {
-      userId: this.user.id.toString(),
-      occurredAt: this.dateTimeOccurred
-    };
-  }
-}
-
-export class UserDeleted extends UserEvent {
-  constructor(user: User) {
-    super(user);
-  }
-
-  get eventName(): string {
-    return 'user.deleted';
-  }
-}
-
-// Händelser för privacy och säkerhet
-
-export class UserPrivacySettingsChanged extends UserEvent {
-  public readonly privacy: Record<string, any>;
-
-  constructor(user: User, privacy: Record<string, any>) {
-    super(user);
-    this.privacy = privacy;
-  }
-
-  get eventName(): string {
-    return 'user.privacy_settings.changed';
-  }
-}
-
-export class UserNotificationSettingsChanged extends UserEvent {
-  public readonly notifications: Record<string, any>;
-  public readonly oldSettings: Record<string, any>;
-  public readonly newSettings: Record<string, any>;
-
+export class UserTeamJoined extends BaseUserEvent {
   constructor(
-    user: User, 
-    notifications: Record<string, any>,
-    oldSettings: Record<string, any>,
-    newSettings: Record<string, any>
+    public readonly userId: UniqueId,
+    public readonly teamId: string
   ) {
-    super(user);
-    this.notifications = notifications;
-    this.oldSettings = oldSettings;
-    this.newSettings = newSettings;
-  }
-
-  get eventName(): string {
-    return 'user.notification_settings.changed';
+    super('UserTeamJoined', userId);
   }
 }
 
-export class UserSecurityEvent extends UserEvent {
-  public readonly securityEvent: string;
-  public readonly metadata?: Record<string, any>;
-  public readonly eventType: string;
-
+export class UserTeamLeft extends BaseUserEvent {
   constructor(
-    user: User, 
-    securityEvent: string, 
-    metadata?: Record<string, any>
+    public readonly userId: UniqueId,
+    public readonly teamId: string
   ) {
-    super(user);
-    this.securityEvent = securityEvent;
-    this.eventType = securityEvent;
-    this.metadata = metadata;
-  }
-
-  get eventName(): string {
-    return `user.security.${this.securityEvent}`;
+    super('UserTeamLeft', userId);
   }
 }
 
-// Händelser för statistik och beteende
-
-export class UserStatisticsUpdated extends UserEvent {
-  public readonly statistics: Record<string, any>;
-
-  constructor(user: User, statistics: Record<string, any>) {
-    super(user);
-    this.statistics = statistics;
-  }
-
-  get eventName(): string {
-    return 'user.statistics.updated';
+export class UserDeleted extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId
+  ) {
+    super('UserDeleted', userId);
   }
 }
 
-export class UserAchievementUnlocked extends UserEvent {
-  public readonly achievement: Record<string, any>;
-
-  constructor(user: User, achievement: Record<string, any>) {
-    super(user);
-    this.achievement = achievement;
-  }
-
-  get eventName(): string {
-    return 'user.achievement.unlocked';
+export class UserPrivacySettingsChanged extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly privacy: Record<string, any>
+  ) {
+    super('UserPrivacySettingsChanged', userId);
   }
 }
 
-// Händelser för teamsrelaterade aktiviteter (utökade)
-
-export class UserTeamRoleChanged extends UserEvent {
-  public readonly teamId: UniqueId;
-  public readonly role: string;
-
-  constructor(user: User, teamId: UniqueId, role: string) {
-    super(user);
-    this.teamId = teamId;
-    this.role = role;
-  }
-
-  get eventName(): string {
-    return 'user.team.role_changed';
+export class UserNotificationSettingsChanged extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly notifications: Record<string, any>,
+    public readonly oldSettings: Record<string, any>,
+    public readonly newSettings: Record<string, any>
+  ) {
+    super('UserNotificationSettingsChanged', userId);
   }
 }
 
-export class UserTeamInvited extends UserEvent {
-  public readonly teamId: UniqueId;
-  public readonly inviterId: UniqueId;
-
-  constructor(user: User, teamId: UniqueId, inviterId: UniqueId) {
-    super(user);
-    this.teamId = teamId;
-    this.inviterId = inviterId;
+export class UserSecurityEvent extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly securityEvent: string,
+    public readonly metadata?: Record<string, any>
+  ) {
+    super('UserSecurityEvent', userId);
   }
+}
 
-  get eventName(): string {
-    return 'user.team.invited';
+export class UserStatisticsUpdated extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly statistics: Record<string, any>
+  ) {
+    super('UserStatisticsUpdated', userId);
+  }
+}
+
+export class UserAchievementUnlocked extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly achievement: Record<string, any>
+  ) {
+    super('UserAchievementUnlocked', userId);
+  }
+}
+
+export class UserTeamRoleChanged extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly teamId: UniqueId,
+    public readonly role: string
+  ) {
+    super('UserTeamRoleChanged', userId);
+  }
+}
+
+export class UserTeamInvited extends BaseUserEvent {
+  constructor(
+    public readonly userId: UniqueId,
+    public readonly teamId: UniqueId,
+    public readonly inviterId: UniqueId
+  ) {
+    super('UserTeamInvited', userId);
   }
 } 

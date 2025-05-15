@@ -135,11 +135,11 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [ ] Implementera mappers mellan domänentiteter och DTOs
 
 ### 3.3 Hooks
-- [ ] Definiera standardstruktur för hooks
-- [ ] Implementera team-relaterade hooks
-- [ ] Implementera user-relaterade hooks
-- [ ] Säkerställ korrekt hantering av laddning och fel
-- [ ] Abstrahera React Query-logik för konsekvent användning
+- [x] Definiera standardstruktur för hooks
+- [x] Implementera team-relaterade hooks
+- [x] Implementera user-relaterade hooks
+- [x] Säkerställ korrekt hantering av laddning och fel
+- [x] Abstrahera React Query-logik för konsekvent användning
 
 ### 3.4 Queries
 - [ ] Identifiera behov av specialiserade queries
@@ -218,7 +218,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 6. ~~Implementera event handlers för team-relaterade domänevents~~
 7. ~~Implementera hooks för att använda de refaktorerade use cases~~
 8. Utöka hooks-implementationen med ytterligare beteenden och förbättrad felhantering
-9. Implementera standardiserade hooks för user-domänen
+9. ~~Implementera standardiserade hooks för user-domänen~~
 10. Förbättra providers med fler domäner och tydliga gränssnitt
 11. Skapa fullständig testning för hooks och providers
 12. [PAUSAD] UI-integration med de nya hooksen - flyttad till senare fas
@@ -234,6 +234,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 5. ~~Domäntjänster och Domänevents (Fas 2.5, 2.6)~~ ✓
    - ~~Event handlers~~ ✓
 6. ~~Hooks (Fas 3.3)~~ ✓
+   - ~~Standardiserade hooks för team och user~~ ✓
    - Vidareutveckling av hooks och providers (Fokus i nästa fas)
 7. [PAUSAD] UI-integration (Fas 5) - flyttad till senare fas
 8. Testning och Dokumentation (Fas 6) - Delvis genomfört ✓

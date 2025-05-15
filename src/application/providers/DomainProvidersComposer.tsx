@@ -1,5 +1,6 @@
 import React, { ReactNode, useEffect } from 'react';
 import { TeamContextProvider } from '../team/hooks/useTeamContext';
+import { UserContextProvider } from '../user/hooks/useUserContext';
 import { SupabaseTeamRepository } from '@/infrastructure/supabase/repositories/TeamRepository';
 import { SupabaseUserRepository } from '@/infrastructure/supabase/repositories/UserRepository';
 import { SupabaseTeamActivityRepository } from '@/infrastructure/supabase/repositories/TeamActivityRepository';
@@ -58,8 +59,13 @@ export function DomainProvidersComposer({ children, supabaseClient }: DomainProv
       teamActivityRepository={teamActivityRepository}
       eventPublisher={eventPublisher}
     >
-      {/* Andra domänproviders läggs till här */}
-      {children}
+      <UserContextProvider
+        userRepository={userRepository}
+        eventPublisher={eventPublisher}
+      >
+        {/* Andra domänproviders läggs till här */}
+        {children}
+      </UserContextProvider>
     </TeamContextProvider>
   );
 } 

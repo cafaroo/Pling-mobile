@@ -9,6 +9,8 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
 1. **Standardiserade React-Hooks** - Implementerat hooks enligt DDD-principer:
    - Skapat `useTeamStandardized` hook som använder alla refaktorerade use cases
    - Implementerat `useTeamContext` för att tillhandahålla beroenden via React Context API
+   - Skapat `useUserWithStandardHook` för standardiserad hantering av användardomänen
+   - Implementerat `useUserContext` för beroendeinjicering av användarrelaterade komponenter
    - Integrerat React Query för effektiv data-fetching och caching
    - Skapat `DomainProvidersComposer` för att konfigurera alla domänberoenden
    - Implementerat testning av hooks med React Testing Library

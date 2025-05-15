@@ -249,7 +249,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
     - [x] Implementera standardiserade event-basklasser för alla domäner
     - [x] Implementera validering av invarianter i aggregatrötter
     - [x] Slutför refaktorering av events för Team-domänen
-    - [ ] Slutför refaktorering av events för User-domänen (påbörjat)
+    - [x] Slutför refaktorering av events för User-domänen
     - [ ] Slutför refaktorering av events för Organization-domänen (påbörjat)
     - [ ] Komplettera testning av invarianter och event-publicering
 16. [ ] Skapa visualiseringar för domänmodellen

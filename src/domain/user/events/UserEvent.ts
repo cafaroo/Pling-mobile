@@ -1,9 +1,23 @@
 import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
-import { UniqueId } from '@/shared/domain/UniqueId';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { User } from '../entities/User';
 import { UserProfile } from '../value-objects/UserProfile';
 import { UserSettings } from '../entities/UserSettings';
 import { Email } from '../value-objects/Email';
+
+// Importera de nya standardiserade eventklasserna
+import { UserCreatedEvent } from './UserCreatedEvent';
+import { UserProfileUpdatedEvent } from './UserProfileUpdatedEvent';
+import { UserSettingsUpdatedEvent } from './UserSettingsUpdatedEvent';
+import { UserStatusChangedEvent } from './UserStatusChangedEvent';
+import { UserTeamAddedEvent } from './UserTeamAddedEvent';
+import { UserTeamRemovedEvent } from './UserTeamRemovedEvent';
+import { UserRoleAddedEvent } from './UserRoleAddedEvent';
+import { UserRoleRemovedEvent } from './UserRoleRemovedEvent';
+import { UserActivatedEvent } from './UserActivatedEvent';
+import { UserDeactivatedEvent } from './UserDeactivatedEvent';
+import { UserNotificationSettingsChangedEvent } from './UserNotificationSettingsChangedEvent';
+import { UserSecurityEventOccurredEvent } from './UserSecurityEventOccurredEvent';
 
 /**
  * UserEventData
@@ -59,9 +73,8 @@ export abstract class BaseUserEvent implements IDomainEvent {
 }
 
 /**
- * UserCreated
- * 
- * Event som publiceras när en ny användare skapas
+ * @deprecated Använd standardiserade UserCreatedEvent istället
+ * @see UserCreatedEvent
  */
 export class UserCreated extends BaseUserEvent {
   constructor(
@@ -69,7 +82,7 @@ export class UserCreated extends BaseUserEvent {
     email?: string,
     name?: string
   ) {
-    const additionalData = {};
+    const additionalData: Record<string, any> = {};
     
     // Lägg bara till dessa värden om de skickades in separat (och inte via User-objektet)
     if (email) additionalData['email'] = email;
@@ -80,9 +93,8 @@ export class UserCreated extends BaseUserEvent {
 }
 
 /**
- * UserActivated
- * 
- * Event som publiceras när en användare aktiveras
+ * @deprecated Använd standardiserade UserActivatedEvent istället
+ * @see UserActivatedEvent
  */
 export class UserActivated extends BaseUserEvent {
   public readonly activationReason: string;
@@ -97,9 +109,8 @@ export class UserActivated extends BaseUserEvent {
 }
 
 /**
- * UserDeactivated
- * 
- * Event som publiceras när en användare inaktiveras
+ * @deprecated Använd standardiserade UserDeactivatedEvent istället
+ * @see UserDeactivatedEvent
  */
 export class UserDeactivated extends BaseUserEvent {
   public readonly deactivationReason: string;
@@ -114,9 +125,8 @@ export class UserDeactivated extends BaseUserEvent {
 }
 
 /**
- * UserProfileUpdated
- * 
- * Event som publiceras när en användares profil uppdateras
+ * @deprecated Använd standardiserade UserProfileUpdatedEvent istället
+ * @see UserProfileUpdatedEvent
  */
 export class UserProfileUpdated extends BaseUserEvent {
   constructor(
@@ -128,9 +138,8 @@ export class UserProfileUpdated extends BaseUserEvent {
 }
 
 /**
- * UserSettingsUpdated
- * 
- * Event som publiceras när en användares inställningar uppdateras
+ * @deprecated Använd standardiserade UserSettingsUpdatedEvent istället
+ * @see UserSettingsUpdatedEvent
  */
 export class UserSettingsUpdated extends BaseUserEvent {
   constructor(
@@ -142,9 +151,8 @@ export class UserSettingsUpdated extends BaseUserEvent {
 }
 
 /**
- * UserTeamAdded
- * 
- * Event som publiceras när en användare läggs till i ett team
+ * @deprecated Använd standardiserade UserTeamAddedEvent istället
+ * @see UserTeamAddedEvent
  */
 export class UserTeamAdded extends BaseUserEvent {
   constructor(
@@ -156,9 +164,8 @@ export class UserTeamAdded extends BaseUserEvent {
 }
 
 /**
- * UserTeamRemoved
- * 
- * Event som publiceras när en användare tas bort från ett team
+ * @deprecated Använd standardiserade UserTeamRemovedEvent istället
+ * @see UserTeamRemovedEvent
  */
 export class UserTeamRemoved extends BaseUserEvent {
   constructor(
@@ -170,9 +177,8 @@ export class UserTeamRemoved extends BaseUserEvent {
 }
 
 /**
- * UserRoleAdded
- * 
- * Event som publiceras när en användare tilldelas en roll
+ * @deprecated Använd standardiserade UserRoleAddedEvent istället
+ * @see UserRoleAddedEvent
  */
 export class UserRoleAdded extends BaseUserEvent {
   constructor(
@@ -184,9 +190,8 @@ export class UserRoleAdded extends BaseUserEvent {
 }
 
 /**
- * UserRoleRemoved
- * 
- * Event som publiceras när en roll tas bort från en användare
+ * @deprecated Använd standardiserade UserRoleRemovedEvent istället
+ * @see UserRoleRemovedEvent
  */
 export class UserRoleRemoved extends BaseUserEvent {
   constructor(
@@ -198,9 +203,8 @@ export class UserRoleRemoved extends BaseUserEvent {
 }
 
 /**
- * UserStatusChanged
- * 
- * Event som publiceras när en användares status ändras
+ * @deprecated Använd standardiserade UserStatusChangedEvent istället
+ * @see UserStatusChangedEvent
  */
 export class UserStatusChanged extends BaseUserEvent {
   constructor(
@@ -268,9 +272,8 @@ export class UserPrivacySettingsChanged extends BaseUserEvent {
 }
 
 /**
- * UserNotificationSettingsChanged
- * 
- * Event som publiceras när en användares notifikationsinställningar ändras
+ * @deprecated Använd standardiserade UserNotificationSettingsChangedEvent istället
+ * @see UserNotificationSettingsChangedEvent
  */
 export class UserNotificationSettingsChanged extends BaseUserEvent {
   constructor(
@@ -288,9 +291,8 @@ export class UserNotificationSettingsChanged extends BaseUserEvent {
 }
 
 /**
- * UserSecurityEvent
- * 
- * Event som publiceras för säkerhetsrelaterade händelser (inloggning, lösenordsbyte, etc.)
+ * @deprecated Använd standardiserade UserSecurityEventOccurredEvent istället
+ * @see UserSecurityEventOccurredEvent
  */
 export class UserSecurityEvent extends BaseUserEvent {
   constructor(

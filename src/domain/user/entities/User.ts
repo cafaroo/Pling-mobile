@@ -5,10 +5,8 @@ import { UserSettings } from './UserSettings';
 import { UserProfile } from '../value-objects/UserProfile';
 import { Email } from '../value-objects/Email';
 import { PhoneNumber } from '../value-objects/PhoneNumber';
-import {
-  UserRoleAdded,
-  UserRoleRemoved
-} from '../events/UserEvent';
+import { UserRoleAddedEvent } from '../events/UserRoleAddedEvent';
+import { UserRoleRemovedEvent } from '../events/UserRoleRemovedEvent';
 import { UserCreatedEvent } from '../events/UserCreatedEvent';
 import { UserProfileUpdatedEvent } from '../events/UserProfileUpdatedEvent';
 import { UserSettingsUpdatedEvent } from '../events/UserSettingsUpdatedEvent';
@@ -399,9 +397,9 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new UserRoleAdded(
-        this.id,
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new UserRoleAddedEvent(
+        this,
         roleId
       ));
 
@@ -433,9 +431,9 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Publicera domänhändelse
-      this.addDomainEvent(new UserRoleRemoved(
-        this.id,
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new UserRoleRemovedEvent(
+        this,
         roleId
       ));
 

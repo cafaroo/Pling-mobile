@@ -41,21 +41,28 @@ Vi har gjort betydande framsteg i förbättringen av aggregatgränser och domän
      - `BaseTeamEvent` för alla teamrelaterade events
      - `BaseUserEvent` för alla användarrelaterade events
    - Skapat nya standardiserade event-klasser:
-     - `OrganizationCreatedEvent` och `OrganizationMemberJoinedEvent` 
-     - `TeamCreatedEvent`, `TeamMemberJoinedEvent`, `TeamMemberLeftEvent` och `TeamMemberRoleChangedEvent`
-     - `UserCreatedEvent` och `UserProfileUpdatedEvent`
+     - För Organization-domänen: `OrganizationCreatedEvent`, `OrganizationMemberJoinedEvent`, `OrganizationMemberLeftEvent`, `OrganizationMemberRoleChangedEvent`, `TeamAddedToOrganizationEvent`, `TeamRemovedFromOrganizationEvent`, `OrganizationMemberInvitedEvent`, `OrganizationInvitationAcceptedEvent`, `OrganizationInvitationDeclinedEvent`
+     - För Team-domänen: `TeamCreatedEvent`, `TeamMemberJoinedEvent`, `TeamMemberLeftEvent`, `TeamMemberRoleChangedEvent`
+     - För User-domänen: `UserCreatedEvent`, `UserProfileUpdatedEvent`, `UserSettingsUpdatedEvent`, `UserStatusChangedEvent`, `UserTeamAddedEvent`, `UserTeamRemovedEvent`, `UserRoleAddedEvent`, `UserRoleRemovedEvent`, `UserActivatedEvent`, `UserDeactivatedEvent`, `UserNotificationSettingsChangedEvent`, `UserSecurityEventOccurredEvent`
    - Uppdaterat entitetsklasser för att använda de nya event-klasserna:
+     - `Organization.ts` - Ersatt gamla events med nya standardiserade
      - `Team.ts` - Ersatt gamla events med nya standardiserade
-     - `Organization.ts` - Påbörjat ersättning av gamla events
-     - `User.ts` - Påbörjat ersättning av gamla events
+     - `User.ts` - Slutfört ersättning av gamla events med nya standardiserade
    - Implementerat robust validering av invarianter
      - Skapat `validateInvariants()`-metod i alla aggregatrötter
      - Säkerställt att invariantvalidering körs efter alla tillståndsförändringar
      - Implementerat kontroller för aggregatregler som ägarskap, medlemsgränser och unika roller
    - Förbättrat typning och felhantering i hela event-flödet
    - Säkerställt att repositories publicerar events korrekt från aggregatrötter
+   - Markerat gamla eventklasser som deprecated för enklare migrering och bakåtkompatibilitet
 
-Dessa förbättringar ger oss en solid grund för att fortsätta arbetet med att refaktorera entiteter och säkerställa konsekvent användning av domänevents i hela kodbasen. Vår Team-domän har nu fullt standardiserade events, och vi har påbörjat samma refaktorering för User- och Organization-domänerna.
+6. **Test och verifiering**
+   - Implementerat omfattande tester för Organization- och User-aggregaten
+   - Skapat en återanvändbar testhjälpare (`eventTestHelper.ts`) för att testa domänevents och invarianter
+   - Uppdaterat existerande tester för att använda de nya standardiserade eventklasserna
+   - Implementerat tester för att validera invarianter och korrekt event-publicering
+
+Dessa förbättringar ger oss en solid grund för att fortsätta arbetet med att refaktorera entiteter och säkerställa konsekvent användning av domänevents i hela kodbasen. Vi har nu fullt standardiserade events för Organization-, Team- och User-domänerna, vilket kompletterar den grundläggande eventstrukturen i systemet.
 
 # Framstegsrapport för DDD-implementation
 

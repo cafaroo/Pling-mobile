@@ -1,8 +1,10 @@
 import React, { ReactNode, useEffect } from 'react';
 import { TeamContextProvider } from '../team/hooks/useTeamContext';
 import { UserContextProvider } from '../user/hooks/useUserContext';
+import { OrganizationContextProvider } from '../organization/hooks/useOrganizationContext';
 import { SupabaseTeamRepository } from '@/infrastructure/supabase/repositories/TeamRepository';
 import { SupabaseUserRepository } from '@/infrastructure/supabase/repositories/UserRepository';
+import { SupabaseOrganizationRepository } from '@/infrastructure/supabase/repositories/OrganizationRepository';
 import { SupabaseTeamActivityRepository } from '@/infrastructure/supabase/repositories/TeamActivityRepository';
 import { DomainEventHandlerInitializer } from '@/infrastructure/events/DomainEventHandlers';
 import { DefaultLogger } from '@/infrastructure/logger/DefaultLogger';
@@ -30,6 +32,7 @@ export function DomainProvidersComposer({ children, supabaseClient }: DomainProv
   // Skapa repositories
   const teamRepository = new SupabaseTeamRepository(supabaseClient);
   const userRepository = new SupabaseUserRepository(supabaseClient);
+  const organizationRepository = new SupabaseOrganizationRepository(supabaseClient);
   const teamActivityRepository = new SupabaseTeamActivityRepository(supabaseClient);
   
   // Skapa och konfigurera event handlers via eventPublisher
@@ -63,8 +66,13 @@ export function DomainProvidersComposer({ children, supabaseClient }: DomainProv
         userRepository={userRepository}
         eventPublisher={eventPublisher}
       >
-        {/* Andra domänproviders läggs till här */}
-        {children}
+        <OrganizationContextProvider
+          organizationRepository={organizationRepository}
+          eventPublisher={eventPublisher}
+        >
+          {/* Andra domänproviders läggs till här */}
+          {children}
+        </OrganizationContextProvider>
       </UserContextProvider>
     </TeamContextProvider>
   );

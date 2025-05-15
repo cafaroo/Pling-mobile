@@ -219,7 +219,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 7. ~~Implementera hooks för att använda de refaktorerade use cases~~
 8. Utöka hooks-implementationen med ytterligare beteenden och förbättrad felhantering
 9. ~~Implementera standardiserade hooks för user-domänen~~
-10. Förbättra providers med fler domäner och tydliga gränssnitt
+10. ~~Förbättra providers med fler domäner och tydliga gränssnitt~~
 11. Skapa fullständig testning för hooks och providers
 12. [PAUSAD] UI-integration med de nya hooksen - flyttad till senare fas
 

@@ -11,8 +11,10 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
    - Implementerat `useTeamContext` för att tillhandahålla beroenden via React Context API
    - Skapat `useUserWithStandardHook` för standardiserad hantering av användardomänen
    - Implementerat `useUserContext` för beroendeinjicering av användarrelaterade komponenter
+   - Skapat `useOrganizationWithStandardHook` för hantering av organisationsdomänen
+   - Implementerat `useOrganizationContext` för beroendeinjicering av organisationsrelaterade komponenter
    - Integrerat React Query för effektiv data-fetching och caching
-   - Skapat `DomainProvidersComposer` för att konfigurera alla domänberoenden
+   - Utökat `DomainProvidersComposer` för att hantera team-, user- och organisations-providers
    - Implementerat testning av hooks med React Testing Library
    - Gradvis ersättningsstrategi för att migrera från gamla hooks
    - Konsekvent hantering av laddningstillstånd och felhantering

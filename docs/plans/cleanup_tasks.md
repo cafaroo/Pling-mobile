@@ -40,6 +40,13 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [x] CreateTeamActivityUseCase
   - [x] CreateTeamMessageUseCase
   - [x] CreateThreadReplyUseCase
+- [x] Refaktorerat user-relaterade use cases:
+  - [x] CreateUserUseCase
+  - [x] UpdateProfileUseCase
+  - [x] DeactivateUserUseCase
+  - [ ] ActivateUserUseCase
+  - [ ] UpdateSettingsUseCase
+  - [ ] UpdatePrivacySettingsUseCase
 
 ### Testning
 - [x] Exporterat testmockar via `test-utils/index.ts` för enkel tillgång.
@@ -111,14 +118,18 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Refaktorera team-relaterade use cases
   - [x] Refaktorera grundläggande team use cases (createTeam, addTeamMember, removeTeamMember, updateTeamMemberRole, inviteTeamMember)
   - [x] Refaktorera återstående team use cases (getTeamStatistics, getTeamActivities, createTeamActivity, createTeamMessage, createThreadReply)
-- [ ] Refaktorera user-relaterade use cases
+- [ ] Refaktorera user-relaterade use cases - Delvis genomfört ✓
+  - [x] CreateUserUseCase
+  - [x] UpdateProfileUseCase
+  - [x] DeactivateUserUseCase
+  - [ ] Refaktorera återstående user use cases (activateUser, updateSettings, updatePrivacySettings)
 - [x] Säkerställ korrekt felhantering med Result-typen
 - [x] Implementera tydlig beroendehantering
 
 ### 3.2 DTOs
 - [x] Definiera standard för DTOs
 - [x] Skapa DTOs för team-relaterad data
-- [ ] Skapa DTOs för user-relaterad data
+- [ ] Skapa DTOs för user-relaterad data - Delvis genomfört ✓
 - [ ] Implementera mappers mellan domänentiteter och DTOs
 
 ### 3.3 Hooks
@@ -201,8 +212,8 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 2. ~~Refaktorera domänevents för att implementera IDomainEvent~~
 3. ~~Förbättra domäntestning med den nya strukturen~~
 4. ~~Slutför refaktorering av team-relaterade use cases~~
-5. Implementera event handlers för team-relaterade domänevents
-6. Refaktorera user-relaterade use cases med standardiserad struktur
+5. Slutför refaktorering av user-relaterade use cases
+6. Implementera event handlers för team-relaterade domänevents
 
 ## Prioriteringsordning
 
@@ -211,7 +222,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 3. ~~Repositories (Fas 2.4, 4.1)~~ ✓
 4. Use Cases och Hooks (Fas 3.1, 3.3) - Delvis genomfört ✓
    - ~~Team-relaterade use cases~~ ✓
-   - User-relaterade use cases
+   - User-relaterade use cases - Delvis genomfört ✓
 5. Domäntjänster och Domänevents (Fas 2.5, 2.6) - Delvis genomfört ✓
    - Event handlers
 6. UI-integration (Fas 5)

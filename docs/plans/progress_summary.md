@@ -42,6 +42,15 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
    - Säkerställt korrekt domäneventshantering genom IDomainEventPublisher
    - Tillämpat factory-mönster för enklare instansiering och beroendehantering
 
+2. **User Use Cases** - Refaktorerat user-relaterade use cases för att följa samma standardiserade mönster:
+   - Refaktorerat CreateUserUseCase med klass-baserad design och domäneventshantering 
+   - Refaktorerat UpdateProfileUseCase med förbättrad DTO-struktur och typade felkoder
+   - Refaktorerat DeactivateUserUseCase med standardiserad felhantering och domäneventshantering
+   - Eliminerat duplikatimplementation (UpdateProfileUseCase vs updateProfile)
+   - Standardiserat returntyper med tydliga response-objekt
+   - Implementerat factory-mönster för konsekvent instansiering
+   - Säkerställt korrekt användning av Result-typen med typade felkoder
+
 ### Domänlagret
 1. **TeamStatistics** - Eliminerat duplicerad kod genom att extrahera den gemensamma logiken till hjälpmetoden `createStatisticsFromData`, vilket förbättrar både underhållbarhet och testbarhet.
    
@@ -97,9 +106,9 @@ Förbättrat testbarhet genom:
 ## Nästa steg
 Baserat på den uppdaterade uppgiftslistan i `cleanup_tasks.md` kommer vi att fokusera på:
 
-1. Refaktorera user-relaterade use cases enligt den etablerade strukturen
-2. Fortsätta standardisera övriga delar av applikationslagret
-3. Implementera event handlers för team-relaterade domänevents
+1. Slutföra refaktorering av user-relaterade use cases (activateUser, updateSettings, updatePrivacySettings)
+2. Implementera event handlers för team-relaterade domänevents 
+3. Förbättra hooks-implementationen med konsekvent hantering av laddningstillstånd och felhantering
 4. Refaktorera UI-lagret för att använda de nya standardiserade hooks och DTOs
 5. Förbättra dokumentationen kring arkitekturen och use case-implementation
 

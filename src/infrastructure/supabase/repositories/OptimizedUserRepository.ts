@@ -267,7 +267,7 @@ export class OptimizedUserRepository implements UserRepository {
               });
               
               // Cacha också per ID för att upprätthålla konsistens
-              const user = result.getValue();
+              const user = result.value;
               this.cacheService.set(`${this.cacheKeyPrefix}_${user.id.toString()}`, result).catch(error => {
                 this.logger.error(`Fel vid cachning: ${error}`);
               });

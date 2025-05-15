@@ -135,9 +135,9 @@ export class SupabaseTeamGoalRepository implements TeamGoalRepository {
       // Publicera domänhändelser
       goal.domainEvents.forEach(event => this.eventPublisher.publish(event));
       
-      return Result.success(undefined);
+      return ok(undefined);
     } catch (error) {
-      return Result.failure(error as Error);
+      return err(error as Error);
     }
   }
 
@@ -150,12 +150,12 @@ export class SupabaseTeamGoalRepository implements TeamGoalRepository {
         .single();
 
       if (error) throw error;
-      if (!goal) return Result.success(null);
+      if (!goal) return ok(null);
 
       const assignments = await this.getAssignments(goal.id);
-      return Result.success(this.mapRowToEntity(goal, assignments));
+      return ok(this.mapRowToEntity(goal, assignments));
     } catch (error) {
-      return Result.failure(error as Error);
+      return err(error as Error);
     }
   }
 
@@ -175,9 +175,9 @@ export class SupabaseTeamGoalRepository implements TeamGoalRepository {
         })
       );
 
-      return Result.success(goalsWithAssignments);
+      return ok(goalsWithAssignments);
     } catch (error) {
-      return Result.failure(error as Error);
+      return err(error as Error);
     }
   }
 
@@ -233,9 +233,9 @@ export class SupabaseTeamGoalRepository implements TeamGoalRepository {
         })
       );
 
-      return Result.success(goalsWithAssignments);
+      return ok(goalsWithAssignments);
     } catch (error) {
-      return Result.failure(error as Error);
+      return err(error as Error);
     }
   }
 
@@ -247,9 +247,9 @@ export class SupabaseTeamGoalRepository implements TeamGoalRepository {
         .eq('id', id.toString());
 
       if (error) throw error;
-      return Result.success(undefined);
+      return ok(undefined);
     } catch (error) {
-      return Result.failure(error as Error);
+      return err(error as Error);
     }
   }
 
@@ -292,9 +292,9 @@ export class SupabaseTeamGoalRepository implements TeamGoalRepository {
         })
       );
 
-      return Result.success(goalsWithAssignments);
+      return ok(goalsWithAssignments);
     } catch (error) {
-      return Result.failure(error as Error);
+      return err(error as Error);
     }
   }
 
@@ -327,9 +327,9 @@ export class SupabaseTeamGoalRepository implements TeamGoalRepository {
         averageProgress: goals.reduce((acc, g) => acc + g.progress, 0) / goals.length || 0
       };
 
-      return Result.success(stats);
+      return ok(stats);
     } catch (error) {
-      return Result.failure(error as Error);
+      return err(error as Error);
     }
   }
 } 

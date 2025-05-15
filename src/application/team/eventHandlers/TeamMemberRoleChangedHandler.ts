@@ -1,6 +1,6 @@
 import { TeamMemberRoleChanged } from '@/domain/team/events/TeamEvents';
 import { BaseEventHandler } from './BaseEventHandler';
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 
@@ -35,19 +35,19 @@ export class TeamMemberRoleChangedHandler extends BaseEventHandler<TeamMemberRol
     try {
       // 1. Hämta information om teamet
       const teamResult = await this.teamRepository.findById(event.teamId);
-      if (teamResult.isFailure) {
-        return Result.fail(`Kunde inte hitta teamet: ${teamResult.error}`);
+      if (teamResult.isErr()) {
+        return err(`Kunde inte hitta teamet: ${teamResult.error}`);
       }
       
-      const team = teamResult.getValue();
+      const team = teamResult.value;
       
       // 2. Hämta information om användaren
       const userResult = await this.userRepository.findById(event.userId);
-      if (userResult.isFailure) {
-        return Result.fail(`Kunde inte hitta användaren: ${userResult.error}`);
+      if (userResult.isErr()) {
+        return err(`Kunde inte hitta användaren: ${userResult.error}`);
       }
       
-      const user = userResult.getValue();
+      const user = userResult.value;
       
       // 3. Uppdatera användarens teammembership med den nya rollen om behövs
       // (Detta kan vara redundant om teamet redan har uppdaterat rollen,
@@ -61,9 +61,9 @@ export class TeamMemberRoleChangedHandler extends BaseEventHandler<TeamMemberRol
       // Loggning för att visualisera att handlern körs
       console.log(`TeamMemberRoleChangedHandler: Användare ${event.userId} fick ny roll i team ${event.teamId}: ${event.oldRole.value} -> ${event.newRole.value}`);
       
-      return Result.ok();
+      return ok();
     } catch (error) {
-      return Result.fail(`Fel vid hantering av TeamMemberRoleChanged event: ${error}`);
+      return err(`Fel vid hantering av TeamMemberRoleChanged event: ${error}`);
     }
   }
 } 

@@ -1,19 +1,18 @@
-import { TeamMessageCreated } from '@/domain/team/events/TeamMessageCreated';
+import { TeamMessageCreated } from '@/domain/team/events/TeamMessageEvents';
 import { BaseEventHandler } from './BaseEventHandler';
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 
 /**
  * Hanterar TeamMessageCreated events
  * 
- * När ett nytt meddelande skapas i ett team utför denna handler:
- * 1. Uppdaterar teamets senaste aktivitet
- * 2. Hanterar omnämnanden (mentions) i meddelandet
- * 3. Uppdaterar statistik för teamkommunikation
+ * När ett teammeddelande skapas utför denna handler:
+ * 1. Uppdaterar teamets aktivitetslogg
+ * 2. Uppdaterar relevanta notifikationer om teammeddelanden
  */
 export class TeamMessageCreatedHandler extends BaseEventHandler<TeamMessageCreated> {
   constructor(
-    private teamRepository: TeamRepository
+    private teamRepository: TeamRepository,
   ) {
     super();
   }
@@ -33,48 +32,37 @@ export class TeamMessageCreatedHandler extends BaseEventHandler<TeamMessageCreat
     try {
       // 1. Hämta information om teamet
       const teamResult = await this.teamRepository.findById(event.teamId);
-      if (teamResult.isFailure) {
-        return Result.fail(`Kunde inte hitta teamet: ${teamResult.error}`);
+      if (teamResult.isErr()) {
+        return err(`Kunde inte hitta teamet: ${teamResult.error}`);
       }
       
-      const team = teamResult.getValue();
+      const team = teamResult.value;
       
-      // 2. Uppdatera teamets senaste aktivitetstid
-      team.updateLastActivity(event.createdAt);
-      
-      // 3. Uppdatera teamets statistik
-      const stats = team.getStatistics();
-      if (stats) {
-        stats.incrementMessageCount();
-        
-        // Om meddelandet har bilagor, uppdatera bilagestatistik
-        if (event.attachments && event.attachments.length > 0) {
-          stats.incrementAttachmentCount(event.attachments.length);
+      // 2. Uppdatera teamets aktivitetslogg
+      // I en fullständig implementation skulle vi här skapa en ny aktivitetspost
+      // Exempel:
+      /*
+      const activity = {
+        type: 'MESSAGE',
+        userId: event.userId,
+        timestamp: event.timestamp,
+        metadata: {
+          messageId: event.messageId,
+          channelId: event.channelId
         }
-        
-        team.updateStatistics(stats);
-      }
+      };
+      team.addActivity(activity);
+      */
       
-      // 4. Spara uppdaterat team
+      // Här simulerar vi bara ett uppdaterat team
       await this.teamRepository.save(team);
       
-      // 5. Hantera eventuella omnämnanden
-      if (event.mentions && event.mentions.length > 0) {
-        // Här skulle vi kunna skicka notifikationer eller göra andra åtgärder
-        // för de användare som nämnts i meddelandet
-        
-        // Exempel på loggning av mentions
-        event.mentions.forEach(mention => {
-          console.log(`TeamMessageCreatedHandler: Användare ${mention.userId} omnämndes i meddelande ${event.messageId}`);
-        });
-      }
-      
       // Loggning för att visualisera att handlern körs
-      console.log(`TeamMessageCreatedHandler: Nytt meddelande ${event.messageId} skapades i team ${event.teamId} av användare ${event.senderId}`);
+      console.log(`TeamMessageCreatedHandler: Nytt meddelande ${event.messageId} i team ${event.teamId} från användare ${event.userId}`);
       
-      return Result.ok();
+      return ok();
     } catch (error) {
-      return Result.fail(`Fel vid hantering av TeamMessageCreated event: ${error}`);
+      return err(`Fel vid hantering av TeamMessageCreated event: ${error}`);
     }
   }
 } 

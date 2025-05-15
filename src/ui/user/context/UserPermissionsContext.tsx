@@ -95,7 +95,7 @@ export const UserPermissionsProvider: React.FC<{ children: ReactNode }> = ({ chi
     if (data.customPermissions && data.customPermissions.length > 0) {
       data.customPermissions.forEach(permName => {
         try {
-          const permObject = UserPermission.create(permName).getValue();
+          const permObject = UserPermission.create(permName).value;
           if (!perms.some(p => p.name === permName)) {
             perms.push(permObject);
           }

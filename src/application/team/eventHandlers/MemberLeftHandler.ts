@@ -1,6 +1,6 @@
 import { MemberLeft } from '@/domain/team/events/TeamEvents';
 import { BaseEventHandler } from './BaseEventHandler';
-import { Result } from '@/shared/core/Result';
+import { Result, err, ok } from '@/shared/core/Result';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 
@@ -34,21 +34,21 @@ export class MemberLeftHandler extends BaseEventHandler<MemberLeft> {
     try {
       // 1. Uppdatera användarens information om teammedlemskap
       const userResult = await this.userRepository.findById(event.userId);
-      if (userResult.isFailure) {
-        return Result.fail(`Kunde inte hitta användaren: ${userResult.error}`);
+      if (userResult.isErr()) {
+        return err(`Kunde inte hitta användaren: ${userResult.error}`);
       }
       
-      const user = userResult.getValue();
+      const user = userResult.value;
       user.removeTeamMembership(event.teamId);
       await this.userRepository.save(user);
       
       // 2. Uppdatera teamets statistik
       const teamResult = await this.teamRepository.findById(event.teamId);
-      if (teamResult.isFailure) {
-        return Result.fail(`Kunde inte hitta teamet: ${teamResult.error}`);
+      if (teamResult.isErr()) {
+        return err(`Kunde inte hitta teamet: ${teamResult.error}`);
       }
       
-      const team = teamResult.getValue();
+      const team = teamResult.value;
       // Uppdatera teamets statistik med information om att en medlem har lämnat
       const stats = team.getStatistics();
       if (stats) {
@@ -60,9 +60,9 @@ export class MemberLeftHandler extends BaseEventHandler<MemberLeft> {
       // Loggning för att visualisera att handlern körs
       console.log(`MemberLeftHandler: Användare ${event.userId} lämnade team ${event.teamId}`);
       
-      return Result.ok();
+      return ok();
     } catch (error) {
-      return Result.fail(`Fel vid hantering av MemberLeft event: ${error}`);
+      return err(`Fel vid hantering av MemberLeft event: ${error}`);
     }
   }
 } 

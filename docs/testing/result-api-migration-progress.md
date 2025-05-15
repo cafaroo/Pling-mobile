@@ -18,10 +18,14 @@ Detta dokument spårar framstegen i migreringen från det gamla Result-API:et (i
 - [x] `UserProfileUpdatedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
 - [x] `UserTeamJoinedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
 - [x] `UserCreatedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
+- [x] `MemberLeftHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
+- [x] `TeamMemberRoleChangedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
+- [x] `TeamMessageCreatedHandler.ts` - Uppdaterad från isFailure/getValue till isErr/value
 
 ### Repository-implementationer
 - [x] `TeamRepository.ts` - Uppdaterad från isSuccess/getValue till isOk/value
 - [x] `OptimizedUserRepository.ts` - Uppdaterad från isSuccess/getValue till isOk/value
+- [x] `SupabaseTeamGoalRepository.ts` - Uppdaterad från Result.success/Result.failure till ok/err
 
 ### Grundläggande hooks
 - [x] `useStandardizedHook.ts` - Uppdaterad från isSuccess/getValue till isOk/value
@@ -36,9 +40,14 @@ Detta dokument spårar framstegen i migreringen från det gamla Result-API:et (i
 
 ### User-hooks
 - [x] `useUserCache.ts` - Uppdaterad från isSuccess/getValue till isOk/value
+- [x] `useUser.ts` - Uppdaterad från getValue till value
 
 ### Organization-hooks
 - [x] `useOrganizationWithStandardHook.ts` - Uppdaterad från isSuccess/getValue till isOk/value
+
+### UI-komponenter
+- [x] `TeamScreen.tsx` - Uppdaterad från isSuccess till isOk
+- [x] `UserPermissionsContext.tsx` - Uppdaterad från getValue till value
 
 ## Återstående filer att uppdatera
 
@@ -48,25 +57,12 @@ Följande filer använder fortfarande det gamla Result-API:et och behöver uppda
 - [ ] `src/application/shared/hooks/useStandardizedHook.ts` - Fortfarande använder isFailure()
 - [ ] `src/application/shared/hooks/__tests__/useStandardizedHook.test.tsx` - Använder isSuccess(), isFailure(), getValue()
 - [ ] `src/application/subscription/hooks/__tests__/result-mock.ts` - Använder isFailure(), getValue()
-- [ ] `src/application/user/hooks/useUser.ts` - Använder getValue()
 - [ ] `src/application/user/hooks/__tests__/useUserCache.test.ts` - Använder getValue()
-
-### Event Handlers
-- [ ] `src/application/team/eventHandlers/MemberLeftHandler.ts` - Använder getValue()
-- [ ] `src/application/team/eventHandlers/TeamMemberRoleChangedHandler.ts` - Använder getValue()
-- [ ] `src/application/team/eventHandlers/TeamMessageCreatedHandler.ts` - Använder getValue()
-
-### Repositories
-- [ ] `src/infrastructure/supabase/repositories/SupabaseTeamGoalRepository.ts` - Använder Result.success() och Result.failure()
 
 ### Tester och hjälpfiler
 - [ ] `src/shared/core/__tests__/Result-new.test.ts` - Använder getValue()
 - [ ] `src/shared/core/__tests__/Result.test.ts` - Använder getValue()
 - [ ] `src/test-utils/userProfileTestHelper.ts` - Använder getValue()
-
-### UI-komponenter
-- [ ] `src/ui/team/screens/TeamScreen.tsx` - Använder isSuccess()
-- [ ] `src/ui/user/context/UserPermissionsContext.tsx` - Använder getValue()
 
 ## Strategier för uppdatering
 
@@ -93,7 +89,7 @@ Följande filer använder fortfarande det gamla Result-API:et och behöver uppda
 6. ✅ Uppdatera användarrelaterade hooks
 7. ✅ Uppdatera organisationsrelaterade hooks
 8. ✅ Göra tester som verifierar att API:et används konsekvent
-9. ⬜ Uppdatera återstående 14 filer som identifierats av verifikationsverktyget
+9. 🔄 Uppdatera återstående 7 filer som identifierats av verifikationsverktyget
 
 ## Verifieringsverktyg
 

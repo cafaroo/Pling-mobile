@@ -86,7 +86,7 @@ export const TeamScreen = ({ teamId }: { teamId: string }) => {
         role 
       });
       
-      if (result.isSuccess()) {
+      if (result.isOk()) {
         setShowAddMemberForm(false);
         Alert.alert('Lyckades', 'Medlemmen har lagts till i teamet.');
       }

@@ -52,9 +52,9 @@ export function resultToHookResult<T, E = string, M = unknown>(
   result: Result<T, E>,
   metadata?: M
 ): HookResult<T, M> {
-  if (result.isSuccess) {
+  if (result.isOk()) {
     return {
-      data: result.getValue(),
+      data: result.value,
       isLoading: false,
       error: null,
       meta: metadata
@@ -132,8 +132,8 @@ export async function executeHookOperation<T, M = unknown>(
  * Används främst i react-query funktioner för att standardisera felhantering
  */
 export function unwrapResult<T, E = string>(result: Result<T, E>): T {
-  if (result.isSuccess) {
-    return result.getValue();
+  if (result.isOk()) {
+    return result.value;
   }
   
   const error = result.error as unknown;

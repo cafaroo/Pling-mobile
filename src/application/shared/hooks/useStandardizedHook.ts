@@ -143,15 +143,15 @@ export function useStandardizedOperation<TParams, TResult>(
       try {
         const result = await operationFn(params, updateProgress);
 
-        if (result.isSuccess()) {
-          const resultData = result.getValue();
+        if (result.isOk()) {
+          const resultData = result.value;
           setData(resultData);
           optimisticDataRef.current = resultData;
           setStatus('success');
           setProgress({ percent: 100 });
           return result;
         } else {
-          const failureError = result.getError();
+          const failureError = result.error;
           const enhancedError = createEnhancedHookError(
             failureError.originalError || failureError,
             {

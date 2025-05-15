@@ -254,14 +254,14 @@ export function createStandardizedMutation<TData, TVariables>(
  * Används främst i react-query funktioner för att standardisera felhantering
  */
 export function unwrapResult<T, E = unknown>(result: any): T {
-  // Om result är ett Result-objekt med isSuccess
-  if (result && typeof result.isSuccess === 'function') {
-    if (result.isSuccess()) {
-      return result.getValue();
+  // Om result är ett Result-objekt med isOk
+  if (result && typeof result.isOk === 'function') {
+    if (result.isOk()) {
+      return result.value;
     }
     
     // Hämta feldetaljer
-    const error = result.getError();
+    const error = result.error;
     throw error;
   }
   

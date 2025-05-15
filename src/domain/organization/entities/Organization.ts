@@ -6,18 +6,16 @@ import { OrganizationInvitation } from '../value-objects/OrganizationInvitation'
 import { OrgSettings } from '../value-objects/OrgSettings';
 import { OrganizationRole } from '../value-objects/OrganizationRole';
 import { OrganizationPermission } from '../value-objects/OrganizationPermission';
-import { 
-  OrganizationCreated, 
-  OrganizationUpdated, 
-  MemberJoinedOrganization, 
-  MemberLeftOrganization,
-  MemberInvitedToOrganization,
-  OrganizationMemberRoleChanged,
-  TeamAddedToOrganization,
-  TeamRemovedFromOrganization,
-  OrganizationInvitationAccepted,
-  OrganizationInvitationDeclined
-} from '../events/OrganizationEvents';
+import { OrganizationCreatedEvent } from '../events/OrganizationCreatedEvent';
+import { OrganizationUpdatedEvent } from '../events/OrganizationUpdatedEvent';
+import { OrganizationMemberJoinedEvent } from '../events/OrganizationMemberJoinedEvent';
+import { OrganizationMemberLeftEvent } from '../events/OrganizationMemberLeftEvent';
+import { OrganizationMemberRoleChangedEvent } from '../events/OrganizationMemberRoleChangedEvent';
+import { TeamAddedToOrganizationEvent } from '../events/TeamAddedToOrganizationEvent';
+import { TeamRemovedFromOrganizationEvent } from '../events/TeamRemovedFromOrganizationEvent';
+import { OrganizationMemberInvitedEvent } from '../events/OrganizationMemberInvitedEvent';
+import { OrganizationInvitationAcceptedEvent } from '../events/OrganizationInvitationAcceptedEvent';
+import { OrganizationInvitationDeclinedEvent } from '../events/OrganizationInvitationDeclinedEvent';
 import { SubscriptionService } from '../interfaces/SubscriptionService';
 import { ResourceLimitType } from '../interfaces/SubscriptionService';
 import { ResourceLimitStrategyFactory } from '../strategies/ResourceLimitStrategyFactory';
@@ -51,6 +49,50 @@ export class Organization extends AggregateRoot<OrganizationProps> {
 
   private constructor(props: OrganizationProps) {
     super(props);
+  }
+
+  /**
+   * Validerar invarianter för organisationsaggregatet.
+   * 
+   * @returns Result som indikerar om alla invarianter är uppfyllda
+   */
+  private validateInvariants(): Result<void, string> {
+    try {
+      // Invariant: Organisation måste ha ett namn
+      if (!this.props.name || this.props.name.trim().length === 0) {
+        return Result.err('Organisation måste ha ett namn');
+      }
+
+      // Invariant: Organisation måste ha en ägare
+      if (!this.props.ownerId) {
+        return Result.err('Organisation måste ha en ägare');
+      }
+
+      // Invariant: Ägaren måste vara medlem i organisationen
+      const ownerIsMember = this.props.members.some(
+        member => member.userId.equals(this.props.ownerId) && 
+                 member.role === OrganizationRole.OWNER
+      );
+      
+      if (!ownerIsMember) {
+        return Result.err('Ägaren måste vara medlem i organisationen med OWNER-roll');
+      }
+
+      // Invariant: Varje medlem kan bara ha en roll
+      const uniqueMembers = new Set();
+      for (const member of this.props.members) {
+        const memberId = member.userId.toString();
+        if (uniqueMembers.has(memberId)) {
+          return Result.err('En användare kan bara ha en roll i organisationen');
+        }
+        uniqueMembers.add(memberId);
+      }
+
+      // Alla invarianter uppfyllda
+      return Result.ok(undefined);
+    } catch (error) {
+      return Result.err(`Fel vid validering av invarianter: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   get name(): string {
@@ -310,54 +352,54 @@ export class Organization extends AggregateRoot<OrganizationProps> {
   // Skapa en ny organisation
   public static create(props: OrganizationCreateDTO): Result<Organization, string> {
     try {
-      const id = new UniqueId();
+      // Validera namn
+      if (!props.name || props.name.trim().length === 0) {
+        return err('Organisationsnamn får inte vara tomt');
+      }
+      
+      // Validera ägare
       const ownerId = props.ownerId instanceof UniqueId 
         ? props.ownerId 
         : new UniqueId(props.ownerId);
-
-      // Validering
-      if (!props.name || props.name.trim().length < 2) {
-        return err('Organisationsnamn måste vara minst 2 tecken');
-      }
-
-      // Skapa inställningar
-      const orgSettingsResult = OrgSettings.create();
-      if (orgSettingsResult.isErr()) {
-        return err(`Kunde inte skapa organisationsinställningar: ${orgSettingsResult.error}`);
-      }
-
-      // Skapa ägarens medlemskap med owner-roll
-      const ownerMemberResult = OrganizationMember.create({
+        
+      // Skapa ägarens medlemskap
+      const ownerMember = new OrganizationMember({
         userId: ownerId,
         role: OrganizationRole.OWNER,
         joinedAt: new Date()
       });
-
-      if (ownerMemberResult.isErr()) {
-        return err(`Kunde inte skapa ägarmedlemskap: ${ownerMemberResult.error}`);
-      }
-
+      
+      // Skapa standardinställningar
+      const settings = new OrgSettings();
       const now = new Date();
-
+      const id = new UniqueId();
+      
+      // Skapa organisationen
       const organization = new Organization({
         id,
-        name: props.name.trim(),
+        name: props.name,
         ownerId,
-        members: [ownerMemberResult.value],
+        settings,
+        members: [ownerMember],
         invitations: [],
         teamIds: [],
-        settings: orgSettingsResult.value,
         createdAt: now,
         updatedAt: now
       });
-
-      // Lägg till domänhändelse
-      organization.addDomainEvent(new OrganizationCreated(
-        id,
+      
+      // Validera invarianter
+      const validationResult = organization.validateInvariants();
+      if (validationResult.isErr()) {
+        return err(validationResult.error);
+      }
+      
+      // Lägg till domänhändelse med nya EventClass
+      organization.addDomainEvent(new OrganizationCreatedEvent(
+        organization,
         ownerId,
-        props.name.trim()
+        props.name
       ));
-
+      
       return ok(organization);
     } catch (error) {
       return err(`Kunde inte skapa organisation: ${error instanceof Error ? error.message : String(error)}`);
@@ -386,9 +428,9 @@ export class Organization extends AggregateRoot<OrganizationProps> {
 
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelse
-      this.addDomainEvent(new OrganizationUpdated(
-        this.id,
+      // Lägg till domänhändelse med ny standardiserad klass
+      this.addDomainEvent(new OrganizationUpdatedEvent(
+        this,
         this.name
       ));
 
@@ -410,18 +452,31 @@ export class Organization extends AggregateRoot<OrganizationProps> {
         return err('Användaren är redan medlem i organisationen');
       }
 
-      // Kontrollera medlemsgräns om den finns definierad
-      if (this.props.settings.maxMembers && this.props.members.length >= this.props.settings.maxMembers) {
-        return err('Organisationen har nått sin medlemsgräns');
+      // Validera resurskapacitet via den nya strategin
+      if (this.limitStrategyFactory) {
+        const limitValidation = async () => {
+          const limitStrategy = this.limitStrategyFactory.getTeamMemberStrategy();
+          const limitResult = await limitStrategy.isActionAllowed(
+            this.id,
+            this.props.members.length,
+            1 // Lägger till en medlem
+          );
+          
+          return limitResult.allowed ? 
+            Result.ok(undefined) : 
+            Result.err(limitResult.reason || 'Medlemsgräns överskriden');
+        };
+        
+        // Om validering behövs i framtiden kan det läggas till här
       }
 
-      // Lägg till medlemmen
+      // Lägg till medlemmen och uppdatera tidsstämpel
       this.props.members.push(member);
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelse
-      this.addDomainEvent(new MemberJoinedOrganization(
-        this.id,
+      // Publicera domänhändelse med den nya standardiserade händelseklassen
+      this.addDomainEvent(new OrganizationMemberJoinedEvent(
+        this,
         member.userId,
         member.role
       ));
@@ -452,9 +507,9 @@ export class Organization extends AggregateRoot<OrganizationProps> {
 
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelse
-      this.addDomainEvent(new MemberLeftOrganization(
-        this.id,
+      // Lägg till domänhändelse med ny standardiserad klass
+      this.addDomainEvent(new OrganizationMemberLeftEvent(
+        this,
         userId
       ));
 
@@ -498,9 +553,9 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       this.props.members[memberIndex] = updatedMemberResult.value;
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelse
-      this.addDomainEvent(new OrganizationMemberRoleChanged(
-        this.id,
+      // Lägg till domänhändelse med ny standardiserad klass
+      this.addDomainEvent(new OrganizationMemberRoleChangedEvent(
+        this,
         userId,
         oldRole,
         newRole
@@ -554,9 +609,9 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       this.props.invitations.push(invitationResult.value);
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelse
-      this.addDomainEvent(new MemberInvitedToOrganization(
-        this.id,
+      // Lägg till domänhändelse med ny standardiserad klass
+      this.addDomainEvent(new OrganizationMemberInvitedEvent(
+        this,
         userId,
         invitedBy
       ));
@@ -614,15 +669,15 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelser
-      this.addDomainEvent(new OrganizationInvitationAccepted(
-        this.id,
+      // Lägg till domänhändelser med nya standardiserade klasser
+      this.addDomainEvent(new OrganizationInvitationAcceptedEvent(
+        this,
         invitationId,
         userId
       ));
 
-      this.addDomainEvent(new MemberJoinedOrganization(
-        this.id,
+      this.addDomainEvent(new OrganizationMemberJoinedEvent(
+        this,
         userId,
         OrganizationRole.MEMBER
       ));
@@ -665,9 +720,9 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       this.props.invitations[invitationIndex] = declineResult.value;
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelse
-      this.addDomainEvent(new OrganizationInvitationDeclined(
-        this.id,
+      // Lägg till domänhändelse med ny standardiserad klass
+      this.addDomainEvent(new OrganizationInvitationDeclinedEvent(
+        this,
         invitationId,
         userId
       ));
@@ -730,7 +785,7 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       this.props.updatedAt = new Date();
 
       // Lägg till domänhändelse
-      this.addDomainEvent(new TeamAddedToOrganization(
+      this.addDomainEvent(new TeamAddedToOrganizationEvent(
         this.id,
         teamId
       ));
@@ -755,7 +810,7 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       this.props.updatedAt = new Date();
 
       // Lägg till domänhändelse
-      this.addDomainEvent(new TeamRemovedFromOrganization(
+      this.addDomainEvent(new TeamRemovedFromOrganizationEvent(
         this.id,
         teamId
       ));

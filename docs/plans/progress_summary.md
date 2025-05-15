@@ -41,11 +41,11 @@ Vi har gjort betydande framsteg i förbättringen av aggregatgränser och domän
      - `BaseTeamEvent` för alla teamrelaterade events
      - `BaseUserEvent` för alla användarrelaterade events
    - Skapat nya standardiserade event-klasser:
-     - För Organization-domänen: `OrganizationCreatedEvent`, `OrganizationMemberJoinedEvent`, `OrganizationMemberLeftEvent`, `OrganizationMemberRoleChangedEvent`, `TeamAddedToOrganizationEvent`, `TeamRemovedFromOrganizationEvent`, `OrganizationMemberInvitedEvent`, `OrganizationInvitationAcceptedEvent`, `OrganizationInvitationDeclinedEvent`
+     - För Organization-domänen: `OrganizationCreatedEvent`, `OrganizationMemberJoinedEvent`, `OrganizationMemberLeftEvent`, `OrganizationMemberRoleChangedEvent`, `TeamAddedToOrganizationEvent`, `TeamRemovedFromOrganizationEvent`, `OrganizationMemberInvitedEvent`, `OrganizationInvitationAcceptedEvent`, `OrganizationInvitationDeclinedEvent`, `OrganizationUpdatedEvent`
      - För Team-domänen: `TeamCreatedEvent`, `TeamMemberJoinedEvent`, `TeamMemberLeftEvent`, `TeamMemberRoleChangedEvent`
      - För User-domänen: `UserCreatedEvent`, `UserProfileUpdatedEvent`, `UserSettingsUpdatedEvent`, `UserStatusChangedEvent`, `UserTeamAddedEvent`, `UserTeamRemovedEvent`, `UserRoleAddedEvent`, `UserRoleRemovedEvent`, `UserActivatedEvent`, `UserDeactivatedEvent`, `UserNotificationSettingsChangedEvent`, `UserSecurityEventOccurredEvent`
    - Uppdaterat entitetsklasser för att använda de nya event-klasserna:
-     - `Organization.ts` - Ersatt gamla events med nya standardiserade
+     - `Organization.ts` - Ersatt alla gamla events med nya standardiserade
      - `Team.ts` - Ersatt gamla events med nya standardiserade
      - `User.ts` - Slutfört ersättning av gamla events med nya standardiserade
    - Implementerat robust validering av invarianter

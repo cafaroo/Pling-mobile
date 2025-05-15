@@ -1,7 +1,12 @@
 import { DomainEvent } from '@/shared/core/DomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { OrganizationRole } from '../value-objects/OrganizationRole';
+import { IDomainEvent } from '@/shared/domain/IDomainEvent';
 
+/**
+ * @deprecated Använd standardiserade OrganizationCreatedEvent istället
+ * @see OrganizationCreatedEvent
+ */
 export class OrganizationCreated extends DomainEvent {
   constructor(
     public readonly organizationId: UniqueId,
@@ -20,191 +25,107 @@ export class OrganizationCreated extends DomainEvent {
   }
 }
 
-export class OrganizationUpdated extends DomainEvent {
+/**
+ * @deprecated Använd standardiserade OrganizationUpdatedEvent istället
+ * @see OrganizationUpdatedEvent
+ */
+export class OrganizationUpdated implements IDomainEvent {
   constructor(
     public readonly organizationId: UniqueId,
     public readonly name: string
-  ) {
-    super({
-      name: 'OrganizationUpdated',
-      payload: {
-        organizationId: organizationId.toString(),
-        name: name,
-        timestamp: new Date()
-      }
-    });
-  }
+  ) {}
 }
 
-export class MemberJoinedOrganization extends DomainEvent {
+/**
+ * @deprecated Använd standardiserade OrganizationMemberJoinedEvent istället
+ * @see OrganizationMemberJoinedEvent
+ */
+export class MemberJoinedOrganization implements IDomainEvent {
   constructor(
     public readonly organizationId: UniqueId,
     public readonly userId: UniqueId,
     public readonly role: OrganizationRole
-  ) {
-    super({
-      name: 'MemberJoinedOrganization',
-      payload: {
-        organizationId: organizationId.toString(),
-        userId: userId.toString(),
-        role: role,
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    // Utlös händelsen
-    this.dispatch();
-  }
-}
-
-export class MemberLeftOrganization extends DomainEvent {
-  constructor(
-    public readonly organizationId: UniqueId,
-    public readonly userId: UniqueId
-  ) {
-    super({
-      name: 'MemberLeftOrganization',
-      payload: {
-        organizationId: organizationId.toString(),
-        userId: userId.toString(),
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    // Utlös händelsen
-    this.dispatch();
-  }
+  ) {}
 }
 
 /**
- * Händelse som utlöses när en medlemsinbjudan skapas
+ * @deprecated Använd standardiserade OrganizationMemberLeftEvent istället
+ * @see OrganizationMemberLeftEvent
  */
-export class MemberInvitedToOrganization extends DomainEvent {
+export class MemberLeftOrganization implements IDomainEvent {
+  constructor(
+    public readonly organizationId: UniqueId,
+    public readonly userId: UniqueId
+  ) {}
+}
+
+/**
+ * @deprecated Använd standardiserade OrganizationMemberInvitedEvent istället
+ * @see OrganizationMemberInvitedEvent
+ */
+export class MemberInvitedToOrganization implements IDomainEvent {
   constructor(
     public readonly organizationId: UniqueId,
     public readonly userId: UniqueId,
     public readonly invitedBy: UniqueId
-  ) {
-    super({
-      name: 'MemberInvitedToOrganization',
-      payload: {
-        organizationId: organizationId.toString(),
-        userId: userId.toString(),
-        invitedBy: invitedBy.toString(),
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    // Utlös händelsen
-    this.dispatch();
-  }
+  ) {}
 }
 
 /**
- * Händelse som utlöses när en inbjudan accepteras
+ * @deprecated Använd standardiserade OrganizationInvitationAcceptedEvent istället
+ * @see OrganizationInvitationAcceptedEvent
  */
-export class OrganizationInvitationAccepted extends DomainEvent {
+export class OrganizationInvitationAccepted implements IDomainEvent {
   constructor(
     public readonly organizationId: UniqueId,
     public readonly invitationId: UniqueId,
     public readonly userId: UniqueId
-  ) {
-    super({
-      name: 'OrganizationInvitationAccepted',
-      payload: {
-        organizationId: organizationId.toString(),
-        invitationId: invitationId.toString(),
-        userId: userId.toString(),
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    // Utlös händelsen
-    this.dispatch();
-  }
+  ) {}
 }
 
 /**
- * Händelse som utlöses när en inbjudan avböjs
+ * @deprecated Använd standardiserade OrganizationInvitationDeclinedEvent istället
+ * @see OrganizationInvitationDeclinedEvent
  */
-export class OrganizationInvitationDeclined extends DomainEvent {
+export class OrganizationInvitationDeclined implements IDomainEvent {
   constructor(
     public readonly organizationId: UniqueId,
     public readonly invitationId: UniqueId,
     public readonly userId: UniqueId
-  ) {
-    super({
-      name: 'OrganizationInvitationDeclined',
-      payload: {
-        organizationId: organizationId.toString(),
-        invitationId: invitationId.toString(),
-        userId: userId.toString(),
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    // Utlös händelsen
-    this.dispatch();
-  }
+  ) {}
 }
 
-export class OrganizationMemberRoleChanged extends DomainEvent {
+/**
+ * @deprecated Använd standardiserade OrganizationMemberRoleChangedEvent istället
+ * @see OrganizationMemberRoleChangedEvent
+ */
+export class OrganizationMemberRoleChanged implements IDomainEvent {
   constructor(
     public readonly organizationId: UniqueId,
     public readonly userId: UniqueId,
     public readonly oldRole: OrganizationRole,
     public readonly newRole: OrganizationRole
-  ) {
-    super({
-      name: 'OrganizationMemberRoleChanged',
-      payload: {
-        organizationId: organizationId.toString(),
-        userId: userId.toString(),
-        oldRole: oldRole,
-        newRole: newRole,
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    // Utlös händelsen
-    this.dispatch();
-  }
+  ) {}
 }
 
-export class TeamAddedToOrganization extends DomainEvent {
+/**
+ * @deprecated Använd standardiserade TeamAddedToOrganizationEvent istället
+ * @see TeamAddedToOrganizationEvent
+ */
+export class TeamAddedToOrganization implements IDomainEvent {
   constructor(
     public readonly organizationId: UniqueId,
     public readonly teamId: UniqueId
-  ) {
-    super({
-      name: 'TeamAddedToOrganization',
-      payload: {
-        organizationId: organizationId.toString(),
-        teamId: teamId.toString(),
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    // Utlös händelsen
-    this.dispatch();
-  }
+  ) {}
 }
 
-export class TeamRemovedFromOrganization extends DomainEvent {
+/**
+ * @deprecated Använd standardiserade TeamRemovedFromOrganizationEvent istället
+ * @see TeamRemovedFromOrganizationEvent
+ */
+export class TeamRemovedFromOrganization implements IDomainEvent {
   constructor(
     public readonly organizationId: UniqueId,
     public readonly teamId: UniqueId
-  ) {
-    super({
-      name: 'TeamRemovedFromOrganization',
-      payload: {
-        organizationId: organizationId.toString(),
-        teamId: teamId.toString(),
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    // Utlös händelsen
-    this.dispatch();
-  }
+  ) {}
 } 

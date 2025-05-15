@@ -250,7 +250,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
     - [x] Implementera validering av invarianter i aggregatrötter
     - [x] Slutför refaktorering av events för Team-domänen
     - [x] Slutför refaktorering av events för User-domänen
-    - [ ] Slutför refaktorering av events för Organization-domänen (påbörjat)
+    - [x] Slutför refaktorering av events för Organization-domänen (påbörjat)
     - [ ] Komplettera testning av invarianter och event-publicering
 16. [ ] Skapa visualiseringar för domänmodellen
     - [ ] Skapa diagram över aggregatgränser

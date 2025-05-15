@@ -60,7 +60,7 @@ export function useTeamWithStandardHook() {
         updateProgress?.({ percent: 30, message: 'Skapar team...' });
         const result = await createTeamUseCase.execute(params);
         
-        if (result.isSuccess()) {
+        if (result.isOk()) {
           updateProgress?.({ percent: 80, message: 'Uppdaterar användarbehörigheter...' });
           await new Promise(resolve => setTimeout(resolve, 200)); // Simulerar ytterligare steg
           
@@ -127,7 +127,7 @@ export function useTeamWithStandardHook() {
         updateProgress?.({ percent: 50, message: 'Lägger till medlem...' });
         const result = await addTeamMemberUseCase.execute(params);
         
-        if (result.isSuccess()) {
+        if (result.isOk()) {
           updateProgress?.({ percent: 80, message: 'Uppdaterar teamstatistik...' });
           await new Promise(resolve => setTimeout(resolve, 200));
           

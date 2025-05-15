@@ -50,7 +50,7 @@ export function useTeamGoals(options: UseTeamGoalsOptions = {}) {
     queryKey: teamGoalsKeys.list(filter),
     queryFn: async () => {
       const result = await repository.findByFilter(filter);
-      if (result.isFailure()) throw result.error;
+      if (result.isErr()) throw result.error;
       return result.value;
     },
     staleTime,
@@ -65,10 +65,10 @@ export function useTeamGoals(options: UseTeamGoalsOptions = {}) {
   const createMutation = useMutation({
     mutationFn: async (props: TeamGoalCreateProps) => {
       const goalResult = TeamGoal.create(props);
-      if (goalResult.isFailure()) throw goalResult.error;
+      if (goalResult.isErr()) throw goalResult.error;
 
       const saveResult = await repository.save(goalResult.value);
-      if (saveResult.isFailure()) throw saveResult.error;
+      if (saveResult.isErr()) throw saveResult.error;
 
       return goalResult.value;
     },
@@ -81,7 +81,7 @@ export function useTeamGoals(options: UseTeamGoalsOptions = {}) {
 
       // Optimistiskt uppdatera cache
       const optimisticGoal = TeamGoal.create(newGoal);
-      if (optimisticGoal.isSuccess()) {
+      if (optimisticGoal.isOk()) {
         queryClient.setQueryData(
           teamGoalsKeys.list(filter),
           (old: TeamGoal[] = []) => [...old, optimisticGoal.value]
@@ -106,7 +106,7 @@ export function useTeamGoals(options: UseTeamGoalsOptions = {}) {
   const updateMutation = useMutation({
     mutationFn: async (goal: TeamGoal) => {
       const result = await repository.save(goal);
-      if (result.isFailure()) throw result.error;
+      if (result.isErr()) throw result.error;
       return goal;
     },
     onMutate: async (updatedGoal) => {
@@ -143,7 +143,7 @@ export function useTeamGoals(options: UseTeamGoalsOptions = {}) {
   const deleteMutation = useMutation({
     mutationFn: async (goalId: UniqueId) => {
       const result = await repository.delete(goalId);
-      if (result.isFailure()) throw result.error;
+      if (result.isErr()) throw result.error;
     },
     onMutate: async (goalId) => {
       await queryClient.cancelQueries(teamGoalsKeys.list(filter));
@@ -171,10 +171,10 @@ export function useTeamGoals(options: UseTeamGoalsOptions = {}) {
   const updateStatusMutation = useMutation({
     mutationFn: async ({ goal, status }: { goal: TeamGoal; status: GoalStatus }) => {
       const result = goal.updateStatus(status);
-      if (result.isFailure()) throw result.error;
+      if (result.isErr()) throw result.error;
 
       const saveResult = await repository.save(goal);
-      if (saveResult.isFailure()) throw saveResult.error;
+      if (saveResult.isErr()) throw saveResult.error;
 
       return goal;
     },
@@ -215,10 +215,10 @@ export function useTeamGoals(options: UseTeamGoalsOptions = {}) {
   const updateProgressMutation = useMutation({
     mutationFn: async ({ goal, progress }: { goal: TeamGoal; progress: number }) => {
       const result = goal.updateProgress(progress);
-      if (result.isFailure()) throw result.error;
+      if (result.isErr()) throw result.error;
 
       const saveResult = await repository.save(goal);
-      if (saveResult.isFailure()) throw saveResult.error;
+      if (saveResult.isErr()) throw saveResult.error;
 
       return goal;
     },
@@ -267,10 +267,10 @@ export function useTeamGoals(options: UseTeamGoalsOptions = {}) {
       assignedBy: UniqueId;
     }) => {
       const result = goal.assignMember(userId, assignedBy);
-      if (result.isFailure()) throw result.error;
+      if (result.isErr()) throw result.error;
 
       const saveResult = await repository.save(goal);
-      if (saveResult.isFailure()) throw saveResult.error;
+      if (saveResult.isErr()) throw saveResult.error;
 
       return goal;
     },
@@ -317,10 +317,10 @@ export function useTeamGoals(options: UseTeamGoalsOptions = {}) {
       userId: UniqueId;
     }) => {
       const result = goal.unassignMember(userId);
-      if (result.isFailure()) throw result.error;
+      if (result.isErr()) throw result.error;
 
       const saveResult = await repository.save(goal);
-      if (saveResult.isFailure()) throw saveResult.error;
+      if (saveResult.isErr()) throw saveResult.error;
 
       return goal;
     },
@@ -385,7 +385,7 @@ export function useTeamGoal(
     queryKey: teamGoalsKeys.detail(goalId.toString()),
     queryFn: async () => {
       const result = await repository.findById(goalId);
-      if (result.isFailure()) throw result.error;
+      if (result.isErr()) throw result.error;
       if (!result.value) throw new Error('Målet hittades inte');
       return result.value;
     },
@@ -405,7 +405,7 @@ export function useTeamGoalStats(
     queryKey: teamGoalsKeys.stats(teamId.toString()),
     queryFn: async () => {
       const result = await repository.getTeamGoalStats(teamId);
-      if (result.isFailure()) throw result.error;
+      if (result.isErr()) throw result.error;
       return result.value;
     },
     staleTime: options.staleTime ?? DEFAULT_STALE_TIME,

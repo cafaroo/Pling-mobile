@@ -1,8 +1,19 @@
 /**
- * Test-utils
+ * Test-verktyg
  * 
- * Återexport av alla test-utils för enklare import
+ * Centraliserad export av alla test-utils för enklare användning.
  */
+
+// Exportera alla befintliga test-utils
+export * from './mocks/mockEventBus';
+export * from './mocks/mockSupabase';
+
+// Exportera våra nya test-helpers
+export * from './resultTestHelper';
+export * from './userProfileTestHelper';
+
+// Återexportera mockEventBus som standard export
+export { mockEventBus } from './mocks/mockEventBus';
 
 // Mock för Result-klassen
 export { mockResult, mockOk, mockErr } from './mocks/ResultMock';

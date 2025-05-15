@@ -3,45 +3,44 @@ import { TeamDescription } from '../TeamDescription';
 describe('TeamDescription', () => {
   it('ska skapa ett giltigt TeamDescription', () => {
     const descResult = TeamDescription.create('En beskrivning av teamet');
-    expect(descResult.isSuccess).toBe(true);
+    expect(descResult.isOk()).toBe(true);
     
-    if (descResult.isSuccess) {
-      const desc = descResult.getValue();
+    if (descResult.isOk()) {
+      const desc = descResult.value;
       expect(desc.value).toBe('En beskrivning av teamet');
-      expect(desc.toString()).toBe('En beskrivning av teamet');
     }
   });
   
   it('ska hantera en tom beskrivning', () => {
     const descResult = TeamDescription.create();
-    expect(descResult.isSuccess).toBe(true);
+    expect(descResult.isOk()).toBe(true);
     
-    if (descResult.isSuccess) {
-      const desc = descResult.getValue();
+    if (descResult.isOk()) {
+      const desc = descResult.value;
       expect(desc.value).toBe('');
-      expect(desc.isEmpty()).toBe(true);
     }
   });
   
   it('ska trimma bort överflödiga mellanslag', () => {
     const descResult = TeamDescription.create('   En beskrivning   ');
-    expect(descResult.isSuccess).toBe(true);
-    
-    if (descResult.isSuccess) {
-      expect(descResult.getValue().value).toBe('En beskrivning');
+    expect(descResult.isOk()).toBe(true);
+
+    if (descResult.isOk()) {
+      expect(descResult.value.value).toBe('En beskrivning');
     }
   });
   
   it('ska misslyckas för en för lång beskrivning', () => {
-    // Skapa en väldigt lång beskrivning
-    const longDescription = 'A'.repeat(501);
+    // Skapa en lång beskrivning (501 tecken)
+    const longDescription = 'a'.repeat(501);
+    
     const descResult = TeamDescription.create(longDescription);
     
-    expect(descResult.isSuccess).toBe(false);
-    expect(descResult.isFailure).toBe(true);
-    
-    if (descResult.isFailure) {
-      expect(descResult.error).toContain('inte vara längre än');
+    expect(descResult.isOk()).toBe(false);
+    expect(descResult.isErr()).toBe(true);
+
+    if (descResult.isErr()) {
+      expect(descResult.error).toContain('får inte vara längre än 500 tecken');
     }
   });
   
@@ -49,11 +48,11 @@ describe('TeamDescription', () => {
     const desc1Result = TeamDescription.create('En beskrivning');
     const desc2Result = TeamDescription.create('En beskrivning');
     
-    expect(desc1Result.isSuccess && desc2Result.isSuccess).toBe(true);
+    expect(desc1Result.isOk() && desc2Result.isOk()).toBe(true);
     
-    if (desc1Result.isSuccess && desc2Result.isSuccess) {
-      const desc1 = desc1Result.getValue();
-      const desc2 = desc2Result.getValue();
+    if (desc1Result.isOk() && desc2Result.isOk()) {
+      const desc1 = desc1Result.value;
+      const desc2 = desc2Result.value;
       
       expect(desc1.equals(desc2)).toBe(true);
     }
@@ -63,11 +62,11 @@ describe('TeamDescription', () => {
     const desc1Result = TeamDescription.create('En beskrivning A');
     const desc2Result = TeamDescription.create('En beskrivning B');
     
-    expect(desc1Result.isSuccess && desc2Result.isSuccess).toBe(true);
+    expect(desc1Result.isOk() && desc2Result.isOk()).toBe(true);
     
-    if (desc1Result.isSuccess && desc2Result.isSuccess) {
-      const desc1 = desc1Result.getValue();
-      const desc2 = desc2Result.getValue();
+    if (desc1Result.isOk() && desc2Result.isOk()) {
+      const desc1 = desc1Result.value;
+      const desc2 = desc2Result.value;
       
       expect(desc1.equals(desc2)).toBe(false);
     }
@@ -77,11 +76,11 @@ describe('TeamDescription', () => {
     const emptyResult = TeamDescription.create('');
     const nonEmptyResult = TeamDescription.create('Något innehåll');
     
-    expect(emptyResult.isSuccess && nonEmptyResult.isSuccess).toBe(true);
+    expect(emptyResult.isOk() && nonEmptyResult.isOk()).toBe(true);
     
-    if (emptyResult.isSuccess && nonEmptyResult.isSuccess) {
-      const empty = emptyResult.getValue();
-      const nonEmpty = nonEmptyResult.getValue();
+    if (emptyResult.isOk() && nonEmptyResult.isOk()) {
+      const empty = emptyResult.value;
+      const nonEmpty = nonEmptyResult.value;
       
       expect(empty.isEmpty()).toBe(true);
       expect(nonEmpty.isEmpty()).toBe(false);

@@ -81,7 +81,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 ### 2.1 Entiteter
 - [x] Standardisera basklass för entiteter (`Entity`)
 - [x] Refaktorera `User` entitet för att följa DDD-principer
-- [ ] Refaktorera `Team` entitet för att följa DDD-principer
+- [x] Refaktorera `Team` entitet för att följa DDD-principer
 - [x] Refaktorera `Organization` entitet för att följa DDD-principer
 - [x] Säkerställ att alla entiteter använder Result-typen korrekt
 - [ ] Implementera domänevent-publish i alla entiteter
@@ -90,14 +90,15 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Standardisera bas-implementationen för värde-objekt
 - [x] Refaktorera `TeamName`, `TeamDescription` som värde-objekt
 - [x] Refaktorera `UserProfile` som korrekt värde-objekt
+- [x] Refaktorera `TeamSettings` som korrekt värde-objekt
 - [x] Säkerställ att värde-objekt är oföränderliga (immutable)
 - [x] Implementera validering i create-metoder för alla värde-objekt
 
 ### 2.3 Aggregatrotsystem
-- [ ] Definiera tydliga aggregatgränser
+- [x] Definiera tydliga aggregatgränser
 - [x] Implementera `AggregateRoot`-basklass korrekt
 - [x] Refaktorera `Organization` för korrekt aggregatrotsbeteende
-- [ ] Refaktorera `Team` för korrekt aggregatrotsbeteende
+- [x] Refaktorera `Team` för korrekt aggregatrotsbeteende
 - [ ] Säkerställ att bara aggregatrötter publicerar domänevents
 
 ### 2.4 Repositories
@@ -232,9 +233,23 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 12. [x] Skapa fullständig testning för hooks och providers
 13. [PAUSAD] UI-integration med de nya hooksen - flyttad till senare fas
 14. [ ] Åtgärda tester som misslyckas efter Result-typ och UserProfile-refaktoreringar
-    - [ ] Uppdatera test-helpers för att hantera nya Result-API (isOk/value istället för isSuccess/getValue)
-    - [ ] Anpassa tester som använder UserProfile för att hantera den nya implementationen
-    - [ ] Standardisera mockning av UserProfile i testerna
+    - [x] Skapa testhjälpare för att hantera Result-API-ändringar (isOk/value istället för isSuccess/getValue)
+    - [x] Skapa testhjälpare för att hantera UserProfile-ändringar
+    - [x] Dokumentera migreringsstrategier för tester i result-api-migration.md
+    - [ ] Uppdatera team-relaterade tester
+    - [ ] Uppdatera user-relaterade tester
+    - [ ] Uppdatera organization-relaterade tester
+    - [ ] Standardisera mockning av entities och värde-objekt i alla tester
+15. [ ] Förbättra aggregatgränser i domänmodellen
+    - [x] Dokumentera aggregatgränser och riktlinjer i aggregate-boundaries.md
+    - [ ] Säkerställ att alla domänevents följer namngivningsriktlinjer
+    - [ ] Standardisera event-innehåll för konsekvent användning
+    - [ ] Refaktorera entiteter för att endast aggregatrötter publicerar domänevents
+    - [ ] Identifiera och dokumentera invarianter för alla aggregat
+16. [ ] Skapa visualiseringar för domänmodellen
+    - [ ] Skapa diagram över aggregatgränser
+    - [ ] Skapa diagram över entitetsrelationer
+    - [ ] Visualisera event flows
 
 ## Prioriteringsordning
 
@@ -251,7 +266,12 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
    - ~~Standardiserade hooks för team och user~~ ✓
    - Vidareutveckling av hooks och providers (Fokus i nästa fas)
 7. [PAUSAD] UI-integration (Fas 5) - flyttad till senare fas
-8. Testning och Dokumentation (Fas 6) - Delvis genomfört ✓
+8. Testning och Dokumentation (Fas 6) - Påbörjad ✓
+   - [x] Dokumentation av aggregatgränser ✓
+   - [x] Testhjälpare för Result-API ✓
+   - [x] Testhjälpare för UserProfile ✓
+   - [ ] Uppdatering av tester (pågående)
+   - [ ] Visualisering av domänmodell
 
 ## Plan för Application Layer Improvements
 

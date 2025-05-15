@@ -23,6 +23,8 @@
   - `RemoveTeamMemberUseCase`
   - `UpdateTeamMemberRoleUseCase`
   - `InviteTeamMemberUseCase`
+  - `GetTeamStatisticsUseCase`
+  - `GetTeamActivitiesUseCase`
 - Skapat factory-funktion för att enkelt skapa Team-relaterade Use Cases
 - Standardiserat felhantering i Use Cases med typade felkoder
 - Implementerat konsekvent mönster för validering och respons
@@ -31,8 +33,6 @@
 
 ### Prioriterade Use Cases att refaktorera
 1. **Team-domänen**
-   - `getTeamStatistics.ts`
-   - `getTeamActivities.ts`
    - `createTeamActivity.ts`
    - `createTeamMessage.ts`
    - `createThreadReplyUseCase.ts`
@@ -68,12 +68,13 @@
 
 ## Implementationsordning
 1. ✅ Refaktorera Team-domänens grundläggande Use Cases (Slutfört)
-2. Slutför refaktorering av övriga Team-relaterade Use Cases
-3. Refaktorera User-relaterade Use Cases
-4. Implementera Event Handlers
-5. Refaktorera Organisation-relaterade Use Cases
-6. Uppdatera alla tester
-7. Optimera prestanda där det behövs
+2. ✅ Refaktorera Team-domänens dataåtkomst Use Cases (Slutfört)
+3. Slutför refaktorering av övriga Team-relaterade Use Cases
+4. Refaktorera User-relaterade Use Cases
+5. Implementera Event Handlers
+6. Refaktorera Organisation-relaterade Use Cases
+7. Uppdatera alla tester
+8. Optimera prestanda där det behövs
 
 ## Tekniska standarder
 - Alla Use Cases ska följa standardiserad struktur:
@@ -97,7 +98,7 @@
   - Ha tydlig ansvarsfördelning
 
 ## Nästa steg
-1. Refaktorera återstående team-relaterade Use Cases
+1. Refaktorera återstående team-relaterade Use Cases (prioritera createTeamActivity.ts)
 2. Skapa en konkret TeamEventHandler-implementation
 3. Uppdatera TeamRepository för att säkerställa kompatibilitet med nya entiteter och events
 4. Uppdatera relaterade tester för att reflektera den nya strukturen 

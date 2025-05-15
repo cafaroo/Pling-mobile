@@ -34,21 +34,21 @@ export class TeamCreatedHandler extends BaseEventHandler<TeamCreated> {
     try {
       // 1. Uppdatera användarens information om teammedlemskap
       const userResult = await this.userRepository.findById(event.ownerId);
-      if (userResult.isFailure) {
+      if (userResult.isErr()) {
         return Result.fail(`Kunde inte hitta teamägaren: ${userResult.error}`);
       }
       
-      const user = userResult.getValue();
+      const user = userResult.value;
       user.addTeamMembership(event.teamId);
       await this.userRepository.save(user);
       
       // 2. Initiera teamets statistik (om detta inte redan sker i TeamRepository)
       const teamResult = await this.teamRepository.findById(event.teamId);
-      if (teamResult.isFailure) {
+      if (teamResult.isErr()) {
         return Result.fail(`Kunde inte hitta nyskapat team: ${teamResult.error}`);
       }
       
-      const team = teamResult.getValue();
+      const team = teamResult.value;
       // Initiera teamets statistik om det behövs
       // Detta kan vara specifikt för din applikation
       

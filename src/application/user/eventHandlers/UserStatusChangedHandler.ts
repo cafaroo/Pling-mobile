@@ -34,19 +34,19 @@ export class UserStatusChangedHandler extends BaseEventHandler<UserStatusChanged
     try {
       // 1. Hämta användaren
       const userResult = await this.userRepository.findById(event.userId);
-      if (userResult.isFailure) {
+      if (userResult.isErr()) {
         return Result.fail(`Kunde inte hitta användaren: ${userResult.error}`);
       }
       
-      const user = userResult.getValue();
+      const user = userResult.value;
       
       // 2. Hantera specifika statusändringar
       if (event.newStatus === 'inactive' || event.newStatus === 'suspended') {
         // Om användaren blir inaktiv eller avstängd
         // 2.1 Hämta användarens team
         const teamsResult = await this.teamRepository.findByMemberId(event.userId);
-        if (teamsResult.isSuccess) {
-          const teams = teamsResult.getValue();
+        if (teamsResult.isOk()) {
+          const teams = teamsResult.value;
           
           // 2.2 Uppdatera medlemsstatus i alla team
           for (const team of teams) {

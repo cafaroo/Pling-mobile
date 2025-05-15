@@ -34,20 +34,20 @@ export class UserProfileUpdatedHandler extends BaseEventHandler<UserProfileUpdat
     try {
       // 1. Hämta användaren
       const userResult = await this.userRepository.findById(event.userId);
-      if (userResult.isFailure) {
+      if (userResult.isErr()) {
         return Result.fail(`Kunde inte hitta användaren: ${userResult.error}`);
       }
       
-      const user = userResult.getValue();
+      const user = userResult.value;
       
       // 2. Hämta användarens team
       const teamsResult = await this.teamRepository.findByMemberId(event.userId);
-      if (teamsResult.isFailure) {
+      if (teamsResult.isErr()) {
         // Fel vid hämtning av team är inte kritiskt, så vi fortsätter
         console.warn(`Kunde inte hämta användarens team: ${teamsResult.error}`);
       } else {
         // 3. Uppdatera användarprofilen i team om det behövs
-        const teams = teamsResult.getValue();
+        const teams = teamsResult.value;
         // Detta skulle kunna vara en batch-operation i en verklig implementation
         for (const team of teams) {
           if (team.shouldUpdateMemberProfile(event.userId)) {

@@ -3,10 +3,10 @@ import { TeamName } from '../TeamName';
 describe('TeamName', () => {
   it('ska skapa ett giltigt TeamName', () => {
     const nameResult = TeamName.create('Testteam');
-    expect(nameResult.isSuccess).toBe(true);
+    expect(nameResult.isOk()).toBe(true);
     
-    if (nameResult.isSuccess) {
-      const name = nameResult.getValue();
+    if (nameResult.isOk()) {
+      const name = nameResult.value;
       expect(name.value).toBe('Testteam');
       expect(name.toString()).toBe('Testteam');
     }
@@ -14,19 +14,19 @@ describe('TeamName', () => {
   
   it('ska trimma bort överflödiga mellanslag', () => {
     const nameResult = TeamName.create('   Testteam   ');
-    expect(nameResult.isSuccess).toBe(true);
+    expect(nameResult.isOk()).toBe(true);
     
-    if (nameResult.isSuccess) {
-      expect(nameResult.getValue().value).toBe('Testteam');
+    if (nameResult.isOk()) {
+      expect(nameResult.value.value).toBe('Testteam');
     }
   });
   
   it('ska misslyckas för ett kort namn', () => {
     const nameResult = TeamName.create('A');
-    expect(nameResult.isSuccess).toBe(false);
-    expect(nameResult.isFailure).toBe(true);
+    expect(nameResult.isOk()).toBe(false);
+    expect(nameResult.isErr()).toBe(true);
     
-    if (nameResult.isFailure) {
+    if (nameResult.isErr()) {
       expect(nameResult.error).toContain('minst 2 tecken');
     }
   });
@@ -36,10 +36,10 @@ describe('TeamName', () => {
     const longName = 'A'.repeat(101);
     const nameResult = TeamName.create(longName);
     
-    expect(nameResult.isSuccess).toBe(false);
-    expect(nameResult.isFailure).toBe(true);
+    expect(nameResult.isOk()).toBe(false);
+    expect(nameResult.isErr()).toBe(true);
     
-    if (nameResult.isFailure) {
+    if (nameResult.isErr()) {
       expect(nameResult.error).toContain('inte vara längre än');
     }
   });
@@ -47,10 +47,10 @@ describe('TeamName', () => {
   it('ska misslyckas för ett namn med otillåtna tecken', () => {
     const nameResult = TeamName.create('Team <script>alert("hack")</script>');
     
-    expect(nameResult.isSuccess).toBe(false);
-    expect(nameResult.isFailure).toBe(true);
+    expect(nameResult.isOk()).toBe(false);
+    expect(nameResult.isErr()).toBe(true);
     
-    if (nameResult.isFailure) {
+    if (nameResult.isErr()) {
       expect(nameResult.error).toContain('endast innehålla');
     }
   });
@@ -59,11 +59,11 @@ describe('TeamName', () => {
     const name1Result = TeamName.create('Testteam');
     const name2Result = TeamName.create('Testteam');
     
-    expect(name1Result.isSuccess && name2Result.isSuccess).toBe(true);
+    expect(name1Result.isOk() && name2Result.isOk()).toBe(true);
     
-    if (name1Result.isSuccess && name2Result.isSuccess) {
-      const name1 = name1Result.getValue();
-      const name2 = name2Result.getValue();
+    if (name1Result.isOk() && name2Result.isOk()) {
+      const name1 = name1Result.value;
+      const name2 = name2Result.value;
       
       expect(name1.equals(name2)).toBe(true);
     }
@@ -73,11 +73,11 @@ describe('TeamName', () => {
     const name1Result = TeamName.create('Testteam1');
     const name2Result = TeamName.create('Testteam2');
     
-    expect(name1Result.isSuccess && name2Result.isSuccess).toBe(true);
+    expect(name1Result.isOk() && name2Result.isOk()).toBe(true);
     
-    if (name1Result.isSuccess && name2Result.isSuccess) {
-      const name1 = name1Result.getValue();
-      const name2 = name2Result.getValue();
+    if (name1Result.isOk() && name2Result.isOk()) {
+      const name1 = name1Result.value;
+      const name2 = name2Result.value;
       
       expect(name1.equals(name2)).toBe(false);
     }

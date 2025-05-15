@@ -60,8 +60,8 @@ export class UserRolePermission extends ValueObject<UserRolePermissionProps> {
     if (!this._roleObject) {
       const roleResult = UserRole.create(this.props.role);
       this._roleObject = roleResult.isOk() 
-        ? roleResult.getValue() 
-        : UserRole.create(RoleName.USER).getValue();
+        ? roleResult.value 
+        : UserRole.create(RoleName.USER).value;
     }
     return this._roleObject;
   }
@@ -100,7 +100,7 @@ export class UserRolePermission extends ValueObject<UserRolePermissionProps> {
       this.props.customPermissions.forEach(permName => {
         const permResult = UserPermission.create(permName);
         if (permResult.isOk()) {
-          const perm = permResult.getValue();
+          const perm = permResult.value;
           allPermissionNames.add(perm.name);
           
           // Lägg även till alla inkluderade behörigheter
@@ -114,7 +114,7 @@ export class UserRolePermission extends ValueObject<UserRolePermissionProps> {
       this._permissionCache = Array.from(allPermissionNames)
         .map(permName => {
           const permResult = UserPermission.create(permName);
-          return permResult.isOk() ? permResult.getValue() : null;
+          return permResult.isOk() ? permResult.value : null;
         })
         .filter((perm): perm is UserPermission => perm !== null);
     }
@@ -129,7 +129,7 @@ export class UserRolePermission extends ValueObject<UserRolePermissionProps> {
     const permissionResult = UserPermission.create(permissionName);
     if (permissionResult.isErr()) return false;
     
-    const permission = permissionResult.getValue();
+    const permission = permissionResult.value;
     
     // Kontrollera om behörigheten finns bland rollens behörighetsobjekt
     return this.permissionObjects.some(perm => 

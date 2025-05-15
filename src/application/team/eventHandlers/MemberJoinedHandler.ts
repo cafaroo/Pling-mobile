@@ -35,21 +35,21 @@ export class MemberJoinedHandler extends BaseEventHandler<MemberJoined> {
     try {
       // 1. Uppdatera användarens information om teammedlemskap
       const userResult = await this.userRepository.findById(event.userId);
-      if (userResult.isFailure) {
+      if (userResult.isErr()) {
         return Result.fail(`Kunde inte hitta användaren: ${userResult.error}`);
       }
       
-      const user = userResult.getValue();
+      const user = userResult.value;
       user.addTeamMembership(event.teamId);
       await this.userRepository.save(user);
       
       // 2. Uppdatera teamets statistik
       const teamResult = await this.teamRepository.findById(event.teamId);
-      if (teamResult.isFailure) {
+      if (teamResult.isErr()) {
         return Result.fail(`Kunde inte hitta teamet: ${teamResult.error}`);
       }
       
-      const team = teamResult.getValue();
+      const team = teamResult.value;
       
       // 3. Skapa en aktivitetspost för teamet om den nya medlemmen
       // Detta kan vara att lägga till en aktivitetspost om att en ny medlem gått med

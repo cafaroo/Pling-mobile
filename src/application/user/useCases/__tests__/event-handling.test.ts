@@ -29,7 +29,7 @@ import { updateSettings } from '../updateSettings';
 import { activateUser } from '../activateUser';
 import { deactivateUser } from '../deactivateUser';
 import { updatePrivacySettings } from '../updatePrivacySettings';
-import { Result } from '@/shared/core/Result';
+import { Result, ok } from '@/shared/core/Result';
 import { 
   expectEventPublished,
   expectResultOk,
@@ -137,28 +137,30 @@ class MockUserRepository implements UserRepository {
 
 // Hjälpfunktion för att skapa ett robust mockat User-objekt
 const createTestUser = (id: string = 'test-id'): User => {
+  // Skapa en mockad profil med den nya UserProfile-klassen
+  const profileResult = UserProfile.create({
+    firstName: 'Test',
+    lastName: 'User',
+    displayName: 'TestUser',
+    bio: 'Test bio',
+    location: 'Stockholm',
+    socialLinks: {
+      website: 'https://example.com',
+      twitter: 'https://twitter.com/testuser'
+    }
+  });
+
+  if (!profileResult.isOk()) {
+    throw new Error(`Kunde inte skapa användarprofil: ${profileResult.error}`);
+  }
+
   // Skapa ett default mock-objekt
   const mockUser = {
     id: new UniqueId(id),
     email: { value: 'test@example.com' },
     name: 'Test User',
     phone: { value: '+46701234567' },
-    profile: {
-      firstName: 'Test',
-      lastName: 'User',
-      displayName: 'TestUser',
-      bio: 'Test bio',
-      location: 'Stockholm',
-      contact: {
-        email: 'test@example.com',
-        phone: '+46701234567',
-        alternativeEmail: null
-      },
-      update: jest.fn().mockReturnValue(mockResult.ok({})),
-      updateContact: jest.fn(),
-      updateBio: jest.fn(),
-      updateDisplayName: jest.fn()
-    },
+    profile: profileResult.value,
     settings: {
       theme: 'light',
       language: 'sv',

@@ -116,7 +116,7 @@ export class SupabaseTeamRepository implements TeamRepository {
           throw new Error(result.error);
         }
 
-        return result.getValue();
+        return result.value;
       });
 
       // Konvertera inbjudningar till domänobjekt
@@ -137,7 +137,7 @@ export class SupabaseTeamRepository implements TeamRepository {
           throw new Error(result.error);
         }
 
-        return result.getValue();
+        return result.value;
       });
 
       // Skapa TeamSettings
@@ -154,7 +154,7 @@ export class SupabaseTeamRepository implements TeamRepository {
         ownerId: new UniqueId(teamData.owner_id),
         members,
         invitations,
-        settings: settingsResult.getValue(),
+        settings: settingsResult.value,
         createdAt: new Date(teamData.created_at),
         updatedAt: new Date(teamData.updated_at)
       };
@@ -228,7 +228,7 @@ export class SupabaseTeamRepository implements TeamRepository {
       // Filtrera bort eventuella felaktiga team
       const teams = teamResults
         .filter(result => result.isOk())
-        .map(result => result.getValue());
+        .map(result => result.value);
 
       return ok(teams);
     } catch (error) {
@@ -353,7 +353,7 @@ export class SupabaseTeamRepository implements TeamRepository {
           throw new Error(result.error);
         }
 
-        return result.getValue();
+        return result.value;
       });
 
       return ok(members);
@@ -449,7 +449,7 @@ export class SupabaseTeamRepository implements TeamRepository {
           throw new Error(result.error);
         }
 
-        return result.getValue();
+        return result.value;
       });
 
       return ok(invitations);
@@ -540,7 +540,7 @@ export class SupabaseTeamRepository implements TeamRepository {
       // Filtrera bort eventuella felaktiga team
       const teams = teamResults
         .filter(result => result.isOk())
-        .map(result => result.getValue());
+        .map(result => result.value);
 
       return ok(teams);
     } catch (error) {

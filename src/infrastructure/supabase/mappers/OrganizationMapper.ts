@@ -1,20 +1,37 @@
+import { Result, ok, err } from '@/shared/core/Result';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { Organization } from '@/domain/organization/entities/Organization';
-import { OrganizationMember } from '@/domain/organization/value-objects/OrganizationMember';
+import { OrganizationMember } from '@/domain/organization/entities/OrganizationMember';
+import { OrganizationName } from '@/domain/organization/value-objects/OrganizationName';
+import { OrganizationSettings } from '@/domain/organization/value-objects/OrganizationSettings';
 import { OrganizationInvitation, InvitationStatus } from '@/domain/organization/value-objects/OrganizationInvitation';
 import { OrgSettings } from '@/domain/organization/value-objects/OrgSettings';
 import { OrganizationRole } from '@/domain/organization/value-objects/OrganizationRole';
-import { UniqueId } from '@/shared/core/UniqueId';
 
-interface OrganizationDTO {
+/**
+ * DTO från Supabase-databasen
+ */
+export interface OrganizationDTO {
   id: string;
   name: string;
   owner_id: string;
-  settings: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-  members: OrganizationMemberDTO[];
-  invitations?: OrganizationInvitationDTO[];
+  members?: {
+    user_id: string;
+    role: string;
+    joined_at: string;
+  }[];
   team_ids?: string[];
+  settings?: {
+    subscription?: string;
+    features?: string[];
+    brand?: {
+      color?: string;
+      logo?: string;
+    };
+    visibility?: string;
+  };
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface OrganizationMemberDTO {
@@ -36,120 +53,128 @@ interface OrganizationInvitationDTO {
   responded_at?: string;
 }
 
+/**
+ * OrganizationMapper
+ * 
+ * Ansvarar för konvertering mellan domänobjekt och databasformat.
+ * Följer DDD-principer genom att hantera mappning och konvertering.
+ */
 export class OrganizationMapper {
-  static toDomain(dto: OrganizationDTO): Organization {
-    // Skapa settings först
-    const settingsResult = OrgSettings.create({
-      isPrivate: dto.settings?.isPrivate ?? true,
-      requiresApproval: dto.settings?.requiresApproval ?? true,
-      maxMembers: dto.settings?.maxMembers ?? 100,
-      allowGuests: dto.settings?.allowGuests ?? false,
-      notificationSettings: {
-        newMembers: dto.settings?.notificationSettings?.newMembers ?? true,
-        memberLeft: dto.settings?.notificationSettings?.memberLeft ?? true,
-        roleChanges: dto.settings?.notificationSettings?.roleChanges ?? true,
-        activityUpdates: dto.settings?.notificationSettings?.activityUpdates ?? true
+  /**
+   * Konverterar OrganizationDTO från databas till domänmodell
+   */
+  static toDomain(dto: OrganizationDTO): Result<Organization, string> {
+    try {
+      // Validera basdata
+      if (!dto.id || !dto.name || !dto.owner_id) {
+        return err('Ofullständig organisationsdata från databasen');
       }
-    });
 
-    if (settingsResult.isErr()) {
-      throw new Error(`Kunde inte mappa inställningar: ${settingsResult.error}`);
-    }
+      // Validera organisationsnamn
+      const nameResult = OrganizationName.create(dto.name);
+      if (nameResult.isErr()) {
+        return err(`Ogiltigt organisationsnamn: ${nameResult.error}`);
+      }
 
-    // Konvertera medlemmar
-    const members = (dto.members || []).map(m => {
-      const memberResult = OrganizationMember.create({
-        userId: new UniqueId(m.user_id),
-        role: m.role as OrganizationRole,
-        joinedAt: new Date(m.joined_at)
+      // Skapa standardinställningar om de saknas
+      const defaultSettings = {
+        subscription: 'free',
+        features: [],
+        brand: {
+          color: '#4A90E2',
+          logo: ''
+        },
+        visibility: 'private'
+      };
+
+      // Kombinera med befintliga inställningar om de finns
+      const settingsData = dto.settings || defaultSettings;
+      const settingsResult = OrganizationSettings.create({
+        subscription: settingsData.subscription || defaultSettings.subscription,
+        features: settingsData.features || defaultSettings.features,
+        brand: {
+          ...defaultSettings.brand,
+          ...settingsData.brand
+        },
+        visibility: settingsData.visibility || defaultSettings.visibility
       });
 
-      if (memberResult.isErr()) {
-        throw new Error(`Kunde inte mappa medlem: ${memberResult.error}`);
+      if (settingsResult.isErr()) {
+        return err(`Ogiltiga inställningar: ${settingsResult.error}`);
       }
 
-      return memberResult.value;
-    });
+      // Skapa medlemmar
+      const members: OrganizationMember[] = [];
+      if (dto.members && dto.members.length > 0) {
+        for (const member of dto.members) {
+          members.push(
+            new OrganizationMember({
+              userId: new UniqueId(member.user_id),
+              role: member.role,
+              joinedAt: new Date(member.joined_at)
+            })
+          );
+        }
+      }
 
-    // Konvertera invitations om de finns
-    const invitations = (dto.invitations || []).map(i => {
-      const invitationResult = OrganizationInvitation.create({
-        id: i.id,
-        organizationId: new UniqueId(i.organization_id),
-        userId: new UniqueId(i.user_id),
-        invitedBy: new UniqueId(i.invited_by),
-        email: i.email,
-        status: i.status as InvitationStatus,
-        expiresAt: new Date(i.expires_at),
-        createdAt: new Date(i.created_at),
-        respondedAt: i.responded_at ? new Date(i.responded_at) : undefined
+      // Lägg alltid till ägaren som medlem om den inte redan finns
+      const ownerExists = members.some(m => m.userId.toString() === dto.owner_id);
+      if (!ownerExists) {
+        members.push(
+          new OrganizationMember({
+            userId: new UniqueId(dto.owner_id),
+            role: 'owner',
+            joinedAt: dto.created_at ? new Date(dto.created_at) : new Date()
+          })
+        );
+      }
+
+      // Skapa organisation
+      const organization = new Organization({
+        id: new UniqueId(dto.id),
+        name: nameResult.value,
+        ownerId: new UniqueId(dto.owner_id),
+        members,
+        teamIds: dto.team_ids?.map(id => new UniqueId(id)) || [],
+        settings: settingsResult.value,
+        createdAt: dto.created_at ? new Date(dto.created_at) : new Date(),
+        updatedAt: dto.updated_at ? new Date(dto.updated_at) : new Date()
       });
-
-      if (invitationResult.isErr()) {
-        throw new Error(`Kunde inte mappa inbjudan: ${invitationResult.error}`);
-      }
-
-      return invitationResult.value;
-    });
-
-    // Konvertera team IDs om de finns
-    const teamIds = (dto.team_ids || []).map(id => new UniqueId(id));
-
-    // Skapa domänobjekt
-    const orgResult = Organization.create({
-      id: new UniqueId(dto.id),
-      name: dto.name,
-      ownerId: new UniqueId(dto.owner_id),
-      settings: settingsResult.value,
-      members,
-      invitations,
-      teamIds,
-      createdAt: new Date(dto.created_at),
-      updatedAt: new Date(dto.updated_at)
-    });
-
-    if (orgResult.isErr()) {
-      throw new Error(`Kunde inte mappa organisation: ${orgResult.error}`);
+      
+      return ok(organization);
+    } catch (error) {
+      return err(`OrganizationMapper.toDomain fel: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    return orgResult.value;
   }
 
-  static toPersistence(organization: Organization): {
-    id: string;
-    name: string;
-    owner_id: string;
-    settings: Record<string, any>;
-    updated_at: string;
-    members: OrganizationMemberDTO[];
-    invitations: OrganizationInvitationDTO[];
-    team_ids?: string[];
-  } {
-    return {
-      id: organization.id.toString(),
-      name: organization.name,
-      owner_id: organization.ownerId.toString(),
-      settings: organization.settings.toJSON(),
-      updated_at: organization.updatedAt.toISOString(),
-      members: organization.members.map(m => ({
-        organization_id: organization.id.toString(),
-        user_id: m.userId.toString(),
-        role: m.role,
-        joined_at: m.joinedAt.toISOString()
-      })),
-      invitations: organization.invitations.map(i => ({
-        id: i.id.toString(),
-        organization_id: organization.id.toString(),
-        user_id: i.userId.toString(),
-        invited_by: i.invitedBy.toString(),
-        email: i.email,
-        status: i.status,
-        expires_at: i.expiresAt?.toISOString() || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        created_at: i.createdAt.toISOString(),
-        responded_at: i.respondedAt?.toISOString()
-      })),
-      team_ids: organization.teamIds.map(id => id.toString())
-    };
+  /**
+   * Konverterar Organization-domänmodell till databasobjekt
+   */
+  static toPersistence(organization: Organization): OrganizationDTO {
+    try {
+      return {
+        id: organization.id.toString(),
+        name: organization.name.value,
+        owner_id: organization.ownerId.toString(),
+        members: organization.members.map(member => ({
+          user_id: member.userId.toString(),
+          role: member.role,
+          joined_at: member.joinedAt.toISOString()
+        })),
+        team_ids: organization.teamIds.map(id => id.toString()),
+        settings: {
+          subscription: organization.settings.subscription,
+          features: organization.settings.features,
+          brand: organization.settings.brand,
+          visibility: organization.settings.visibility
+        },
+        created_at: organization.createdAt.toISOString(),
+        updated_at: organization.updatedAt.toISOString()
+      };
+    } catch (error) {
+      console.error(`OrganizationMapper.toPersistence fel: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
   }
 
   static memberToDomain(dto: OrganizationMemberDTO): OrganizationMember {

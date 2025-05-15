@@ -1,17 +1,46 @@
-import { DomainEvent } from './events/DomainEvent';
+import { Entity } from './Entity';
+import { IDomainEvent } from './events/IDomainEvent';
+import { UniqueId } from '../core/UniqueId';
 
-export abstract class AggregateRoot {
-  private _domainEvents: DomainEvent[] = [];
+/**
+ * AggregateRoot
+ * 
+ * Basklass för aggregatrötter enligt DDD-principer.
+ * En aggregatrot är en entitet som garanterar konsistens för ett aggregat.
+ * Endast aggregatrötter ska publicera domänevents.
+ */
+export abstract class AggregateRoot<T> extends Entity<T> {
+  private _domainEvents: IDomainEvent[] = [];
 
-  get domainEvents(): DomainEvent[] {
-    return this._domainEvents;
+  constructor(props: T, id?: UniqueId) {
+    super(props, id);
   }
 
-  protected addDomainEvent(event: DomainEvent): void {
-    this._domainEvents.push(event);
+  /**
+   * Lägger till en domänhändelse till händelselistan
+   * @param domainEvent Händelse att lägga till
+   */
+  protected addDomainEvent(domainEvent: IDomainEvent): void {
+    this._domainEvents.push(domainEvent);
   }
 
-  clearDomainEvents(): void {
+  /**
+   * Rensar listan med domänhändelser
+   */
+  public clearEvents(): void {
     this._domainEvents = [];
   }
+
+  /**
+   * Hämtar alla domänhändelser för aggregatroten
+   */
+  public getDomainEvents(): IDomainEvent[] {
+    return [...this._domainEvents];
+  }
+
+  /**
+   * Callback som anropas efter att ett domänevent sparats/publicerats
+   * Kan överridas av konkreta klasser för specifik hantering
+   */
+  protected onEventSaved(): void {}
 } 

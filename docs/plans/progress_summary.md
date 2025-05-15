@@ -140,5 +140,24 @@ Baserat på den uppdaterade uppgiftslistan i `cleanup_tasks.md` kommer vi att fo
 - **Mer robust felhantering** - Genomgående användning av Result-typen med typade felkoder
 - **Bättre domänevents** - Tydligt definierade händelsestrukturer för domänmodellen
 - **Förbättrad typhantering** - Starkare typsäkerhet mellan lager
+- **Modulär frontend-förberedelse** - Applikationslagret är förberett för effektiv UI-utveckling
 
-Genom dessa förbättringar har vi tagit viktiga steg mot en mer underhållbar och skalbar kodstruktur enligt Domain-Driven Design principer. Särskilt har vi etablerat ett konsekvent mönster för applikationslagrets use cases, vilket gör koden mer förutsägbar och lättare att underhålla. 
+Genom dessa förbättringar har vi tagit viktiga steg mot en mer underhållbar och skalbar kodstruktur enligt Domain-Driven Design principer. Särskilt har vi etablerat ett konsekvent mönster för applikationslagrets use cases, vilket gör koden mer förutsägbar och lättare att underhålla.
+
+## Strategi för mobilapplikationsutveckling
+
+Vi har valt att prioritera applikationslagrets kvalitet och konsistens framför UI-integration i detta skede. Detta möjliggör:
+
+1. **Snabb UI-prototyping** – Med välutvecklade hooks och providers kan frontend byggas och ändras snabbt med hjälp av verktyg som v0.dev utan att riskera stabilitet
+2. **Ökad utvecklarhastighet** – Tydliga kontrakt mellan lager möjliggör parallell utveckling
+3. **Reducerad teknisk skuld** – Fokus på applikationslagrets kvalitet ger färre buggar och begränsad refaktorering senare
+4. **Oberoende UI-implementationer** – Samma applikationsskikt kan återanvändas för webb, mobil, eller andra plattformar
+
+Nästa fas av utvecklingen kommer att fokusera på att utöka och förbättra hooks och providers för att stödja samtliga domäner, med särskilt fokus på:
+
+- Utbyggnad av standardiserad error handling pattern 
+- Integrera cache-strategier för offline-användning
+- Utveckla fler providers för ytterligare domäner
+- Skapa omfattande tester för hooks och providers
+
+När applikationslagret är komplett, modulärt och robust, kan UI-utvecklingen snabbt och enkelt leverera värde till slutanvändare med minimala beroenden till underliggande infrastruktur. 

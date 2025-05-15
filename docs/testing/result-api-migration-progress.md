@@ -21,11 +21,9 @@ Detta dokument spårar framstegen i migreringen från det gamla Result-API:et (i
 
 ### Repository-implementationer
 - [x] `TeamRepository.ts` - Helt uppdaterad (verkar att de flesta delar redan var uppdaterade)
+- [x] `OptimizedUserRepository.ts` - Uppdaterad (endast en förekomst av getValue hittades)
 
 ## Pågående uppdateringar
-
-### Repository-implementationer
-- [ ] `OptimizedUserRepository.ts` - Använder getValue
 
 ### Hooks
 - [ ] `useStandardizedHook.ts` - Använder isSuccess/getValue
@@ -48,6 +46,6 @@ Vi använder följande strategier för att migrera koden:
 ## Nästa steg
 
 1. ~~Slutföra uppdateringen av TeamRepository.ts~~ ✓
-2. Uppdatera OptimizedUserRepository.ts
+2. ~~Uppdatera OptimizedUserRepository.ts~~ ✓
 3. Uppdatera hook-implementationer i applikationslagret, med fokus på useTeam och useTeamActivities
 4. Göra tester som verifierar att API:et används konsekvent 

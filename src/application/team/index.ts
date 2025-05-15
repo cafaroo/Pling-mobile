@@ -48,6 +48,36 @@ export const createTeamUseCasesFactory = (
   };
 };
 
+// Event Handlers
+export * from './eventHandlers/TeamEventHandlerFactory';
+
+// Exportera individuella handlers
+export * from './eventHandlers/BaseEventHandler';
+export * from './eventHandlers/TeamCreatedHandler';
+export * from './eventHandlers/MemberJoinedHandler';
+
+// Exportera tidigare funktionalitet:
+// Use Cases
+export * from './useCases/createTeam/CreateTeamUseCase';
+export * from './useCases/addTeamMember/AddTeamMemberUseCase';
+export * from './useCases/removeTeamMember/RemoveTeamMemberUseCase';
+export * from './useCases/updateTeamMemberRole/UpdateTeamMemberRoleUseCase';
+export * from './useCases/inviteTeamMember/InviteTeamMemberUseCase';
+export * from './useCases/getTeamStatistics/GetTeamStatisticsUseCase';
+export * from './useCases/getTeamActivities/GetTeamActivitiesUseCase';
+export * from './useCases/createTeamActivity/CreateTeamActivityUseCase';
+export * from './useCases/createTeamMessage/CreateTeamMessageUseCase';
+export * from './useCases/createThreadReply/CreateThreadReplyUseCase';
+
+// DTOs
+export * from './dto/TeamDTO';
+export * from './dto/TeamMemberDTO';
+export * from './dto/TeamStatisticsDTO';
+export * from './dto/TeamActivityDTO';
+export * from './dto/TeamMessageDTO';
+
+// Hooks (kommer att implementeras senare)
+
 // Re-exportera alla modeller och use cases för enkel import
 export * from './useCases/createTeam';
 export * from './useCases/addTeamMember';

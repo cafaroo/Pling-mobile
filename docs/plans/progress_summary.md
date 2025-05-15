@@ -6,28 +6,38 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
 ## Genomförda förbättringar
 
 ### Nya implementationer (2024-05-XX)
-1. **Basklasser för Entiteter** - Implementerat grundläggande basklasser för alla domänkomponenter:
+1. **Event Handlers för Team-domänen** - Implementerat strukturerad hantering av team-relaterade domänevents:
+   - Skapat `BaseEventHandler` basklass med generisk typning för alla event handlers
+   - Implementerat specifika handlers för grundläggande team-events:
+     - `TeamCreatedHandler` för att hantera nya team och uppdatera användarens teammedlemskap
+     - `MemberJoinedHandler` för att hantera nya teammedlemmar och uppdatera teamstatistik
+     - Förberedande struktur för `MemberLeftHandler`, `TeamMemberRoleChangedHandler` och `TeamMessageCreatedHandler`
+   - Skapat `TeamEventHandlerFactory` för enkel instansiering och registrering av handlers
+   - Implementerat `DomainEventHandlerInitializer` för att registrera alla handlers vid appstart
+   - Strukturerade enhetstester för validering av event handler-funktionalitet
+
+2. **Basklasser för Entiteter** - Implementerat grundläggande basklasser för alla domänkomponenter:
    - Skapat `Entity<T>` basklass för alla entiteter med generisk typning
    - Implementerat `AggregateRoot<T>` som ärver från Entity med stöd för domänevents
    - Skapat `IDomainEvent` interface för alla domänevents
 
-2. **Domänentiteter** - Refaktorerat flera domänentiteter för att använda de nya basklasserna:
+3. **Domänentiteter** - Refaktorerat flera domänentiteter för att använda de nya basklasserna:
    - Uppdaterat `Team`-entiteten för att ärva från AggregateRoot<TeamProps>
    - Uppdaterat `User`-entiteten för att ärva från AggregateRoot<UserProps>
    - Standardiserat domänevents för Team och User
    - Implementerat domänevents som använder IDomainEvent-interface med BaseTeamEvent och BaseUserEvent
 
-3. **OrganizationRepository** - Implementerat repository-pattern för Organization-domänen:
+4. **OrganizationRepository** - Implementerat repository-pattern för Organization-domänen:
    - Definierat ett standardiserat `OrganizationRepository` interface
    - Dokumenterat alla metoder med tydliga beskrivningar och returtyper
    - Säkerställt korrekt användning av Result-typen
 
-4. **OrganizationMapper** - Implementerat mapper-klass för Organization-entiteten:
+5. **OrganizationMapper** - Implementerat mapper-klass för Organization-entiteten:
    - Skapad robust konvertering mellan domänmodell och databasobjekt
    - Implementerat validering av data vid konvertering
    - Förbättrad felhantering med detaljerade felmeddelanden
 
-5. **SupabaseOrganizationRepository** - Implementerat konkret repository:
+6. **SupabaseOrganizationRepository** - Implementerat konkret repository:
    - Implementerat alla metoder från OrganizationRepository-interfacet
    - Säkerställt korrekt hantering av domänevents
    - Implementerat transaktionshantering för relaterade entiteter

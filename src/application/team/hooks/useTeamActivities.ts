@@ -15,6 +15,19 @@ interface UseTeamActivitiesOptions {
   userIsTarget?: boolean;
   enabled?: boolean;
   useLazyLoading?: boolean;
+  staleTime?: number;
+  cacheTime?: number;
+  retryCount?: number;
+}
+
+export interface ActivityStats {
+  total: number;
+  byType: Record<ActivityType, number>;
+  byDate: {
+    today: number;
+    thisWeek: number;
+    thisMonth: number;
+  };
 }
 
 interface UseTeamActivitiesResult {
@@ -27,6 +40,7 @@ interface UseTeamActivitiesResult {
   isLoadingLatest: boolean;
   isLoadingStats: boolean;
   isLoadingMore: boolean;
+  isFetching: boolean;
   error: Error | null;
   refetch: () => Promise<any>;
   createActivity: (data: {
@@ -34,12 +48,20 @@ interface UseTeamActivitiesResult {
     performedBy: string;
     targetId?: string;
     metadata?: Record<string, any>;
-  }) => void;
+  }) => Promise<{
+    success: boolean;
+    error?: Error;
+    activity?: TeamActivityDTO;
+  }>;
   createActivityFromEvent: (
     performedBy: string, 
     eventName: string, 
     eventPayload: Record<string, any>
-  ) => Promise<any>;
+  ) => Promise<{
+    success: boolean;
+    error?: Error;
+    activity?: TeamActivityDTO;
+  }>;
   fetchNextPage: () => Promise<any>;
   filterByType: (type: ActivityType) => UseTeamActivitiesResult;
 }
@@ -57,64 +79,108 @@ export function useTeamActivities({
   offset = 0,
   userIsTarget = false,
   enabled = true,
-  useLazyLoading = false
+  useLazyLoading = false,
+  staleTime = 5 * 60 * 1000, // 5 minuter default staleTime
+  cacheTime = 30 * 60 * 1000, // 30 minuter default cacheTime
+  retryCount = 3
 }: UseTeamActivitiesOptions): UseTeamActivitiesResult {
   const queryClient = useQueryClient();
   const { teamActivityRepository } = useInfrastructure();
   
+  // Skapa en unik nyckel för queryn baserat på alla parametrar
+  const baseQueryKey = ['teamActivities', teamId];
+  
+  // Lägg till filter i query-nyckeln endast om de finns
+  const createQueryKey = (base: string[], additionalParams: Record<string, any> = {}) => {
+    const queryKey = [...base];
+    
+    if (userId) queryKey.push({ userId });
+    if (activityTypes?.length) queryKey.push({ activityTypes });
+    if (startDate) queryKey.push({ startDate: startDate.toISOString() });
+    if (endDate) queryKey.push({ endDate: endDate.toISOString() });
+    if (userIsTarget) queryKey.push({ userIsTarget });
+    
+    // Lägg till alla ytterligare parametrar
+    Object.entries(additionalParams).forEach(([key, value]) => {
+      if (value !== undefined) queryKey.push({ [key]: value });
+    });
+    
+    return queryKey;
+  };
+  
   // Använd infinite query för lazy loading
   const infiniteQueryResult = useInfiniteQuery({
-    queryKey: ['teamActivitiesInfinite', teamId, userId, activityTypes, startDate, endDate, limit, userIsTarget],
+    queryKey: createQueryKey(['teamActivitiesInfinite', teamId]),
     queryFn: async ({ pageParam = 0 }) => {
-      const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
-      const result = await getTeamActivitiesUseCase.execute({
-        teamId,
-        userId,
-        activityTypes,
-        startDate,
-        endDate,
-        limit,
-        offset: pageParam,
-        userIsTarget
-      });
-      
-      if (result.isErr()) {
-        throw new Error(result.error);
+      try {
+        const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
+        const result = await getTeamActivitiesUseCase.execute({
+          teamId,
+          userId,
+          activityTypes,
+          startDate,
+          endDate,
+          limit,
+          offset: pageParam,
+          userIsTarget
+        });
+        
+        if (result.isErr()) {
+          throw new Error(result.error);
+        }
+        
+        return result.value;
+      } catch (error) {
+        // Kasta om felet för att React Query ska hantera det
+        throw error instanceof Error ? error : new Error('Ett okänt fel inträffade');
       }
-      
-      return result.value;
     },
     getNextPageParam: (lastPage) => {
       if (!lastPage.hasMore) return undefined;
       return lastPage.offset + limit;
     },
     initialPageParam: 0,
-    enabled: enabled && useLazyLoading
+    enabled: enabled && useLazyLoading,
+    staleTime,
+    gcTime: cacheTime,
+    retry: retryCount,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
   });
   
   // Standard query för när vi inte använder lazy loading
   const standardQueryResult = useQuery({
-    queryKey: ['teamActivities', teamId, userId, activityTypes, startDate, endDate, limit, offset, userIsTarget],
+    queryKey: createQueryKey(['teamActivities', teamId], { limit, offset }),
     queryFn: async () => {
-      const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
-      const result = await getTeamActivitiesUseCase.execute({
-        teamId,
-        userId,
-        activityTypes,
-        startDate,
-        endDate,
-        limit,
-        offset,
-        userIsTarget
-      });
-      
-      if (result.isErr()) {
-        throw new Error(result.error);
+      try {
+        const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
+        const result = await getTeamActivitiesUseCase.execute({
+          teamId,
+          userId,
+          activityTypes,
+          startDate,
+          endDate,
+          limit,
+          offset,
+          userIsTarget
+        });
+        
+        if (result.isErr()) {
+          throw new Error(result.error);
+        }
+        
+        return result.value;
+      } catch (error) {
+        // Kasta om felet för att React Query ska hantera det
+        throw error instanceof Error ? error : new Error('Ett okänt fel inträffade');
       }
-      
-      return result.value;
     },
-    enabled: enabled && !useLazyLoading
+    enabled: enabled && !useLazyLoading,
+    staleTime,
+    gcTime: cacheTime,
+    retry: retryCount,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
   });
   
   // Kombinera data baserat på vilket query-läge som används
@@ -131,40 +197,58 @@ export function useTeamActivities({
   const hasMore = useLazyLoading
     ? !!infiniteQueryResult.hasNextPage
     : (standardQueryResult.data?.hasMore || false);
+    
+  const isFetching = useLazyLoading
+    ? infiniteQueryResult.isFetching
+    : standardQueryResult.isFetching;
   
   // Hämta de senaste aktiviteterna (förkortad lista)
-  const { data: latestActivities, isLoading: isLoadingLatest } = useQuery({
+  const latestActivitiesQuery = useQuery({
     queryKey: ['teamActivitiesLatest', teamId],
     queryFn: async () => {
-      const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
-      const result = await getTeamActivitiesUseCase.getLatestActivities(teamId, 5);
-      
-      if (result.isErr()) {
-        throw new Error(result.error);
+      try {
+        const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
+        const result = await getTeamActivitiesUseCase.getLatestActivities(teamId, 5);
+        
+        if (result.isErr()) {
+          throw new Error(result.error);
+        }
+        
+        return result.value;
+      } catch (error) {
+        throw error instanceof Error ? error : new Error('Ett okänt fel inträffade');
       }
-      
-      return result.value;
     },
-    enabled
+    enabled,
+    staleTime,
+    gcTime: cacheTime,
+    retry: retryCount,
   });
   
   // Hämta aktivitetsstatistik
-  const { data: activityStats, isLoading: isLoadingStats } = useQuery({
+  const activityStatsQuery = useQuery({
     queryKey: ['teamActivityStats', teamId],
     queryFn: async () => {
-      const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
-      const result = await getTeamActivitiesUseCase.getActivityStats(teamId);
-      
-      if (result.isErr()) {
-        throw new Error(result.error);
+      try {
+        const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
+        const result = await getTeamActivitiesUseCase.getActivityStats(teamId);
+        
+        if (result.isErr()) {
+          throw new Error(result.error);
+        }
+        
+        return result.value;
+      } catch (error) {
+        throw error instanceof Error ? error : new Error('Ett okänt fel inträffade');
       }
-      
-      return result.value;
     },
-    enabled
+    enabled,
+    staleTime: 5 * 60 * 1000, // Statistik är stale efter 5 minuter
+    gcTime: cacheTime,
+    retry: retryCount,
   });
   
-  // Mutation för att skapa en ny aktivitet
+  // Mutation för att skapa en ny aktivitet med skickbar respons
   const createActivityMutation = useMutation({
     mutationFn: async ({
       activityType,
@@ -177,29 +261,111 @@ export function useTeamActivities({
       targetId?: string;
       metadata?: Record<string, any>;
     }) => {
-      const createTeamActivityUseCase = new CreateTeamActivityUseCase(teamActivityRepository);
-      const result = await createTeamActivityUseCase.execute({
-        teamId,
-        performedBy,
-        activityType,
-        targetId,
-        metadata
-      });
-      
-      if (result.isErr()) {
-        throw new Error(result.error);
+      try {
+        const createTeamActivityUseCase = new CreateTeamActivityUseCase(teamActivityRepository);
+        const result = await createTeamActivityUseCase.execute({
+          teamId,
+          performedBy,
+          activityType,
+          targetId,
+          metadata
+        });
+        
+        if (result.isErr()) {
+          throw new Error(result.error);
+        }
+        
+        return result.value;
+      } catch (error) {
+        throw error instanceof Error ? error : new Error('Ett okänt fel inträffade');
+      }
+    },
+    onSuccess: (newActivity) => {
+      // Optimistisk uppdatering av cachen
+      if (useLazyLoading) {
+        // För infinite query
+        const existingData = queryClient.getQueryData(
+          createQueryKey(['teamActivitiesInfinite', teamId])
+        );
+        
+        if (existingData) {
+          queryClient.setQueryData(
+            createQueryKey(['teamActivitiesInfinite', teamId]),
+            (oldData: any) => {
+              // Om första sidan inte finns, invalidera istället
+              if (!oldData?.pages?.length) return oldData;
+              
+              // Uppdatera första sidan med ny aktivitet
+              const newPages = [...oldData.pages];
+              newPages[0] = {
+                ...newPages[0],
+                activities: [newActivity, ...newPages[0].activities],
+                total: newPages[0].total + 1
+              };
+              
+              return {
+                ...oldData,
+                pages: newPages
+              };
+            }
+          );
+        }
+      } else {
+        // För standard query
+        const existingData = queryClient.getQueryData(
+          createQueryKey(['teamActivities', teamId], { limit, offset })
+        );
+        
+        if (existingData) {
+          queryClient.setQueryData(
+            createQueryKey(['teamActivities', teamId], { limit, offset }),
+            (oldData: any) => {
+              if (!oldData) return oldData;
+              
+              return {
+                ...oldData,
+                activities: [newActivity, ...oldData.activities],
+                total: oldData.total + 1
+              };
+            }
+          );
+        }
       }
       
-      return result.value;
-    },
-    onSuccess: () => {
-      // Invalidera relevanta queries för att uppdatera data
-      queryClient.invalidateQueries({ queryKey: ['teamActivities', teamId] });
-      queryClient.invalidateQueries({ queryKey: ['teamActivitiesInfinite', teamId] });
-      queryClient.invalidateQueries({ queryKey: ['teamActivitiesLatest', teamId] });
+      // Uppdatera även senaste aktiviteter
+      const existingLatestData = queryClient.getQueryData(['teamActivitiesLatest', teamId]);
+      if (existingLatestData) {
+        queryClient.setQueryData(['teamActivitiesLatest', teamId], (oldData: any) => {
+          if (!oldData) return oldData;
+          
+          // Lägg till ny aktivitet först, men behåll bara 5
+          const updatedActivities = [newActivity, ...oldData].slice(0, 5);
+          return updatedActivities;
+        });
+      }
+      
+      // För statistik måste vi invalidera eftersom det är svårt att uppdatera korrekt
       queryClient.invalidateQueries({ queryKey: ['teamActivityStats', teamId] });
     }
   });
+  
+  // Wrapper för mutation som returnerar en strukturerad respons
+  const createActivity = async (data: {
+    activityType: ActivityType;
+    performedBy: string;
+    targetId?: string;
+    metadata?: Record<string, any>;
+  }) => {
+    try {
+      const activity = await createActivityMutation.mutateAsync(data);
+      return { success: true, activity };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error : new Error('Ett okänt fel inträffade')
+      };
+    }
+  };
   
   // Hjälpfunktion för att skapa en aktivitet från en domänhändelse
   const createActivityFromEvent = async (
@@ -207,23 +373,35 @@ export function useTeamActivities({
     eventName: string,
     eventPayload: Record<string, any>
   ) => {
-    const createTeamActivityUseCase = new CreateTeamActivityUseCase(teamActivityRepository);
-    const result = await createTeamActivityUseCase.createFromDomainEvent(
-      teamId,
-      performedBy,
-      eventName,
-      eventPayload
-    );
-    
-    if (result.isOk()) {
-      // Invalidera queries för att uppdatera data
-      queryClient.invalidateQueries({ queryKey: ['teamActivities', teamId] });
-      queryClient.invalidateQueries({ queryKey: ['teamActivitiesInfinite', teamId] });
-      queryClient.invalidateQueries({ queryKey: ['teamActivitiesLatest', teamId] });
-      queryClient.invalidateQueries({ queryKey: ['teamActivityStats', teamId] });
+    try {
+      const createTeamActivityUseCase = new CreateTeamActivityUseCase(teamActivityRepository);
+      const result = await createTeamActivityUseCase.createFromDomainEvent(
+        teamId,
+        performedBy,
+        eventName,
+        eventPayload
+      );
+      
+      if (result.isErr()) {
+        return { 
+          success: false, 
+          error: new Error(result.error)
+        };
+      }
+      
+      // Uppdatera cache
+      queryClient.invalidateQueries({ queryKey: ['teamActivities'] });
+      queryClient.invalidateQueries({ queryKey: ['teamActivitiesInfinite'] });
+      queryClient.invalidateQueries({ queryKey: ['teamActivitiesLatest'] });
+      queryClient.invalidateQueries({ queryKey: ['teamActivityStats'] });
+      
+      return { success: true, activity: result.value };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error : new Error('Ett okänt fel inträffade')
+      };
     }
-    
-    return result;
   };
   
   // Hjälpfunktion för att hämta nästa sida av aktiviteter
@@ -231,35 +409,59 @@ export function useTeamActivities({
     if (useLazyLoading) {
       return infiniteQueryResult.fetchNextPage();
     } else if (hasMore) {
-      return queryClient.fetchQuery({
-        queryKey: ['teamActivities', teamId, userId, activityTypes, startDate, endDate, limit, offset + limit, userIsTarget],
-        queryFn: async () => {
-          const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
-          const result = await getTeamActivitiesUseCase.execute({
-            teamId,
-            userId,
-            activityTypes,
-            startDate,
-            endDate,
-            limit,
-            offset: offset + limit,
-            userIsTarget
-          });
-          
-          if (result.isErr()) {
-            throw new Error(result.error);
-          }
-          
-          return result.value;
+      // För standardläge måste vi hämta nästa offset manuellt
+      try {
+        const getTeamActivitiesUseCase = new GetTeamActivitiesUseCase(teamActivityRepository);
+        const newOffset = offset + limit;
+        
+        const result = await getTeamActivitiesUseCase.execute({
+          teamId,
+          userId,
+          activityTypes,
+          startDate,
+          endDate,
+          limit,
+          offset: newOffset,
+          userIsTarget
+        });
+        
+        if (result.isErr()) {
+          throw new Error(result.error);
         }
-      });
+        
+        // Lägg till nya aktiviteter till den befintliga datan i cachen
+        queryClient.setQueryData(
+          createQueryKey(['teamActivities', teamId], { limit, offset }),
+          (oldData: any) => {
+            if (!oldData) return oldData;
+            
+            return {
+              ...oldData,
+              activities: [...oldData.activities, ...result.value.activities],
+              offset: newOffset,
+              hasMore: result.value.hasMore
+            };
+          }
+        );
+        
+        // Spara även nästa sida i cachen
+        queryClient.setQueryData(
+          createQueryKey(['teamActivities', teamId], { limit, offset: newOffset }),
+          result.value
+        );
+        
+        return result.value;
+      } catch (error) {
+        throw error instanceof Error ? error : new Error('Ett okänt fel inträffade');
+      }
     }
     
-    return Promise.resolve(null);
+    return Promise.resolve({ hasMore: false });
   };
   
-  // Hjälpfunktion för att filtrera aktiviteter efter typ
+  // Hjälpfunktion för att få en filtrerad variant av samma hook
   const filterByType = (type: ActivityType): UseTeamActivitiesResult => {
+    // Skapa en ny filtrerad version av samma hook med additionalTypes
     return useTeamActivities({
       teamId,
       userId,
@@ -267,10 +469,12 @@ export function useTeamActivities({
       startDate,
       endDate,
       limit,
-      offset: 0,
+      offset,
       userIsTarget,
-      enabled: true,
-      useLazyLoading
+      enabled,
+      useLazyLoading,
+      staleTime,
+      cacheTime
     });
   };
   
@@ -278,17 +482,16 @@ export function useTeamActivities({
     activities,
     total,
     hasMore,
-    latestActivities: latestActivities || [],
-    activityStats: activityStats || {},
-    isLoading: useLazyLoading ? infiniteQueryResult.isLoading : standardQueryResult.isLoading,
+    latestActivities: latestActivitiesQuery.data || [],
+    activityStats: activityStatsQuery.data || {},
+    isLoading: queryResult.isLoading,
+    isLoadingLatest: latestActivitiesQuery.isLoading,
+    isLoadingStats: activityStatsQuery.isLoading,
     isLoadingMore: useLazyLoading ? infiniteQueryResult.isFetchingNextPage : false,
-    isLoadingLatest,
-    isLoadingStats,
-    error: useLazyLoading 
-      ? infiniteQueryResult.error as Error | null 
-      : standardQueryResult.error as Error | null,
-    refetch: useLazyLoading ? infiniteQueryResult.refetch : standardQueryResult.refetch,
-    createActivity: createActivityMutation.mutate,
+    isFetching,
+    error: queryResult.error ? (queryResult.error as Error) : null,
+    refetch: queryResult.refetch,
+    createActivity,
     createActivityFromEvent,
     fetchNextPage,
     filterByType

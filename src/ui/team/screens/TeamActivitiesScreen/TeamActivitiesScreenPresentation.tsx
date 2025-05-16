@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import { View, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { Appbar, Text, Divider, List, Chip, Menu, Button, Searchbar, IconButton } from 'react-native-paper';
 import { Screen } from '@/ui/components/Screen';
@@ -45,7 +45,8 @@ export interface TeamActivitiesScreenPresentationProps {
   onActivityPress: (activityId: string) => void;
 }
 
-export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPresentationProps> = ({
+// Använd memo för att förhindra onödig rendering av komponenten
+export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPresentationProps> = memo(({
   teamId,
   teamName,
   activities,
@@ -72,42 +73,46 @@ export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPres
   const [searchQuery, setSearchQuery] = useState('');
   
   // Visa filtermenyn
-  const toggleFilterMenu = () => setFilterOpen(!filterOpen);
+  const toggleFilterMenu = useCallback(() => setFilterOpen(!filterOpen), [filterOpen]);
   
   // Hantera sökfrågeändring
-  const handleSearchChange = (query: string) => {
+  const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
-    setFilterState(prev => ({ ...prev, search: query }));
-    onFilter({ ...filterState, search: query });
-  };
+    const newFilterState = { ...filterState, search: query };
+    setFilterState(newFilterState);
+    onFilter(newFilterState);
+  }, [filterState, onFilter]);
   
   // Hantera val av aktivitetstyp för filtrering
-  const handleTypeFilter = (type: ActivityType) => {
+  const handleTypeFilter = useCallback((type: ActivityType) => {
     const newTypes = filterState.types.includes(type)
       ? filterState.types.filter(t => t !== type)
       : [...filterState.types, type];
     
-    setFilterState(prev => ({ ...prev, types: newTypes }));
-    onFilter({ ...filterState, types: newTypes });
-  };
+    const newFilterState = { ...filterState, types: newTypes };
+    setFilterState(newFilterState);
+    onFilter(newFilterState);
+  }, [filterState, onFilter]);
   
   // Hantera val av datumintervall
-  const handleDateRangeFilter = (range: 'all' | 'today' | 'week' | 'month') => {
-    setFilterState(prev => ({ ...prev, dateRange: range }));
-    onFilter({ ...filterState, dateRange: range });
+  const handleDateRangeFilter = useCallback((range: 'all' | 'today' | 'week' | 'month') => {
+    const newFilterState = { ...filterState, dateRange: range };
+    setFilterState(newFilterState);
+    onFilter(newFilterState);
     setFilterOpen(false);
-  };
+  }, [filterState, onFilter]);
   
   // Rensa alla filter
-  const clearFilters = () => {
-    setFilterState({ types: [], dateRange: 'all', search: '' });
+  const clearFilters = useCallback(() => {
+    const emptyFilters = { types: [], dateRange: 'all', search: '' };
+    setFilterState(emptyFilters);
     setSearchQuery('');
-    onFilter({ types: [], dateRange: 'all', search: '' });
+    onFilter(emptyFilters);
     setFilterOpen(false);
-  };
+  }, [onFilter]);
   
   // Få ikon för aktivitetstyp
-  const getActivityIcon = (type: string): string => {
+  const getActivityIcon = useCallback((type: string): string => {
     switch (type) {
       case 'message':
         return 'message-text';
@@ -124,10 +129,10 @@ export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPres
       default:
         return 'information';
     }
-  };
+  }, []);
   
-  // Rendera aktivitetsraden
-  const renderActivityItem = ({ item }: { item: TeamActivityItem }) => (
+  // Rendera aktivitetsraden - memoerad för att förbättra prestanda
+  const renderActivityItem = useCallback(({ item }: { item: TeamActivityItem }) => (
     <TouchableOpacity onPress={() => onActivityPress(item.id)}>
       <List.Item
         title={item.title}
@@ -151,10 +156,10 @@ export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPres
         )}
       />
     </TouchableOpacity>
-  );
+  ), [onActivityPress, getActivityIcon]);
   
-  // Rendera footer för listan
-  const renderFooter = () => {
+  // Rendera footer för listan med optimerad laddningslogik
+  const renderFooter = useCallback(() => {
     if (isLoadingMore) {
       return (
         <View style={styles.loadMoreContainer}>
@@ -166,7 +171,13 @@ export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPres
     
     if (hasMore) {
       return (
-        <Button mode="outlined" onPress={onLoadMore} style={styles.loadMoreButton}>
+        <Button 
+          mode="outlined" 
+          onPress={onLoadMore} 
+          style={styles.loadMoreButton}
+          loading={isLoadingMore}
+          disabled={isLoadingMore}
+        >
           Ladda fler aktiviteter
         </Button>
       );
@@ -181,10 +192,17 @@ export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPres
     }
     
     return null;
-  };
+  }, [hasMore, isLoadingMore, activities.length, onLoadMore]);
+  
+  // Hantera när listan når botten för oändlig scrollning
+  const handleEndReached = useCallback(() => {
+    if (hasMore && !isLoadingMore) {
+      onLoadMore();
+    }
+  }, [hasMore, isLoadingMore, onLoadMore]);
   
   // Få titel med filter-information
-  const getFilteredTitle = () => {
+  const getFilteredTitle = useCallback(() => {
     const parts = [];
     
     if (filterState.types.length > 0) {
@@ -198,10 +216,10 @@ export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPres
     if (parts.length === 0) return 'Alla aktiviteter';
     
     return `Aktiviteter (${parts.join(', ')})`;
-  };
+  }, [filterState.types, filterState.dateRange]);
   
   // Få läsbar etikett för datumintervall
-  const getDateRangeLabel = (range: string): string => {
+  const getDateRangeLabel = useCallback((range: string): string => {
     switch (range) {
       case 'today':
         return 'Idag';
@@ -212,10 +230,10 @@ export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPres
       default:
         return 'Alla datum';
     }
-  };
+  }, []);
   
   // Få läsbar etikett för aktivitetstyp
-  const getTypeLabel = (type: string): string => {
+  const getTypeLabel = useCallback((type: string): string => {
     switch (type) {
       case 'message':
         return 'Meddelande';
@@ -232,10 +250,10 @@ export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPres
       default:
         return type;
     }
-  };
+  }, []);
   
   // Få stil för typ-chip baserat på aktivitetstyp
-  const getTypeChipStyle = (type: string) => {
+  const getTypeChipStyle = useCallback((type: string) => {
     switch (type) {
       case 'message':
         return styles.messageChip;
@@ -250,253 +268,382 @@ export const TeamActivitiesScreenPresentation: React.FC<TeamActivitiesScreenPres
       case 'file_uploaded':
         return styles.fileUploadedChip;
       default:
-        return {};
+        return styles.defaultChip;
     }
-  };
+  }, []);
   
-  // Renderingsfunktion för innehåll
-  const renderContent = () => {
-    if (isLoading && activities.length === 0) {
+  // Renderingsfunktion för huvudinnehåll
+  const renderContent = useCallback(() => {
+    if (isLoading && !activities.length) {
       return (
-        <View style={styles.centerContainer}>
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0066cc" />
           <Text style={styles.loadingText}>Laddar aktiviteter...</Text>
         </View>
       );
     }
     
-    if (error && activities.length === 0) {
+    if (error && !activities.length) {
       return (
         <ErrorMessage 
           message={error.message}
           onRetry={error.retryable ? onRetry : undefined}
+          context={{ teamId }}
         />
       );
     }
     
-    if (activities.length === 0) {
-      return (
-        <EmptyState
-          title="Inga aktiviteter"
-          description="Det finns inga aktiviteter att visa för detta team ännu."
-          icon="history"
+    // Visa aktivitetsstatistik
+    const renderActivityStats = () => (
+      <View style={styles.statsContainer}>
+        <Text style={styles.statsSectionTitle}>Aktivitetsöversikt</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScrollView}>
+          {Object.entries(activityStats || {}).map(([type, count]) => (
+            <Chip 
+              key={type}
+              mode="outlined"
+              selected={filterState.types.includes(type as ActivityType)}
+              onPress={() => handleTypeFilter(type as ActivityType)}
+              style={[styles.statChip, filterState.types.includes(type as ActivityType) && styles.selectedChip]}
+            >
+              {getTypeLabel(type)}: {count}
+            </Chip>
+          ))}
+        </ScrollView>
+      </View>
+    );
+    
+    // Visa filter-område
+    const renderFilterArea = () => (
+      <View style={styles.filterContainer}>
+        <View style={styles.filterHeader}>
+          <View style={styles.filterTitleContainer}>
+            <Text style={styles.filterTitle}>
+              {getFilteredTitle()}
+            </Text>
+            
+            <Text style={styles.totalText}>
+              {activities.length} av {total} aktiviteter
+            </Text>
+          </View>
+          
+          <Menu
+            visible={filterOpen}
+            onDismiss={toggleFilterMenu}
+            anchor={
+              <IconButton 
+                icon="filter-variant" 
+                onPress={toggleFilterMenu}
+                style={[styles.filterButton, 
+                  (filterState.types.length > 0 || filterState.dateRange !== 'all') 
+                  && styles.activeFilterButton
+                ]}
+                iconColor={(filterState.types.length > 0 || filterState.dateRange !== 'all') 
+                  ? '#0066cc' : '#666'}
+              />
+            }
+          >
+            <Menu.Item 
+              title="Alla datum" 
+              onPress={() => handleDateRangeFilter('all')}
+              leadingIcon={filterState.dateRange === 'all' ? "check" : undefined}
+            />
+            <Menu.Item 
+              title="Idag" 
+              onPress={() => handleDateRangeFilter('today')}
+              leadingIcon={filterState.dateRange === 'today' ? "check" : undefined}
+            />
+            <Menu.Item 
+              title="Denna vecka" 
+              onPress={() => handleDateRangeFilter('week')}
+              leadingIcon={filterState.dateRange === 'week' ? "check" : undefined}
+            />
+            <Menu.Item 
+              title="Denna månad" 
+              onPress={() => handleDateRangeFilter('month')}
+              leadingIcon={filterState.dateRange === 'month' ? "check" : undefined}
+            />
+            <Divider />
+            <Menu.Item
+              title="Rensa filter"
+              onPress={clearFilters}
+              leadingIcon="delete-sweep"
+            />
+          </Menu>
+        </View>
+        
+        <Searchbar
+          placeholder="Sök aktiviteter..."
+          onChangeText={handleSearchChange}
+          value={searchQuery}
+          style={styles.searchBar}
         />
-      );
-    }
+      </View>
+    );
     
     return (
-      <FlatList
-        data={activities}
-        renderItem={renderActivityItem}
-        keyExtractor={(item) => item.id}
-        ItemSeparatorComponent={() => <Divider />}
-        onEndReached={() => hasMore && !isLoadingMore && onLoadMore()}
-        onEndReachedThreshold={0.2}
-        ListFooterComponent={renderFooter}
-        contentContainerStyle={styles.listContainer}
-      />
+      <>
+        {/* Visa bara statistik om det finns data */}
+        {activityStats && Object.keys(activityStats).length > 0 && renderActivityStats()}
+        
+        {renderFilterArea()}
+        
+        {activities.length === 0 ? (
+          <EmptyState
+            title="Inga aktiviteter hittades"
+            description={
+              filterState.types.length > 0 || filterState.dateRange !== 'all' || filterState.search
+                ? "Inga aktiviteter matchar dina filter"
+                : "Det finns inga aktiviteter i detta team ännu"
+            }
+            actionLabel={
+              filterState.types.length > 0 || filterState.dateRange !== 'all' || filterState.search
+                ? "Rensa filter"
+                : undefined
+            }
+            onAction={
+              filterState.types.length > 0 || filterState.dateRange !== 'all' || filterState.search
+                ? clearFilters
+                : undefined
+            }
+            icon="history"
+          />
+        ) : (
+          <>
+            <FlatList
+              data={activities}
+              renderItem={renderActivityItem}
+              keyExtractor={(item) => item.id}
+              ListFooterComponent={renderFooter}
+              contentContainerStyle={styles.listContainer}
+              onEndReached={handleEndReached}
+              onEndReachedThreshold={0.5}
+              refreshing={isLoading && activities.length > 0}
+              onRefresh={onRefresh}
+              ItemSeparatorComponent={() => <Divider />}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={10}
+            />
+            
+            {error && activities.length > 0 && (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorText}>{error.message}</Text>
+                {error.retryable && (
+                  <Button 
+                    mode="contained" 
+                    onPress={onRetry}
+                    style={styles.retryButton}
+                  >
+                    Försök igen
+                  </Button>
+                )}
+              </View>
+            )}
+          </>
+        )}
+      </>
     );
-  };
+  }, [
+    isLoading, 
+    activities, 
+    activityStats, 
+    error, 
+    hasMore, 
+    isLoadingMore,
+    total,
+    filterState,
+    searchQuery,
+    filterOpen,
+    onRetry,
+    onRefresh,
+    onLoadMore,
+    teamId,
+    renderActivityItem,
+    renderFooter,
+    handleEndReached,
+    getFilteredTitle,
+    getTypeLabel,
+    handleTypeFilter,
+    toggleFilterMenu,
+    handleDateRangeFilter,
+    clearFilters,
+    handleSearchChange
+  ]);
   
   return (
     <Screen>
       <Appbar.Header>
         <Appbar.BackAction onPress={onBack} />
         <Appbar.Content title={`${teamName} - Aktiviteter`} />
-        <Appbar.Action icon="refresh" onPress={onRefresh} />
+        <Appbar.Action icon="refresh" onPress={onRefresh} disabled={isLoading} />
       </Appbar.Header>
       
       <View style={styles.container}>
-        <View style={styles.filterContainer}>
-          <Searchbar
-            placeholder="Sök aktiviteter"
-            onChangeText={handleSearchChange}
-            value={searchQuery}
-            style={styles.searchBar}
-          />
-          
-          <Menu
-            visible={filterOpen}
-            onDismiss={() => setFilterOpen(false)}
-            anchor={
-              <IconButton
-                icon="filter"
-                size={24}
-                onPress={toggleFilterMenu}
-                style={styles.filterButton}
-              />
-            }
-            style={styles.filterMenu}
-          >
-            <Menu.Item title="Välj datumintervall" disabled />
-            <Divider />
-            <Menu.Item
-              onPress={() => handleDateRangeFilter('all')}
-              title="Alla datum"
-              leadingIcon={filterState.dateRange === 'all' ? 'check' : undefined}
-            />
-            <Menu.Item
-              onPress={() => handleDateRangeFilter('today')}
-              title="Idag"
-              leadingIcon={filterState.dateRange === 'today' ? 'check' : undefined}
-            />
-            <Menu.Item
-              onPress={() => handleDateRangeFilter('week')}
-              title="Denna vecka"
-              leadingIcon={filterState.dateRange === 'week' ? 'check' : undefined}
-            />
-            <Menu.Item
-              onPress={() => handleDateRangeFilter('month')}
-              title="Denna månad" 
-              leadingIcon={filterState.dateRange === 'month' ? 'check' : undefined}
-            />
-            <Divider />
-            <Menu.Item
-              onPress={clearFilters}
-              title="Rensa filter"
-              leadingIcon="delete-sweep"
-            />
-          </Menu>
-        </View>
-        
-        <View style={styles.typeFilterContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {Object.keys(activityStats).map((type) => (
-              <Chip
-                key={type}
-                selected={filterState.types.includes(type as ActivityType)}
-                onPress={() => handleTypeFilter(type as ActivityType)}
-                style={[styles.filterChip, getTypeChipStyle(type)]}
-                icon={getActivityIcon(type)}
-              >
-                {getTypeLabel(type)} ({activityStats[type as ActivityType]})
-              </Chip>
-            ))}
-          </ScrollView>
-        </View>
-        
-        <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>
-            Visar {activities.length} av {total} aktiviteter
-          </Text>
-          <Text style={styles.titleText}>{getFilteredTitle()}</Text>
-        </View>
-        
         {renderContent()}
       </View>
     </Screen>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f8f9fa'
   },
-  centerContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20
   },
   loadingText: {
     marginTop: 16,
+    fontSize: 16
+  },
+  statsContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0'
+  },
+  statsSectionTitle: {
     fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8
+  },
+  statsScrollView: {
+    marginBottom: 8
+  },
+  statChip: {
+    marginRight: 8,
+    backgroundColor: '#f0f0f0'
+  },
+  selectedChip: {
+    backgroundColor: '#e6f2ff',
+    borderColor: '#0066cc'
   },
   filterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
     backgroundColor: '#fff',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0'
   },
-  searchBar: {
-    flex: 1,
-    marginRight: 8,
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  filterTitleContainer: {
+    flex: 1
+  },
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: 'bold'
+  },
+  totalText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4
   },
   filterButton: {
     margin: 0,
+    backgroundColor: '#f0f0f0'
   },
-  filterMenu: {
-    marginTop: 40,
+  activeFilterButton: {
+    backgroundColor: '#e6f2ff'
   },
-  typeFilterContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 8,
-    paddingBottom: 8,
-  },
-  filterChip: {
-    marginRight: 8,
-  },
-  statsContainer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  statsText: {
-    fontSize: 12,
-    color: '#757575',
-  },
-  titleText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 4,
+  searchBar: {
+    elevation: 0,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#f9f9f9'
   },
   listContainer: {
     flexGrow: 1,
+    paddingBottom: 16
+  },
+  description: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 4
   },
   metaContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
+    alignItems: 'center'
   },
   metaText: {
     fontSize: 12,
-    color: '#757575',
+    color: '#666'
   },
   timeText: {
     fontSize: 12,
-    color: '#757575',
-  },
-  description: {
-    fontSize: 14,
-    color: '#212121',
+    color: '#888'
   },
   typeChip: {
     height: 24,
-    alignSelf: 'center',
+    alignSelf: 'center'
   },
   messageChip: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#e1f5fe'
   },
   taskChip: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#e8f5e9'
   },
   memberAddedChip: {
-    backgroundColor: '#e0f7fa',
+    backgroundColor: '#e0f7fa'
   },
   memberRemovedChip: {
-    backgroundColor: '#ffebee',
+    backgroundColor: '#ffebee'
   },
   roleChangedChip: {
-    backgroundColor: '#fff3e0',
+    backgroundColor: '#ede7f6'
   },
   fileUploadedChip: {
-    backgroundColor: '#f3e5f5',
+    backgroundColor: '#e8eaf6'
+  },
+  defaultChip: {
+    backgroundColor: '#f5f5f5'
   },
   loadMoreContainer: {
     padding: 16,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center'
   },
   loadMoreText: {
-    marginTop: 8,
-    color: '#757575',
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666'
   },
   loadMoreButton: {
-    margin: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    alignSelf: 'center'
   },
   endOfListText: {
     textAlign: 'center',
-    padding: 16,
-    color: '#757575',
+    color: '#666',
+    padding: 16
   },
+  errorBanner: {
+    backgroundColor: '#ffebee',
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  errorText: {
+    color: '#c62828',
+    flex: 1,
+    marginRight: 8
+  },
+  retryButton: {
+    backgroundColor: '#c62828'
+  }
 }); 

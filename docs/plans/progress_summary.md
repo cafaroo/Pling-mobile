@@ -472,20 +472,40 @@ I linje med DDD-principer har vi refaktorerat stora delar av UI-lagret för att 
      - Förbättrad feedback via snackbars och banners
      - Bättre tillståndshantering för ändringar i roller och behörigheter
      - Konsekvent felhantering och laddningstillstånd
+   - **TeamDetailsScreen**: Implementerad med `TeamDetailsScreenPresentation` och `TeamDetailsScreenContainer`
+     - Tydlig separation mellan datahanteringslogik och presentation
+     - Separata laddnings- och feltillstånd för olika datatyper (team, statistik, aktiviteter)
+     - Standardiserad struktur för visning av teamdetaljer, statistik och senaste aktiviteter
+     - Effektiv hantering av olika datakällor genom container-komponenten
+   - **TeamSettingsScreen**: Implementerad med `TeamSettingsScreenPresentation` och `TeamSettingsScreenContainer`
+     - Robust formulärhantering med validering och ändringsidentifiering
+     - Laddningshantering för varje administrativ operation
+     - Använder container-komponenten för att hantera komplex affärslogik
+     - Hanterar känsliga team-operationer som borttagning och arkivering med bekräftelsedialoger
+     
+4. **Refaktorerade user-skärmar**
+   - **ProfileScreen**: Uppdelad i `ProfileScreenPresentation` och `ProfileScreenContainer`
+     - Separerat användarprofilens UI från dess datahanteringslogik
+     - Renare formulärhantering med tydligt definierade callbacks i presentation-komponenten
+     - Förbättrad error-hantering med standardiserade felmeddelanden
+     - Enklare testbarhet genom tydlig separation av ansvar
+     - Bättre typning för data och callbacks genom tydligt definierade interfaces 
+     - Container hanterar data-fetching, bilduppladdning och formulärinskickning
+     - Behållit bakåtkompatibilitet genom en ren wrapper för enkel migrering
 
-4. **Förbättrad testbarhet för UI-komponenter**
+5. **Förbättrad testbarhet för UI-komponenter**
    - Skapad teststruktur för presentationskomponenter
    - Skrivit enhetstester för presentationskomponenter som validerar rendering och interaktioner
    - Implementerat testhjälpare för UI-komponenter
    - Skapat exempel på tester i `MemberCardPresentation.test.tsx` och `AddMemberFormPresentation.test.tsx`
 
-5. **Standardiserad felhantering i UI-lagret**
+6. **Standardiserad felhantering i UI-lagret**
    - Implementerat konsekvent mönster för felvisning via `QueryErrorHandler`
    - Skapat standardtyper för UI-fel
    - Strategier för att omvandla domän- och applikationsfel till användarvänliga meddelanden
    - Implementerat återförsöksfunktionalitet för vanliga nätverksfel
 
-6. **Begränsad användning av React Context**
+7. **Begränsad användning av React Context**
    - Skapat `UIStateContext` specifikt för UI-relaterade tillstånd som tema och modala fönster
    - Säkerställt att domänrelaterade data och logik inte läcker in i UI-kontexten
    - Implementerat optimerade hooks för kontextanvändning

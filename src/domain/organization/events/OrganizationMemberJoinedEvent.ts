@@ -6,15 +6,15 @@ import { OrganizationRole } from '../value-objects/OrganizationRole';
 /**
  * OrganizationMemberJoinedEvent
  * 
- * Domänhändelse som publiceras när en användare blir medlem i en organisation.
- * Innehåller information om organisationen, användaren och användarens roll.
+ * Domänhändelse som publiceras när en medlem har gått med i en organisation.
+ * Innehåller information om organisationen, användaren och dennes roll.
  */
 export class OrganizationMemberJoinedEvent extends BaseOrganizationEvent {
   /**
    * Skapar en ny OrganizationMemberJoinedEvent
    * 
    * @param organization - Organization-objekt eller ID för organisationen
-   * @param userId - ID för användaren som anslutit till organisationen
+   * @param userId - ID för användaren som gått med
    * @param role - Användarens roll i organisationen
    */
   constructor(
@@ -24,7 +24,7 @@ export class OrganizationMemberJoinedEvent extends BaseOrganizationEvent {
   ) {
     super('OrganizationMemberJoinedEvent', organization, {
       userId: userId.toString(),
-      role: role
+      role
     });
   }
 } 

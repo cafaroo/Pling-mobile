@@ -13,7 +13,7 @@ export class TeamAddedToOrganizationEvent extends BaseOrganizationEvent {
    * Skapar en ny TeamAddedToOrganizationEvent
    * 
    * @param organization - Organization-objekt eller ID för organisationen
-   * @param teamId - ID för teamet som lades till
+   * @param teamId - ID för teamet som lagts till
    */
   constructor(
     organization: Organization | UniqueId,

@@ -14,7 +14,7 @@ export class OrganizationInvitationAcceptedEvent extends BaseOrganizationEvent {
    * 
    * @param organization - Organization-objekt eller ID för organisationen
    * @param invitationId - ID för inbjudan som accepterats
-   * @param userId - ID för användaren som accepterade inbjudan
+   * @param userId - ID för användaren som accepterat inbjudan
    */
   constructor(
     organization: Organization | UniqueId,

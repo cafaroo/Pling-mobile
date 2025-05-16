@@ -5,8 +5,8 @@ import { UniqueId } from '@/shared/core/UniqueId';
 /**
  * OrganizationMemberLeftEvent
  * 
- * Domänhändelse som publiceras när en medlem lämnar en organisation.
- * Innehåller information om organisationen och medlemmen som lämnat.
+ * Domänhändelse som publiceras när en medlem har lämnat en organisation.
+ * Innehåller information om organisationen och användaren.
  */
 export class OrganizationMemberLeftEvent extends BaseOrganizationEvent {
   /**

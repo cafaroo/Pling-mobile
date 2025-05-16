@@ -1,343 +1,658 @@
 import React from 'react';
-import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { Provider as PaperProvider } from 'react-native-paper';
-import { useUser } from '@/application/user/hooks/useUser';
-import { useUpdateSettings } from '@/application/user/hooks/useUpdateSettings';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SettingsScreenContainer } from '../SettingsScreenContainer';
-import { SnackbarProvider } from '@/ui/shared/context/SnackbarContext';
-import { Result } from '@/shared/core/Result';
-import { UITestHelper } from '@/test-utils/helpers/UITestHelper';
+import { useUserSettings } from '@/application/user/hooks/useUserSettings';
+import { useUpdateSettings } from '@/application/user/hooks/useUpdateSettings';
 
-// Mock beroenden
-jest.mock('@/application/user/hooks/useUser');
+// Mocka hooks
+jest.mock('@/application/user/hooks/useUserSettings');
 jest.mock('@/application/user/hooks/useUpdateSettings');
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     back: jest.fn(),
-    push: jest.fn(),
+    push: jest.fn()
   }),
+  useLocalSearchParams: () => ({
+    userId: 'current-user-id'
+  })
 }));
 
-describe('SettingsScreen Integration Tests', () => {
-  // Setup
-  let queryClient: QueryClient;
-  
-  // Mock-implementation av hooks och metoder
-  const mockUserData = {
-    id: 'user-123',
-    name: 'Test User',
-    email: 'test@example.com',
-    settings: {
-      theme: 'light',
-      language: 'sv',
-      notifications: {
-        email: true,
-        push: false,
-        sms: false,
-        frequency: 'daily',
-      },
-      privacy: {
-        profileVisibility: 'team',
-        showEmail: true,
-        showPhone: false,
-      },
+describe('SettingsScreen Integration Test', () => {
+  // Skapa mock-data
+  const mockSettings = {
+    language: 'sv',
+    theme: 'light',
+    notifications: {
+      email: true,
+      push: true,
+      teamUpdates: true,
+      mentionNotifications: true,
+      dailySummary: false
     },
+    privacy: {
+      profileVisibility: 'public',
+      showEmail: false,
+      showPhone: false,
+      activityVisibility: 'team'
+    },
+    preferences: {
+      autoSaveIntervalSeconds: 60,
+      defaultView: 'list',
+      useCompactMode: false,
+      enableAnimations: true,
+      enableSounds: true
+    }
   };
   
-  const mockUpdateSettingsMutate = jest.fn();
+  const mockUseUserSettings = useUserSettings as jest.Mock;
+  const mockUseUpdateSettings = useUpdateSettings as jest.Mock;
   
-  // Skapa en wrapper för att rendera komponenten med nödvändiga providers
-  const createWrapper = () => {
-    return ({ children }: { children: React.ReactNode }) => (
+  // Konfigurera QueryClient för tester
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        cacheTime: 0
+      }
+    }
+  });
+  
+  // Återställ mocks före varje test
+  beforeEach(() => {
+    jest.clearAllMocks();
+    
+    // Mocka useUserSettings
+    mockUseUserSettings.mockImplementation(() => ({
+      settings: {
+        data: mockSettings,
+        isLoading: false,
+        error: null,
+        refetch: jest.fn()
+      }
+    }));
+    
+    // Mocka useUpdateSettings
+    mockUseUpdateSettings.mockImplementation(() => ({
+      updateLanguage: {
+        execute: jest.fn().mockResolvedValue({ isOk: () => true, value: { language: 'sv' } }),
+        isLoading: false,
+        error: null
+      },
+      updateTheme: {
+        execute: jest.fn().mockResolvedValue({ isOk: () => true, value: { theme: 'dark' } }),
+        isLoading: false,
+        error: null
+      },
+      updateNotificationSettings: {
+        execute: jest.fn().mockResolvedValue({ isOk: () => true, value: { ...mockSettings.notifications } }),
+        isLoading: false,
+        error: null
+      },
+      updatePrivacySettings: {
+        execute: jest.fn().mockResolvedValue({ isOk: () => true, value: { ...mockSettings.privacy } }),
+        isLoading: false,
+        error: null
+      },
+      updatePreferences: {
+        execute: jest.fn().mockResolvedValue({ isOk: () => true, value: { ...mockSettings.preferences } }),
+        isLoading: false,
+        error: null
+      }
+    }));
+  });
+  
+  // Renderings-hjälpfunktion
+  const renderScreen = () => {
+    return render(
       <NavigationContainer>
         <QueryClientProvider client={queryClient}>
-          <PaperProvider>
-            <SnackbarProvider>
-              {children}
-            </SnackbarProvider>
-          </PaperProvider>
+          <SettingsScreenContainer userId="current-user-id" />
         </QueryClientProvider>
       </NavigationContainer>
     );
   };
   
-  // Konfigurera mocks före varje test
-  beforeEach(() => {
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-        },
-      },
+  it('bör visa användarinställningar när data laddats framgångsrikt', async () => {
+    renderScreen();
+    
+    // Verifiera att skärmen visar inställningar
+    await waitFor(() => {
+      expect(screen.getByText('Inställningar')).toBeTruthy();
     });
     
-    // Reset mocks
-    jest.clearAllMocks();
+    // Verifiera att språkinställningar visas
+    expect(screen.getByText('Språk')).toBeTruthy();
+    expect(screen.getByText('Svenska')).toBeTruthy();
     
-    // Konfigurera useUser mock
-    (useUser as jest.Mock).mockReturnValue({
-      data: mockUserData,
-      isLoading: false,
-      error: null,
-    });
+    // Verifiera att temainställningar visas
+    expect(screen.getByText('Tema')).toBeTruthy();
+    expect(screen.getByText('Ljust')).toBeTruthy();
     
-    // Konfigurera useUpdateSettings mock
-    (useUpdateSettings as jest.Mock).mockReturnValue({
-      mutate: mockUpdateSettingsMutate,
-      isLoading: false,
+    // Verifiera att notifikationsinställningar visas
+    expect(screen.getByText('Notifikationer')).toBeTruthy();
+  });
+  
+  it('bör visa laddningsindikator när data hämtas', async () => {
+    // Sätt laddningstillstånd
+    mockUseUserSettings.mockImplementation(() => ({
+      settings: {
+        data: null,
+        isLoading: true,
+        error: null,
+        refetch: jest.fn()
+      }
+    }));
+    
+    renderScreen();
+    
+    // Verifiera att en laddningsindikator visas
+    await waitFor(() => {
+      expect(screen.getByText('Laddar inställningar...')).toBeTruthy();
     });
   });
   
-  it('ska visa användarens inställningar', async () => {
-    // Rendera komponenten
-    const { getByText, getAllByText } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
+  it('bör hantera felresultat korrekt', async () => {
+    // Sätt fel
+    const testError = new Error('Kunde inte hämta användarinställningar');
+    mockUseUserSettings.mockImplementation(() => ({
+      settings: {
+        data: null,
+        isLoading: false,
+        error: testError,
+        refetch: jest.fn()
+      }
+    }));
     
-    // Verifiera att komponenten visar rätt data
-    expect(getByText('Inställningar')).toBeTruthy();
-    expect(getByText('Tema och språk')).toBeTruthy();
-    expect(getByText('Notifikationer')).toBeTruthy();
-    expect(getByText('Integritet')).toBeTruthy();
-  });
-  
-  it('ska visa laddningsindikator under datahämtning', async () => {
-    // Konfigurera useUser mock för att visa laddningstillstånd
-    (useUser as jest.Mock).mockReturnValue({
-      data: null,
-      isLoading: true,
-      error: null,
-    });
-    
-    // Rendera komponenten
-    const { getByTestId } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
-    
-    // Verifiera att laddningsindikator visas
-    expect(getByTestId('loading-spinner')).toBeTruthy();
-  });
-  
-  it('ska visa felmeddelande när datahämtning misslyckas', async () => {
-    // Konfigurera useUser mock för att visa feltillstånd
-    (useUser as jest.Mock).mockReturnValue({
-      data: null,
-      isLoading: false,
-      error: new Error('Failed to load user data'),
-    });
-    
-    // Rendera komponenten
-    const { getByText } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
+    renderScreen();
     
     // Verifiera att felmeddelande visas
-    expect(getByText('Kunde inte ladda användarinställningar')).toBeTruthy();
-  });
-  
-  it('ska uppdatera temat när användaren ändrar det', async () => {
-    // Rendera komponenten
-    const { getByText } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
-    
-    // Hitta och klicka på "Mörkt" tema-alternativet
-    fireEvent.press(getByText('Mörkt'));
-    
-    // Hitta och klicka på "Spara ändringar" knappen
-    fireEvent.press(getByText('Spara ändringar'));
-    
-    // Verifiera att updateSettings anropades med rätt parametrar
     await waitFor(() => {
-      expect(mockUpdateSettingsMutate).toHaveBeenCalled();
-      
-      // Verifiera att första argumentet innehåller rätt tema
-      const updateCall = mockUpdateSettingsMutate.mock.calls[0][0];
-      expect(updateCall).toHaveProperty('theme', 'dark');
+      expect(screen.getByText('Kunde inte hämta användarinställningar')).toBeTruthy();
     });
+    
+    // Verifiera att försök igen-knapp visas
+    expect(screen.getByText('Försök igen')).toBeTruthy();
   });
   
-  it('ska uppdatera språket när användaren ändrar det', async () => {
-    // Rendera komponenten
-    const { getByText } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
-    
-    // Hitta och klicka på "English" språkalternativet
-    fireEvent.press(getByText('English'));
-    
-    // Hitta och klicka på "Spara ändringar" knappen
-    fireEvent.press(getByText('Spara ändringar'));
-    
-    // Verifiera att updateSettings anropades med rätt parametrar
-    await waitFor(() => {
-      expect(mockUpdateSettingsMutate).toHaveBeenCalled();
-      
-      // Verifiera att första argumentet innehåller rätt språk
-      const updateCall = mockUpdateSettingsMutate.mock.calls[0][0];
-      expect(updateCall).toHaveProperty('language', 'en');
-    });
-  });
-  
-  it('ska uppdatera notifikationsinställningar när användaren ändrar dem', async () => {
-    // Simulera framgångsrikt uppdateringsanrop
-    mockUpdateSettingsMutate.mockImplementation((settings, options) => {
-      options.onSuccess && options.onSuccess();
+  it('bör uppdatera språkinställning när användaren ändrar språk', async () => {
+    const updateLanguageMock = jest.fn().mockResolvedValue({ 
+      isOk: () => true, 
+      value: { language: 'en' } 
     });
     
-    // Rendera komponenten
-    const { getByText, getByTestId } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
-    
-    // Hitta och klicka på frekvensalternativet "Veckovis"
-    fireEvent.press(getByText('Veckovis'));
-    
-    // Hitta och klicka på "Spara ändringar" knappen
-    fireEvent.press(getByText('Spara ändringar'));
-    
-    // Verifiera att updateSettings anropades med rätt parametrar
-    await waitFor(() => {
-      expect(mockUpdateSettingsMutate).toHaveBeenCalled();
-      
-      // Verifiera att första argumentet innehåller rätt frekvens
-      const updateCall = mockUpdateSettingsMutate.mock.calls[0][0];
-      expect(updateCall).toHaveProperty('notifications.frequency', 'weekly');
-    });
-    
-    // Verifiera att success-meddelandet visas
-    await waitFor(() => {
-      expect(getByText('Inställningar uppdaterade')).toBeTruthy();
-    });
-  });
-  
-  it('ska uppdatera integritetsinställningar när användaren ändrar dem', async () => {
-    // Rendera komponenten
-    const { getByText } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
-    
-    // Hitta och klicka på profilsynlighetsalternativet "Privat"
-    fireEvent.press(getByText('Privat'));
-    
-    // Hitta Switch-komponenten för "Visa telefonnummer" och växla den
-    // Notera: Detta är svårt att göra med getByText så vi skulle normalt använda testID
-    // men vi simulerar det här
-    
-    // Hitta och klicka på "Spara ändringar" knappen
-    fireEvent.press(getByText('Spara ändringar'));
-    
-    // Verifiera att updateSettings anropades med rätt parametrar
-    await waitFor(() => {
-      expect(mockUpdateSettingsMutate).toHaveBeenCalled();
-      
-      // Verifiera att första argumentet innehåller rätt profilsynlighet
-      const updateCall = mockUpdateSettingsMutate.mock.calls[0][0];
-      expect(updateCall).toHaveProperty('privacy.profileVisibility', 'private');
-    });
-  });
-  
-  it('ska hantera uppdateringsfel korrekt', async () => {
-    // Simulera ett misslyckat uppdateringsanrop
-    mockUpdateSettingsMutate.mockImplementation((settings, options) => {
-      options.onError && options.onError(new Error('Update failed'));
-    });
-    
-    // Rendera komponenten
-    const { getByText } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
-    
-    // Hitta och klicka på "Spara ändringar" knappen
-    fireEvent.press(getByText('Spara ändringar'));
-    
-    // Verifiera att updateSettings anropades
-    expect(mockUpdateSettingsMutate).toHaveBeenCalled();
-    
-    // Verifiera att felmeddelandet visas (via SnackbarContext)
-    await waitFor(() => {
-      expect(getByText('Kunde inte spara inställningar')).toBeTruthy();
-    });
-  });
-  
-  it('ska visa laddningsindikator under uppdatering', async () => {
-    // Konfigurera useUpdateSettings mock för att visa laddningstillstånd
-    (useUpdateSettings as jest.Mock).mockReturnValue({
-      mutate: mockUpdateSettingsMutate,
-      isLoading: true,
-    });
-    
-    // Rendera komponenten
-    const { getByText, getByTestId } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
-    
-    // Hitta och försök klicka på "Spara ändringar" knappen
-    const saveButton = getByText('Spara ändringar');
-    
-    // Verifiera att knappen visar laddningstillstånd eller är inaktiverad
-    expect(saveButton.props.disabled).toBeTruthy();
-  });
-  
-  // Ytterligare test som verifierar att datalagring och UI-uppdatering fungerar korrekt
-  it('ska uppdatera UI efter lyckad inställningsändring', async () => {
-    // Först, rendera komponenten med standardvärden
-    const { getByText, rerender } = render(
-      <SettingsScreenContainer />,
-      { wrapper: createWrapper() }
-    );
-    
-    // Simulera en lyckad uppdatering som ändrar användarens inställningar
-    mockUpdateSettingsMutate.mockImplementation((settings, options) => {
-      // Uppdatera mockUserData för att simulera att servern har uppdaterat datan
-      mockUserData.settings.theme = 'dark';
-      mockUserData.settings.language = 'en';
-      
-      // Anropa onSuccess callback
-      options.onSuccess && options.onSuccess();
-      
-      // Uppdatera useUser-mocken för att returnera de uppdaterade inställningarna
-      (useUser as jest.Mock).mockReturnValue({
-        data: mockUserData,
+    mockUseUpdateSettings.mockImplementation(() => ({
+      updateLanguage: {
+        execute: updateLanguageMock,
         isLoading: false,
-        error: null,
-      });
+        error: null
+      },
+      updateTheme: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateNotificationSettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePrivacySettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePreferences: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      }
+    }));
+    
+    renderScreen();
+    
+    // Hitta och klicka på språkinställning
+    await waitFor(async () => {
+      const languageItem = screen.getByText('Språk');
+      fireEvent.press(languageItem);
     });
     
-    // Hitta och klicka på "Mörkt" tema-alternativet
-    fireEvent.press(getByText('Mörkt'));
+    // Hitta och välj engelska
+    await waitFor(async () => {
+      const englishOption = screen.getByText('Engelska');
+      fireEvent.press(englishOption);
+    });
     
-    // Hitta och klicka på "English" språkalternativet
-    fireEvent.press(getByText('English'));
+    // Verifiera att updateLanguage anropades med rätt parametrar
+    expect(updateLanguageMock).toHaveBeenCalledWith({
+      userId: 'current-user-id',
+      language: 'en'
+    });
+  });
+  
+  it('bör uppdatera tema när användaren ändrar temainställning', async () => {
+    const updateThemeMock = jest.fn().mockResolvedValue({ 
+      isOk: () => true, 
+      value: { theme: 'dark' } 
+    });
     
-    // Hitta och klicka på "Spara ändringar" knappen
-    fireEvent.press(getByText('Spara ändringar'));
+    mockUseUpdateSettings.mockImplementation(() => ({
+      updateLanguage: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateTheme: {
+        execute: updateThemeMock,
+        isLoading: false,
+        error: null
+      },
+      updateNotificationSettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePrivacySettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePreferences: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      }
+    }));
     
-    // Simulera att komponenten rendereras igen efter datauppdateringen
-    rerender(
-      <QueryClientProvider client={queryClient}>
-        <SettingsScreenContainer />
-      </QueryClientProvider>
-    );
+    renderScreen();
     
-    // Verifiera att updateSettings anropades
-    expect(mockUpdateSettingsMutate).toHaveBeenCalled();
+    // Hitta och klicka på temainställning
+    await waitFor(async () => {
+      const themeItem = screen.getByText('Tema');
+      fireEvent.press(themeItem);
+    });
     
-    // Verifiera att UI visar de uppdaterade värdena
-    // Detta skulle normalt göras genom att kontrollera att rätt alternativ är markerat
-    // men för enkelhetens skull testar vi bara att mockUserData har uppdaterats
-    expect(mockUserData.settings.theme).toBe('dark');
-    expect(mockUserData.settings.language).toBe('en');
+    // Hitta och välj mörkt tema
+    await waitFor(async () => {
+      const darkThemeOption = screen.getByText('Mörkt');
+      fireEvent.press(darkThemeOption);
+    });
+    
+    // Verifiera att updateTheme anropades med rätt parametrar
+    expect(updateThemeMock).toHaveBeenCalledWith({
+      userId: 'current-user-id',
+      theme: 'dark'
+    });
+  });
+  
+  it('bör uppdatera notifikationsinställningar när användaren ändrar dem', async () => {
+    const updateNotificationSettingsMock = jest.fn().mockResolvedValue({ 
+      isOk: () => true, 
+      value: { 
+        email: true,
+        push: false, // Ändrat från true till false
+        teamUpdates: true,
+        mentionNotifications: true,
+        dailySummary: false
+      } 
+    });
+    
+    mockUseUpdateSettings.mockImplementation(() => ({
+      updateLanguage: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateTheme: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateNotificationSettings: {
+        execute: updateNotificationSettingsMock,
+        isLoading: false,
+        error: null
+      },
+      updatePrivacySettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePreferences: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      }
+    }));
+    
+    renderScreen();
+    
+    // Hitta och klicka på notifikationsinställningar
+    await waitFor(async () => {
+      const notificationsItem = screen.getByText('Notifikationer');
+      fireEvent.press(notificationsItem);
+    });
+    
+    // Hitta och stäng av pushnotifikationer
+    await waitFor(async () => {
+      const pushToggle = screen.getByText('Push-notifikationer');
+      fireEvent.press(pushToggle);
+    });
+    
+    // Hitta och klicka på spara-knappen
+    await waitFor(async () => {
+      const saveButton = screen.getByText('Spara ändringar');
+      fireEvent.press(saveButton);
+    });
+    
+    // Verifiera att updateNotificationSettings anropades med rätt parametrar
+    expect(updateNotificationSettingsMock).toHaveBeenCalledWith({
+      userId: 'current-user-id',
+      notifications: {
+        email: true,
+        push: false,
+        teamUpdates: true,
+        mentionNotifications: true,
+        dailySummary: false
+      }
+    });
+  });
+  
+  it('bör uppdatera sekretessinställningar när användaren ändrar dem', async () => {
+    const updatePrivacySettingsMock = jest.fn().mockResolvedValue({ 
+      isOk: () => true, 
+      value: { 
+        profileVisibility: 'private', // Ändrat från public till private
+        showEmail: false,
+        showPhone: false,
+        activityVisibility: 'team'
+      } 
+    });
+    
+    mockUseUpdateSettings.mockImplementation(() => ({
+      updateLanguage: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateTheme: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateNotificationSettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePrivacySettings: {
+        execute: updatePrivacySettingsMock,
+        isLoading: false,
+        error: null
+      },
+      updatePreferences: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      }
+    }));
+    
+    renderScreen();
+    
+    // Hitta och klicka på sekretessinställningar
+    await waitFor(async () => {
+      const privacyItem = screen.getByText('Sekretess');
+      fireEvent.press(privacyItem);
+    });
+    
+    // Hitta och ändra profilsynlighet
+    await waitFor(async () => {
+      const visibilityOption = screen.getByText('Profilens synlighet');
+      fireEvent.press(visibilityOption);
+      
+      // Välj privat synlighet
+      const privateOption = screen.getByText('Privat');
+      fireEvent.press(privateOption);
+    });
+    
+    // Hitta och klicka på spara-knappen
+    await waitFor(async () => {
+      const saveButton = screen.getByText('Spara ändringar');
+      fireEvent.press(saveButton);
+    });
+    
+    // Verifiera att updatePrivacySettings anropades med rätt parametrar
+    expect(updatePrivacySettingsMock).toHaveBeenCalledWith({
+      userId: 'current-user-id',
+      privacy: {
+        profileVisibility: 'private',
+        showEmail: false,
+        showPhone: false,
+        activityVisibility: 'team'
+      }
+    });
+  });
+  
+  it('bör uppdatera användarpreferenser när användaren ändrar dem', async () => {
+    const updatePreferencesMock = jest.fn().mockResolvedValue({ 
+      isOk: () => true, 
+      value: { 
+        autoSaveIntervalSeconds: 30, // Ändrat från 60 till 30
+        defaultView: 'list',
+        useCompactMode: true, // Ändrat från false till true
+        enableAnimations: true,
+        enableSounds: true
+      } 
+    });
+    
+    mockUseUpdateSettings.mockImplementation(() => ({
+      updateLanguage: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateTheme: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateNotificationSettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePrivacySettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePreferences: {
+        execute: updatePreferencesMock,
+        isLoading: false,
+        error: null
+      }
+    }));
+    
+    renderScreen();
+    
+    // Hitta och klicka på preferenser
+    await waitFor(async () => {
+      const preferencesItem = screen.getByText('Preferenser');
+      fireEvent.press(preferencesItem);
+    });
+    
+    // Ändra autosparintervall
+    await waitFor(async () => {
+      const autoSaveItem = screen.getByText('Intervall för automatiskt sparande');
+      fireEvent.press(autoSaveItem);
+      
+      // Välj 30 sekunder
+      const thirtySecondsOption = screen.getByText('30 sekunder');
+      fireEvent.press(thirtySecondsOption);
+    });
+    
+    // Aktivera kompakt läge
+    await waitFor(async () => {
+      const compactModeToggle = screen.getByText('Kompakt läge');
+      fireEvent.press(compactModeToggle);
+    });
+    
+    // Hitta och klicka på spara-knappen
+    await waitFor(async () => {
+      const saveButton = screen.getByText('Spara ändringar');
+      fireEvent.press(saveButton);
+    });
+    
+    // Verifiera att updatePreferences anropades med rätt parametrar
+    expect(updatePreferencesMock).toHaveBeenCalledWith({
+      userId: 'current-user-id',
+      preferences: {
+        autoSaveIntervalSeconds: 30,
+        defaultView: 'list',
+        useCompactMode: true,
+        enableAnimations: true,
+        enableSounds: true
+      }
+    });
+  });
+  
+  it('bör visa felmeddelande vid misslyckad uppdatering', async () => {
+    const updateThemeMock = jest.fn().mockResolvedValue({ 
+      isOk: () => false, 
+      error: 'Kunde inte uppdatera tema' 
+    });
+    
+    mockUseUpdateSettings.mockImplementation(() => ({
+      updateLanguage: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateTheme: {
+        execute: updateThemeMock,
+        isLoading: false,
+        error: null
+      },
+      updateNotificationSettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePrivacySettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePreferences: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      }
+    }));
+    
+    renderScreen();
+    
+    // Hitta och klicka på temainställning
+    await waitFor(async () => {
+      const themeItem = screen.getByText('Tema');
+      fireEvent.press(themeItem);
+    });
+    
+    // Hitta och välj mörkt tema
+    await waitFor(async () => {
+      const darkThemeOption = screen.getByText('Mörkt');
+      fireEvent.press(darkThemeOption);
+    });
+    
+    // Verifiera att felmeddelande visas
+    await waitFor(() => {
+      expect(screen.getByText('Kunde inte uppdatera tema')).toBeTruthy();
+    });
+  });
+  
+  it('bör visa laddningsindikator under uppdatering', async () => {
+    // Sätt laddningstillstånd för en av operationerna
+    mockUseUpdateSettings.mockImplementation(() => ({
+      updateLanguage: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updateTheme: {
+        execute: jest.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ isOk: () => true, value: { theme: 'dark' } }), 500))),
+        isLoading: true,
+        error: null
+      },
+      updateNotificationSettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePrivacySettings: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      },
+      updatePreferences: {
+        execute: jest.fn(),
+        isLoading: false,
+        error: null
+      }
+    }));
+    
+    renderScreen();
+    
+    // Hitta och klicka på temainställning
+    await waitFor(async () => {
+      const themeItem = screen.getByText('Tema');
+      fireEvent.press(themeItem);
+    });
+    
+    // Hitta och välj mörkt tema
+    await waitFor(async () => {
+      const darkThemeOption = screen.getByText('Mörkt');
+      fireEvent.press(darkThemeOption);
+    });
+    
+    // Verifiera att laddningsindikator visas
+    await waitFor(() => {
+      expect(screen.getByTestId('theme-loading-indicator')).toBeTruthy();
+    });
+  });
+  
+  it('bör återställa ändringar i formulär när användaren klickar på avbryt', async () => {
+    renderScreen();
+    
+    // Hitta och klicka på notifikationsinställningar
+    await waitFor(async () => {
+      const notificationsItem = screen.getByText('Notifikationer');
+      fireEvent.press(notificationsItem);
+    });
+    
+    // Hitta och stäng av pushnotifikationer
+    await waitFor(async () => {
+      const pushToggle = screen.getByText('Push-notifikationer');
+      fireEvent.press(pushToggle);
+    });
+    
+    // Hitta och klicka på avbryt-knappen
+    await waitFor(async () => {
+      const cancelButton = screen.getByText('Avbryt');
+      fireEvent.press(cancelButton);
+    });
+    
+    // Öppna notifikationsinställningar igen för att kontrollera att ändringarna återställts
+    await waitFor(async () => {
+      const notificationsItem = screen.getByText('Notifikationer');
+      fireEvent.press(notificationsItem);
+    });
+    
+    // Verifiera att push-notifikationer fortfarande är på (återställd)
+    await waitFor(() => {
+      // Hitta togglen och kontrollera dess status
+      const pushToggle = screen.getByTestId('push-toggle');
+      expect(pushToggle.props.value).toBeTruthy();
+    });
   });
 }); 

@@ -43,9 +43,9 @@ Projektet har refaktorerat en stor del av hook-logiken till applikationslagret, 
    - ✅ Använd `useUserTeams` för att visa användarens team
    - ✅ Implementera lämplig filtrering och sortering
 
-3. **SettingsScreen**
-   - Använd `useUserSettings` och `useUpdateSettings` för inställningar
-   - Implementera korrekt validering och felhantering
+3. **SettingsScreen** ✅
+   - ✅ Använd `useUserSettings` och `useUpdateSettings` för inställningar
+   - ✅ Implementera korrekt validering och felhantering
 
 ## Implementationsriktlinjer
 
@@ -190,6 +190,13 @@ Implementera en checklista för varje skärm för att spåra refaktoreringsframs
 - [x] Validerat med integrationstester
 
 ### UserTeamsScreen
+- [x] Identifierat lämpliga hooks
+- [x] Refaktorerat container-komponent
+- [x] Uppdaterat tester
+- [x] Optimerat prestanda
+- [x] Validerat med integrationstester
+
+### SettingsScreen
 - [x] Identifierat lämpliga hooks
 - [x] Refaktorerat container-komponent
 - [x] Uppdaterat tester

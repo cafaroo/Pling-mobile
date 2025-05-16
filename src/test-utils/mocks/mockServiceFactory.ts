@@ -164,4 +164,43 @@ export class MockServiceFactory {
       }
     };
   }
+
+  // Exportera mock för PermissionService via MockServiceFactory
+  static createMockPermissionService = createMockPermissionService;
+}
+
+/**
+ * Skapar en mock av PermissionService för testning
+ * 
+ * @param overrides Anpassningar för mocken
+ * @returns En mock av PermissionService
+ */
+export function createMockPermissionService(overrides: Partial<{
+  hasOrganizationPermission: jest.Mock;
+  hasTeamPermission: jest.Mock;
+  hasResourcePermission: jest.Mock;
+  hasOrganizationRole: jest.Mock;
+  hasTeamRole: jest.Mock;
+  getOrganizationPermissions: jest.Mock;
+  getTeamPermissions: jest.Mock;
+  getResourcePermissions: jest.Mock;
+}> = {}) {
+  return {
+    hasOrganizationPermission: overrides.hasOrganizationPermission || 
+      jest.fn().mockResolvedValue({ isOk: () => true, value: true }),
+    hasTeamPermission: overrides.hasTeamPermission || 
+      jest.fn().mockResolvedValue({ isOk: () => true, value: true }),
+    hasResourcePermission: overrides.hasResourcePermission || 
+      jest.fn().mockResolvedValue({ isOk: () => true, value: true }),
+    hasOrganizationRole: overrides.hasOrganizationRole || 
+      jest.fn().mockResolvedValue({ isOk: () => true, value: true }),
+    hasTeamRole: overrides.hasTeamRole || 
+      jest.fn().mockResolvedValue({ isOk: () => true, value: true }),
+    getOrganizationPermissions: overrides.getOrganizationPermissions || 
+      jest.fn().mockResolvedValue({ isOk: () => true, value: [] }),
+    getTeamPermissions: overrides.getTeamPermissions || 
+      jest.fn().mockResolvedValue({ isOk: () => true, value: [] }),
+    getResourcePermissions: overrides.getResourcePermissions || 
+      jest.fn().mockResolvedValue({ isOk: () => true, value: [] })
+  };
 } 

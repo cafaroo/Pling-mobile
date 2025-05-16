@@ -261,6 +261,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [ ] Implementera tester för TeamMemberList med mocks
   - [ ] Skapa tester för TeamPermissionManager
   - [ ] Testa dialoger och modala fönster
+  - [ ] Skapa tester för ProfileScreen med fokus på container/presentation
 - [ ] Standardisera UI-testmönster
   - [ ] Definiera standardmönster för rendering och snapshottestning
   - [ ] Skapa hjälpfunktioner för UI-testning
@@ -279,6 +280,35 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [ ] Illustrera container/presentation-mönstret
   - [ ] Beskriva dataflödet genom applikationen
   - [ ] Förklara mönster för felhantering
+
+## Nästa steg
+
+Baserat på den aktuella statusen i cleanup_tasks.md, är de rekommenderade nästa stegen:
+
+1. **Refaktorera UserSettingsScreen** - Fortsätta med refaktorering av user-relaterade skärmar:
+   - Implementera UserSettingsScreenPresentation och UserSettingsScreenContainer
+   - Följa samma container/presentation-mönster som för ProfileScreen
+   - Säkerställa bakåtkompatibilitet genom wrapper
+
+2. **Påbörja UI-integrationstester** - Börja implementera tester för de refaktorerade UI-komponenterna:
+   - Skapa tester för ProfileScreen som verifierar att container hanterar affärslogik korrekt
+   - Implementera tester för presentation-komponenten som fokuserar på rendering och interaktion
+   - Dokumentera testmönster för andra att följa
+
+3. **Refaktorera TeamMembersScreen** - Fortsätta refaktorering av team-relaterade skärmar:
+   - Implementera TeamMembersScreenPresentation och TeamMembersScreenContainer
+   - Applicera lärdomar från tidigare refaktoreringar
+   - Förbättra dataflöde och laddningstillstånd
+
+4. **Dokumentera UI-arkitektur** - Dokumentera de standarder och mönster som används:
+   - Dokumentera container/presentation-mönstret med exempel från ProfileScreen
+   - Skapa diagram som visar dataflöde genom komponentträdet
+   - Förklara olika ansvar för container- och presentation-komponenter
+
+5. **Planera end-to-end tester** - Börja förbereda ramverk för end-to-end-testning:
+   - Välj och konfigurera testverktyg (som Detox eller React Native Testing Library)
+   - Skapa testplan för kritiska användarflöden
+   - Implementera första testfallet för medlemshanteringsflödet
 
 ## Fas 6: Testning och Dokumentation
 

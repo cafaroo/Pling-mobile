@@ -459,19 +459,27 @@ I linje med DDD-principer har vi refaktorerat stora delar av UI-lagret för att 
    - **TeamMemberList**: Implementerad med `TeamMemberListPresentation` och `TeamMemberListContainer`
    - Implementerat indexfiler för exportering av både container- och presentationskomponenter
 
-3. **Förbättrad testbarhet för UI-komponenter**
+3. **Refaktorerade team-skärmar**
+   - **TeamScreen**: Uppdelad i `TeamScreenPresentation` och `TeamScreenContainer`
+     - Förbättrad hantering av laddningstillstånd med återanvändning av `PresentationAdapter`
+     - Tydligare separering av datahantering och UI-rendering
+     - Bättre felhanteringsstrategier för olika typer av operationer (hämtning, lägga till, ta bort, ändra roller)
+     - Mer detaljerad progress-information för långvariga operationer
+     - Stöd för animerade övergångar i formulärvisning
+
+4. **Förbättrad testbarhet för UI-komponenter**
    - Skapad teststruktur för presentationskomponenter
    - Skrivit enhetstester för presentationskomponenter som validerar rendering och interaktioner
    - Implementerat testhjälpare för UI-komponenter
    - Skapat exempel på tester i `MemberCardPresentation.test.tsx` och `AddMemberFormPresentation.test.tsx`
 
-4. **Standardiserad felhantering i UI-lagret**
+5. **Standardiserad felhantering i UI-lagret**
    - Implementerat konsekvent mönster för felvisning via `QueryErrorHandler`
    - Skapat standardtyper för UI-fel
    - Strategier för att omvandla domän- och applikationsfel till användarvänliga meddelanden
    - Implementerat återförsöksfunktionalitet för vanliga nätverksfel
 
-5. **Begränsad användning av React Context**
+6. **Begränsad användning av React Context**
    - Skapat `UIStateContext` specifikt för UI-relaterade tillstånd som tema och modala fönster
    - Säkerställt att domänrelaterade data och logik inte läcker in i UI-kontexten
    - Implementerat optimerade hooks för kontextanvändning

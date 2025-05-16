@@ -35,9 +35,9 @@ Projektet har refaktorerat en stor del av hook-logiken till applikationslagret, 
 
 ### User-relaterade skärmar
 
-1. **ProfileScreen**
-   - Använd `useUser` och `useUpdateProfile` för profildata och uppdateringar
-   - Implementera optimistisk UI-uppdatering
+1. **ProfileScreen** ✅
+   - ✅ Använd `useUser` och `useUpdateProfile` för profildata och uppdateringar
+   - ✅ Implementera optimistisk UI-uppdatering
 
 2. **UserTeamsScreen**
    - Använd `useUserTeams` för att visa användarens team
@@ -176,6 +176,13 @@ Implementera en checklista för varje skärm för att spåra refaktoreringsframs
 - [x] Validerat med integrationstester
 
 ### TeamSettingsScreen
+- [x] Identifierat lämpliga hooks
+- [x] Refaktorerat container-komponent
+- [x] Uppdaterat tester
+- [x] Optimerat prestanda
+- [x] Validerat med integrationstester
+
+### ProfileScreen
 - [x] Identifierat lämpliga hooks
 - [x] Refaktorerat container-komponent
 - [x] Uppdaterat tester

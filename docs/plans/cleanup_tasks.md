@@ -72,7 +72,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 
 ### 1.2 Test- och Byggförberedelser
 - [x] Säkerställ att existerande tester körs korrekt
-- [ ] Dokumentera nuvarande teststruktur och täckning
+- [x] Dokumentera nuvarande teststruktur och täckning
 - [ ] Skapa skript för att automatiskt köra enhetstester på domännivå
 - [ ] Förbered byggscript för att hantera nya mappstrukturer
 
@@ -203,14 +203,14 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [ ] Skapa enhetstester för domäntjänster
 
 ### 6.2 Use Case-tester
-- [ ] Skapa enhetstester för use cases
+- [x] Skapa enhetstester för use cases
 - [x] Skapa mock implementations för repositories
 - [ ] Säkerställ test av felhantering
 
 ### 6.3 UI-tester
 - [ ] Skapa integrationstester för hooks
 - [ ] Skapa enhetstester för UI-komponenter
-- [ ] Säkerställ mocking av applikationslager
+- [x] Säkerställ mocking av applikationslager
 
 ### 6.4 Dokumentation
 - [x] Uppdatera README.md med nya strukturen
@@ -238,7 +238,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
     - [x] Skapa testhjälpare för att hantera UserProfile-ändringar
     - [x] Dokumentera migreringsstrategier för tester i result-api-migration.md
     - [x] Uppdatera alla kvarvarande filer som använder gamla Result-API:et
-    - [ ] Standardisera mockning av entities och värde-objekt i alla tester
+    - [x] Standardisera mockning av entities och värde-objekt i alla tester
 15. [x] Förbättra aggregatgränser i domänmodellen
     - [x] Dokumentera aggregatgränser och riktlinjer i aggregate-boundaries.md
     - [x] Dokumentera riktlinjer för namngivning av domänevents i event-naming-guidelines.md
@@ -252,10 +252,10 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
     - [x] Slutför refaktorering av events för User-domänen
     - [x] Slutför refaktorering av events för Organization-domänen (påbörjat)
     - [x] Komplettera testning av invarianter och event-publicering
-16. [ ] Skapa visualiseringar för domänmodellen
-    - [ ] Skapa diagram över aggregatgränser
-    - [ ] Skapa diagram över entitetsrelationer
-    - [ ] Visualisera event flows
+16. [x] Skapa visualiseringar för domänmodellen
+    - [x] Skapa diagram över aggregatgränser
+    - [x] Skapa diagram över entitetsrelationer
+    - [x] Visualisera event flows
 
 ## Prioriteringsordning
 
@@ -276,8 +276,9 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
    - [x] Dokumentation av aggregatgränser ✓
    - [x] Testhjälpare för Result-API ✓
    - [x] Testhjälpare för UserProfile ✓
-   - [ ] Uppdatering av tester (pågående)
-   - [ ] Visualisering av domänmodell
+   - [x] Uppdatering av tester (pågående)
+   - [x] Visualisering av domänmodell
+   - [x] Dokumentation av teststrategi och mockverktyg
 
 ## Plan för Application Layer Improvements
 

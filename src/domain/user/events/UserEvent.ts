@@ -18,6 +18,7 @@ import { UserActivatedEvent } from './UserActivatedEvent';
 import { UserDeactivatedEvent } from './UserDeactivatedEvent';
 import { UserNotificationSettingsChangedEvent } from './UserNotificationSettingsChangedEvent';
 import { UserSecurityEventOccurredEvent } from './UserSecurityEventOccurredEvent';
+import { UserEmailUpdatedEvent } from './UserEmailUpdatedEvent';
 
 /**
  * UserEventData
@@ -254,6 +255,20 @@ export class UserDeleted extends BaseUserEvent {
     user: User | UniqueId
   ) {
     super('UserDeleted', user);
+  }
+}
+
+/**
+ * @deprecated Använd standardiserade UserEmailUpdatedEvent istället
+ * @see UserEmailUpdatedEvent
+ */
+export class UserEmailUpdated extends BaseUserEvent {
+  constructor(
+    user: User | UniqueId,
+    oldEmail: string,
+    newEmail: string
+  ) {
+    super('UserEmailUpdated', user, { oldEmail, newEmail });
   }
 }
 

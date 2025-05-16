@@ -117,7 +117,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 ### 2.6 Domänevents
 - [x] Definiera standardstruktur för domänevents
 - [x] Refaktorera team-relaterade events
-- [ ] Refaktorera user-relaterade events
+- [x] Refaktorera user-relaterade events
 - [ ] Refaktorera organisation-relaterade events
 - [x] Säkerställ att events bara innehåller nödvändig information
 

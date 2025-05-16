@@ -13,6 +13,7 @@ import { UserSettingsUpdatedEvent } from '../events/UserSettingsUpdatedEvent';
 import { UserStatusChangedEvent } from '../events/UserStatusChangedEvent';
 import { UserTeamAddedEvent } from '../events/UserTeamAddedEvent';
 import { UserTeamRemovedEvent } from '../events/UserTeamRemovedEvent';
+import { UserEmailUpdatedEvent } from '../events/UserEmailUpdatedEvent';
 
 /**
  * UserProps
@@ -502,6 +503,13 @@ export class User extends AggregateRoot<UserProps> {
       if (validationResult.isErr()) {
         return err(validationResult.error);
       }
+      
+      // Publicera domänhändelse med ny standardiserad händelseklass
+      this.addDomainEvent(new UserEmailUpdatedEvent(
+        this,
+        oldEmail,
+        emailResult.value
+      ));
       
       return ok(undefined);
     } catch (error) {

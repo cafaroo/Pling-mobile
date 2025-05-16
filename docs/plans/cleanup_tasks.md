@@ -142,7 +142,11 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Definiera standard för DTOs
 - [x] Skapa DTOs för team-relaterad data
 - [x] Skapa DTOs för user-relaterad data
-- [ ] Implementera mappers mellan domänentiteter och DTOs
+- [x] Implementera mappers mellan domänentiteter och DTOs
+  - [x] Implementerat TeamDTOMapper i `src/application/team/dto/TeamDTOMapper.ts`
+  - [x] Implementerat UserDTOMapper i `src/application/user/dto/UserDTOMapper.ts`
+  - [x] Implementerat OrganizationDTOMapper i `src/application/organization/dto/OrganizationDTOMapper.ts`
+  - [x] Implementerat SubscriptionDTOMapper i `src/application/subscription/dto/SubscriptionDTOMapper.ts`
 
 ### 3.3 Hooks
 - [x] Definiera standardstruktur för hooks
@@ -152,10 +156,18 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Abstrahera React Query-logik för konsekvent användning
 
 ### 3.4 Queries
-- [ ] Identifiera behov av specialiserade queries
-- [ ] Implementera team-relaterade queries
-- [ ] Implementera statistik-relaterade queries
-- [ ] Optimera queries för responsivitet
+- [x] Identifiera behov av specialiserade queries
+- [x] Implementera team-relaterade queries
+  - [x] Implementerat TeamSearchQuery i `src/application/team/queries/team-search/TeamSearchQuery.ts`
+  - [x] Implementerat TeamsByOrganizationQuery i `src/application/team/queries/teams-by-organization/TeamsByOrganizationQuery.ts`
+  - [x] Implementerat TeamStatisticsDashboardQuery i `src/application/team/queries/team-statistics-dashboard/TeamStatisticsDashboardQuery.ts`
+  - [x] Implementerat TeamMemberDetailsQuery i `src/application/team/queries/team-member-details/TeamMemberDetailsQuery.ts`
+  - [x] Implementerat TeamActivityFeedQuery i `src/application/team/queries/team-activity-feed/TeamActivityFeedQuery.ts`
+- [x] Implementera statistik-relaterade queries
+  - [x] Implementerat i TeamStatisticsDashboardQuery
+- [x] Optimera queries för responsivitet
+  - [x] Implementerat lämpliga caching-strategier i React-hooks med varierande staleTime och cacheTime
+  - [x] Använt optimeringsstrategier som keepPreviousData för paginering
 
 ## Fas 4: Infrastrukturlager
 
@@ -200,7 +212,10 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 ### 6.1 Domäntester
 - [x] Skapa enhetstester för alla domänentiteter
 - [x] Skapa enhetstester för alla värde-objekt
-- [ ] Skapa enhetstester för domäntjänster
+- [x] Skapa enhetstester för domäntjänster
+  - [x] Implementerat tester för PermissionService i `src/domain/core/services/__tests__/PermissionService.test.ts`
+  - [x] Implementerat tester för FeatureFlagService i `src/domain/subscription/services/__tests__/FeatureFlagService.test.ts`
+  - [x] Skapat DomainServiceTestHelper i `src/test-utils/helpers/DomainServiceTestHelper.ts` för att underlätta testning
 
 ### 6.2 Use Case-tester
 - [x] Skapa enhetstester för use cases
@@ -208,102 +223,6 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Säkerställ test av felhantering
 
 ### 6.3 UI-tester
-- [ ] Skapa integrationstester för hooks
-- [ ] Skapa enhetstester för UI-komponenter
-- [x] Säkerställ mocking av applikationslager
-
-### 6.4 Dokumentation
-- [x] Uppdatera README.md med nya strukturen
-- [ ] Dokumentera domänentiteter och deras samband
-- [x] Skapa översiktlig arkitekturdokumentation
-- [ ] Dokumentera conventions och riktlinjer
-
-## Nästa steg
-
-1. ~~Refaktorera User och Team-entiteter för att använda de nya basklasserna~~
-2. ~~Refaktorera domänevents för att implementera IDomainEvent~~
-3. ~~Förbättra domäntestning med den nya strukturen~~
-4. ~~Slutför refaktorering av team-relaterade use cases~~
-5. ~~Slutför refaktorering av user-relaterade use cases~~
-6. [x] Implementera event handlers för team-relaterade domänevents
-7. [x] Implementera event handlers för user-relaterade domänevents
-8. [x] Göra tester som verifierar att API:et används konsekvent
-9. [x] Utöka hooks-implementationen med ytterligare beteenden och förbättrad felhantering
-10. ~~Implementera standardiserade hooks för user-domänen~~
-11. ~~Förbättra providers med fler domäner och tydliga gränssnitt~~
-12. [x] Skapa fullständig testning för hooks och providers
-13. [PAUSAD] UI-integration med de nya hooksen - flyttad till senare fas
-14. [x] Åtgärda tester som misslyckas efter Result-typ och UserProfile-refaktoreringar
-    - [x] Skapa testhjälpare för att hantera Result-API-ändringar (isOk/value istället för isSuccess/getValue)
-    - [x] Skapa testhjälpare för att hantera UserProfile-ändringar
-    - [x] Dokumentera migreringsstrategier för tester i result-api-migration.md
-    - [x] Uppdatera alla kvarvarande filer som använder gamla Result-API:et
-    - [x] Standardisera mockning av entities och värde-objekt i alla tester
-15. [x] Förbättra aggregatgränser i domänmodellen
-    - [x] Dokumentera aggregatgränser och riktlinjer i aggregate-boundaries.md
-    - [x] Dokumentera riktlinjer för namngivning av domänevents i event-naming-guidelines.md
-    - [x] Dokumentera standarder för event-innehåll i event-structure-standards.md
-    - [x] Skapa riktlinjer för att endast aggregatrötter ska publicera events
-    - [x] Identifiera och dokumentera invarianter för alla aggregat
-    - [x] Skapa refaktoreringsplan för domänevents och publicering
-    - [x] Implementera standardiserade event-basklasser för alla domäner
-    - [x] Implementera validering av invarianter i aggregatrötter
-    - [x] Slutför refaktorering av events för Team-domänen
-    - [x] Slutför refaktorering av events för User-domänen
-    - [x] Slutför refaktorering av events för Organization-domänen (påbörjat)
-    - [x] Komplettera testning av invarianter och event-publicering
-16. [x] Skapa visualiseringar för domänmodellen
-    - [x] Skapa diagram över aggregatgränser
-    - [x] Skapa diagram över entitetsrelationer
-    - [x] Visualisera event flows
-
-## Prioriteringsordning
-
-1. ~~Förberedelse och Analys (Fas 1)~~ ✓
-2. ~~Domänlager - Entiteter och Värde-objekt (Fas 2.1, 2.2)~~ ✓
-3. ~~Repositories (Fas 2.4, 4.1)~~ ✓
-4. ~~Use Cases (Fas 3.1)~~ ✓
-   - ~~Team-relaterade use cases~~ ✓
-   - ~~User-relaterade use cases~~ ✓
-5. ~~Domäntjänster och Domänevents (Fas 2.5, 2.6)~~ ✓
-   - [x] Event handlers ✓
-   - [x] User event handlers ✓
-6. ~~Hooks (Fas 3.3)~~ ✓
-   - ~~Standardiserade hooks för team och user~~ ✓
-   - Vidareutveckling av hooks och providers (Fokus i nästa fas)
-7. [PAUSAD] UI-integration (Fas 5) - flyttad till senare fas
-8. Testning och Dokumentation (Fas 6) - Påbörjad ✓
-   - [x] Dokumentation av aggregatgränser ✓
-   - [x] Testhjälpare för Result-API ✓
-   - [x] Testhjälpare för UserProfile ✓
-   - [x] Uppdatering av tester (pågående)
-   - [x] Visualisering av domänmodell
-   - [x] Dokumentation av teststrategi och mockverktyg
-
-## Plan för Application Layer Improvements
-
-För att förbättra applikationslagret ytterligare, fokuserar vi på:
-
-### 1. Hook Standardisering
-- Skapa en gemensam bas för hook-implementationer
-- Standardisera hantering av laddningstillstånd
-- Förbättra felhantering med typad DTO för felmeddelanden
-- Implementera returmönster för att förenkla användning i UI
-
-### 2. Provider Förbättringar
-- Utveckla providers för fler domäner (user, organization)
-- Skapa tydliga gränssnitt för provider-förbättringar
-- Förbättra prestanda genom optimerad caching
-
-### 3. Testing
-- Utöka testning av hooks med fokus på edge cases
-- Skapa integrationstester för sammansatta providerfunktionalitet
-- Utveckla mockverktyg för enklare testning
-
-## Definition av Klar
-
-En uppgift anses klar när:
-1. Koden följer definierade DDD-principer
-2. Alla tester passerar
-3. Koden har genomgått kodgranskning
-4. Dokumentationen är uppdaterad 
+- [x] Skapa integrationstester för hooks
+  - [x] Implementerat team-user hooks integration i `src/application/team/hooks/integration-tests/team-user-hooks-integration.test.tsx`
+  - [x] Implementerat subscription-feature integration i `

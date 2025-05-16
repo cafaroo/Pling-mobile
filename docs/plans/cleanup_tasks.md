@@ -206,19 +206,78 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 ## Fas 5: UI-lager
 
 ### 5.1 Komponenter
-- [ ] Säkerställ att komponenter följer designsystemet
-- [ ] Separera presentationskod från affärslogik
-- [ ] Standardisera felhantering i UI
+- [x] Säkerställ att komponenter följer designsystemet
+  - [x] Skapad `ErrorBoundary` för enhetlig felhantering
+  - [x] Implementerat `EmptyState` för tomma datamängder
+  - [x] Skapat `QueryErrorHandler` för standardiserad hantering av React Query-fel
+  - [x] Byggt `PresentationAdapter` för konsekvent datahantering 
+  - [x] Implementerat `DialogRenderer` för modala fönster
+  - [x] Skapat `ToastRenderer` för notifikationer
+- [x] Separera presentationskod från affärslogik
+  - [x] Refaktorerat `TeamPermissionManager` till container/presentation
+  - [x] Refaktorerat `MemberCard` till container/presentation
+  - [x] Refaktorerat `AddMemberForm` till container/presentation
+  - [x] Implementerat `TeamMemberList` med container/presentation
+  - [x] Skapat indexfiler för korrekt exportering
+- [x] Standardisera felhantering i UI
+  - [x] Implementerat standardiserade UI-feltyper
+  - [x] Skapat gemensamma felmeddelandekonverterare
+  - [x] Använt `QueryErrorHandler` för konsekvent felvisning
+  - [x] Gjort komponenter för att centralisera felhantering
 
 ### 5.2 Skärmar
 - [ ] Refaktorera team-relaterade skärmar
+  - [ ] Refaktorera TeamDashboardScreen
+  - [ ] Refaktorera TeamDetailsScreen
+  - [ ] Refaktorera TeamSettingsScreen
+  - [ ] Refaktorera TeamMembersScreen
+  - [ ] Refaktorera TeamActivitiesScreen
 - [ ] Refaktorera user-relaterade skärmar
+  - [ ] Refaktorera UserProfileScreen
+  - [ ] Refaktorera UserSettingsScreen
+  - [ ] Refaktorera UserTeamsScreen
 - [ ] Säkerställ användning av hooks från applikationslagret
+  - [ ] Integrera refaktorerade hooks i skärmar
+  - [ ] Säkerställ korrekt dataflöde genom komponentträdet
+  - [ ] Implementera optimala laddningsstrategier
 
 ### 5.3 Kontext
-- [ ] Identifiera och begränsa anvädning av Kontext
-- [ ] Refaktorera för att använda hooks där möjligt
-- [ ] Säkerställ att endast UI-tillstånd lagras i Kontext
+- [x] Identifiera och begränsa anvädning av Kontext
+  - [x] Skapad `UIStateContext` för UI-specifika tillstånd
+  - [x] Definierad UIState-typ med tema, dialoger och toasts
+  - [x] Separerat UI-tillstånd från domän- och applikationstillstånd
+- [x] Refaktorera för att använda hooks där möjligt
+  - [x] Skapat `useUIState` för åtkomst till UI-tillstånd
+  - [x] Implementerat tillståndshanterare med useReducer
+  - [x] Tillhandahållit hjälpfunktioner för vanliga UI-operationer
+- [x] Säkerställ att endast UI-tillstånd lagras i Kontext
+  - [x] Flyttat domändata från kontext till props
+  - [x] Använt container/presentation-mönstret för att separera data och UI
+  - [x] Dokumenterat mönster för kontextanvändning
+
+### 5.4 UI-integrationstester
+- [ ] Skapa integrationstester för UI-komponenter
+  - [ ] Implementera tester för TeamMemberList med mocks
+  - [ ] Skapa tester för TeamPermissionManager
+  - [ ] Testa dialoger och modala fönster
+- [ ] Standardisera UI-testmönster
+  - [ ] Definiera standardmönster för rendering och snapshottestning
+  - [ ] Skapa hjälpfunktioner för UI-testning
+  - [ ] Dokumentera teststrategier för UI-komponenter
+- [ ] Implementera end-to-end tester för kritiska flöden
+  - [ ] Testa medlemshanteringsflöde
+  - [ ] Testa behörighetshanteringsflöde
+  - [ ] Testa inställningsändringsflöde
+
+### 5.5 UI-dokumentation
+- [ ] Skapa komponentbibliotek
+  - [ ] Dokumentera alla grundläggande UI-komponenter
+  - [ ] Skapa användningsexempel för varje komponent
+  - [ ] Tillhandahålla propTyper för alla komponenter
+- [ ] Dokumentera UI-arkitektur
+  - [ ] Illustrera container/presentation-mönstret
+  - [ ] Beskriva dataflödet genom applikationen
+  - [ ] Förklara mönster för felhantering
 
 ## Fas 6: Testning och Dokumentation
 

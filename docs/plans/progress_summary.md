@@ -437,3 +437,53 @@ Nästa steg är att fokusera på UI-lagret, inklusive:
 - Standardisering av felhantering i UI
 - Refaktorering av team- och användarrelaterade skärmar
 - Begränsning av Kontext-användning till UI-tillstånd 
+
+## UI-lagrets refaktorering (2024-06-XX)
+
+I linje med DDD-principer har vi refaktorerat stora delar av UI-lagret för att skapa en tydligare separation mellan presentationslogik och affärslogik:
+
+1. **Grundläggande UI-komponenter**
+   - Implementerat `ErrorBoundary` för att fånga JavaScript-fel och visa användarvänliga fallbacks
+   - Skapat `EmptyState` för standardiserad hantering av tomma datamängder
+   - Implementerat `QueryErrorHandler` för konsekvent hantering av React Query-fel
+   - Skapat `UIStateContext` för hantering av UI-specifika tillstånd
+   - Implementerat `DialogRenderer` för enhetlig rendering av modala fönster
+   - Byggt `ToastRenderer` för konsekvent visning av notifikationer
+   - Utvecklat `UIProviders` som samlar alla UI-relaterade providers
+   - Skapat `PresentationAdapter` som generisk adapter för datahantering, laddning och fel
+
+2. **Refaktorerade team-komponenter**
+   - **TeamPermissionManager**: Uppdelad i `TeamPermissionManagerPresentation` och `TeamPermissionManagerContainer`
+   - **MemberCard**: Uppdelad i `MemberCardPresentation` och `MemberCardContainer`
+   - **AddMemberForm**: Uppdelad i `AddMemberFormPresentation` och `AddMemberFormContainer`
+   - **TeamMemberList**: Implementerad med `TeamMemberListPresentation` och `TeamMemberListContainer`
+   - Implementerat indexfiler för exportering av både container- och presentationskomponenter
+
+3. **Förbättrad testbarhet för UI-komponenter**
+   - Skapad teststruktur för presentationskomponenter
+   - Skrivit enhetstester för presentationskomponenter som validerar rendering och interaktioner
+   - Implementerat testhjälpare för UI-komponenter
+   - Skapat exempel på tester i `MemberCardPresentation.test.tsx` och `AddMemberFormPresentation.test.tsx`
+
+4. **Standardiserad felhantering i UI-lagret**
+   - Implementerat konsekvent mönster för felvisning via `QueryErrorHandler`
+   - Skapat standardtyper för UI-fel
+   - Strategier för att omvandla domän- och applikationsfel till användarvänliga meddelanden
+   - Implementerat återförsöksfunktionalitet för vanliga nätverksfel
+
+5. **Begränsad användning av React Context**
+   - Skapat `UIStateContext` specifikt för UI-relaterade tillstånd som tema och modala fönster
+   - Säkerställt att domänrelaterade data och logik inte läcker in i UI-kontexten
+   - Implementerat optimerade hooks för kontextanvändning
+   - Dokumenterat riktlinjer för kontextanvändning i UI-lagret
+
+Dessa förbättringar ger flera viktiga fördelar:
+
+- **Tydligt separerad presentation och logik**: Presentationskomponenter är nu helt stateless och styrs via props
+- **Förbättrad testbarhet**: UI-komponenter kan nu testas separat från affärslogik
+- **Standardiserad felhantering**: Konsekvent hantering av fel för en bättre användarupplevelse
+- **Begränsad kontextanvändning**: Context används bara för UI-tillstånd, inte för affärslogik
+- **Ökad återanvändbarhet**: Presentationskomponenter kan enklare återanvändas i olika delar av applikationen
+- **Mer konsekvent UI**: Standardiserade komponenter ger en enhetlig användarupplevelse
+
+Dokumentation över refaktoreringen har samlats i `docs/plans/ui-refactoring-summary.md` med detaljerade beskrivningar och exempel. 

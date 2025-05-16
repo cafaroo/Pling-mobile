@@ -179,8 +179,21 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 
 ### 4.2 Tekniska tjänster
 - [x] Refaktorera `EventBus`-implementation
-- [ ] Refaktorera loggningssystem
-- [ ] Refaktorera caching-system
+- [x] Refaktorera loggningssystem
+  - [x] Skapat `ILogger` interface i `src/infrastructure/logger/ILogger.ts`
+  - [x] Implementerat `LoggerService` i `src/infrastructure/logger/LoggerService.ts`
+  - [x] Skapat formaterare i `src/infrastructure/logger/formatters/DefaultFormatter.ts`
+  - [x] Skapat destinationer i `src/infrastructure/logger/destinations/`
+  - [x] Implementerat factory i `src/infrastructure/logger/LoggerFactory.ts`
+  - [x] Skapat omfattande tester i `src/infrastructure/logger/__tests__/LoggerService.test.ts`
+- [x] Refaktorera caching-system
+  - [x] Skapat `ICacheService` interface i `src/infrastructure/cache/ICacheService.ts`
+  - [x] Skapat `IStorageAdapter` interface i `src/infrastructure/cache/IStorageAdapter.ts`
+  - [x] Implementerat storage adapters i `src/infrastructure/cache/adapters/`
+  - [x] Implementerat `CacheServiceImpl` i `src/infrastructure/cache/CacheServiceImpl.ts`
+  - [x] Skapat factory i `src/infrastructure/cache/CacheFactory.ts`
+  - [x] Förbättrat `TeamCacheService` i `src/infrastructure/cache/TeamCacheService.ts`
+  - [x] Skapat omfattande tester i `src/infrastructure/cache/__tests__/CacheService.test.ts`
 - [x] Säkerställ korrekt mocking av externa tjänster
 
 ### 4.3 DTO-mappning

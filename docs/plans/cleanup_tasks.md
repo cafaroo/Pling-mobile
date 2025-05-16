@@ -272,10 +272,10 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [x] Testa inställningsändringsflöde
 
 ### 5.5 UI-dokumentation
-- [ ] Skapa komponentbibliotek
-  - [ ] Dokumentera alla grundläggande UI-komponenter
-  - [ ] Skapa användningsexempel för varje komponent
-  - [ ] Tillhandahålla propTyper för alla komponenter
+- [x] Skapa komponentbibliotek
+  - [x] Dokumentera alla grundläggande UI-komponenter
+  - [x] Skapa användningsexempel för varje komponent
+  - [x] Tillhandahålla propTyper för alla komponenter
 - [x] Dokumentera UI-arkitektur
   - [x] Illustrera container/presentation-mönstret
   - [x] Beskriva dataflödet genom applikationen
@@ -289,10 +289,10 @@ Baserat på de senaste framstegen är de rekommenderade nästa stegen:
    - Implementera test för behörighetshanteringsflödet med fokus på rollhantering och behörigheter
    - Skapa test för inställningsändringsflödet som validerar korrekt datalagring och användargränssnittsuppdatering
 
-2. **Skapa komponentbibliotek** - Dokumentera de återanvändbara UI-komponenterna:
-   - Skapa en strukturerad dokumentation för alla grundläggande UI-komponenter
-   - Inkludera användningsexempel för varje komponent
-   - Tillhandahålla propTyper och beskrivningar för alla komponenter
+2. **[x] Skapa komponentbibliotek** - Dokumentera de återanvändbara UI-komponenterna:
+   - [x] Skapa en strukturerad dokumentation för alla grundläggande UI-komponenter
+   - [x] Inkludera användningsexempel för varje komponent
+   - [x] Tillhandahålla propTyper och beskrivningar för alla komponenter
 
 3. **Säkerställ hooks-integration i skärmar** - Kontrollera och optimera användningen av hooks:
    - Säkerställ att alla refaktorerade skärmar använder de standardiserade hooks

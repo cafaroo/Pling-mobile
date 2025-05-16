@@ -112,7 +112,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Identifiera operationer som kräver domäntjänster
 - [x] Implementera `PermissionService`
 - [x] Implementera `SubscriptionService`
-- [ ] Säkerställ att domäntjänster är stateless
+- [x] Säkerställ att domäntjänster är stateless
 
 ### 2.6 Domänevents
 - [x] Definiera standardstruktur för domänevents

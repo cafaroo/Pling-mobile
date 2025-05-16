@@ -268,8 +268,8 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [x] Dokumentera teststrategier för UI-komponenter
 - [x] Implementera end-to-end tester för kritiska flöden
   - [x] Testa medlemshanteringsflöde
-  - [ ] Testa behörighetshanteringsflöde
-  - [ ] Testa inställningsändringsflöde
+  - [x] Testa behörighetshanteringsflöde
+  - [x] Testa inställningsändringsflöde
 
 ### 5.5 UI-dokumentation
 - [ ] Skapa komponentbibliotek

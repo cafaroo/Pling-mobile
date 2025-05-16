@@ -1,3 +1,73 @@
+# Dokumentation av dataflödesmönster (2024-06-XX)
+
+## Sammanfattning
+
+Vi har skapat en omfattande dokumentation av dataflödesmönster i Pling-mobile, vilket klargör hur data flödar genom applikationens olika lager. Dokumentationen fokuserar särskilt på den standardiserade hooks-integrationen i UI-skärmar och ger en tydlig bild av hur vi implementerar och använder våra dataflödesmönster.
+
+## Genomförd dokumentation
+
+### Dataflödesmönster
+
+- **Skapat en övergripande dokumentation** i `docs/architecture/ui/data-flow-patterns.md` som beskriver:
+  - Den övergripande arkitekturen och dataflödet i applikationen
+  - Hur data flödar från domänlagret till UI och tillbaka
+  - Detaljer om hooks-integration i skärmar
+  - React Query-implementering med standardmönster
+  - Container/Presentation-mönstret med exempel
+  - Felhantering och laddningstillstånd
+  - Exempelimplementationer med TeamActivitiesScreen som fallstudie
+
+- **Dokumenterat dataflödet i båda riktningar**:
+  - Från domänlager till UI: Domänentitet → Repository → Use Case → DTO → Hook → Container → Presentation
+  - Från UI till domänlager: Användaråtgärd → Presentation → Container → Hook → Use Case → Repository → Domänentitet
+  - Domänevents och sidoberoenden
+
+- **Illustrerat med diagram och kodexempel** för att tydliggöra mönstren
+  - Inkluderat kodexempel från TeamActivitiesScreen för att visa praktisk tillämpning
+  - Skapat flödesdiagram som visar hur data rör sig mellan lager
+
+- **Dokumenterat bästa praxis för dataflöde**:
+  - Hooks för all datahämtning
+  - Separation av presentation från logik
+  - Renderingsoptimering
+  - Standardiserad felhantering
+  - Strategisk caching
+  - Optimistisk uppdatering
+  - Testning av dataflödet
+
+Denna dokumentation utgör en viktig referens för teamet och säkerställer att alla utvecklare följer samma mönster för dataflöde, vilket ökar kodkvaliteten och underhållbarheten.
+
+# TeamSettingsScreen - Hooks-integration och Testning (2024-06-XX)
+
+## Sammanfattning
+
+Vi har slutfört integreringen av standardiserade hooks i TeamSettingsScreen med fokus på att förbättra dataflödet, prestandaoptimering och robust testning. TeamSettingsScreen hanterar nu team-inställningar med användning av de refaktorerade hooks från applikationslagret.
+
+## Genomförda förbättringar
+
+### TeamSettingsScreen
+
+- **Implementerad hooks-integration för TeamSettingsScreen:**
+  - Integrerat `useTeamSettings` från applikationslagret för att hantera inställningsdata
+  - Implementerat tydliga update-operationer för olika typer av inställningar
+  - Förbättrat validering och felhantering av inställningsvärden
+  - Implementerat optimerad React Query-caching
+
+- **Skapat omfattande integrationstester:**
+  - Implementerat robusta tester för alla viktiga scenarion
+  - Testat laddningstillstånd, felhantering och dataflöde
+  - Verifierat korrekt uppdatering av inställningar
+  - Testat bekräftelsedialoger för kritiska ändringar
+  - Implementerat tester för avbrytning och återställning av ändringar
+
+- **Förbättrad användarupplevelse:**
+  - Implementerat tydligare feedback vid ändringar
+  - Förbättrat validering och felmeddelanden
+  - Implementerat optimistiska uppdateringar för bättre responsivitet
+  - Säkerställt konsekvent beteende mellan olika inställningskategorier
+
+Integrationen av TeamSettingsScreen slutför en stor del av arbetet med team-relaterade skärmar i UI-hooks-integration-planen, med TeamScreen, TeamMembersScreen, TeamActivitiesScreen och nu TeamSettingsScreen alla refaktorerade för att använda de standardiserade hooks från applikationslagret.
+
 # Hooks-integration för UI-skärmar - TeamActivitiesScreen (2024-06-XX)
 
 ## Sammanfattning
@@ -325,251 +395,4 @@ Dessa förbättringar säkerställer konsekventa och högkvalitativa tester öve
    - Skapat `useOrganizationWithStandardHook` för hantering av organisationsdomänen
    - Implementerat `useOrganizationContext` för beroendeinjicering av organisationsrelaterade komponenter
    - Implementerat en robust felhanteringsstrategi med `HookErrorTypes` och standardiserade felmeddelanden
-   - Skapat bas-hooks `useStandardizedOperation` och `useStandardizedRetryableOperation` för konsekvent felhantering
-   - Utökat med återförsöksmekanismer för nätverksrelaterade fel med exponentiell backoff
-   - Integrerat React Query för effektiv data-fetching och caching
-   - Utökat `DomainProvidersComposer` för att hantera team-, user- och organisations-providers
-   - Implementerat omfattande testning av hooks och felhantering
-   - Skapat dokumentation för hook-implementationen med tydliga riktlinjer
-   - Gradvis ersättningsstrategi för att migrera från gamla hooks
-
-5. **Event Handlers för Team-domänen** - Implementerat strukturerad hantering av team-relaterade domänevents:
-   - Skapat `BaseEventHandler` basklass med generisk typning för alla event handlers
-   - Implementerat specifika handlers för alla team-events:
-     - `TeamCreatedHandler` för att hantera nya team och uppdatera användarens teammedlemskap
-     - `MemberJoinedHandler` för att hantera nya teammedlemmar och uppdatera teamstatistik
-     - `MemberLeftHandler` för att hantera när medlemmar lämnar team och uppdatera statistik
-     - `TeamMemberRoleChangedHandler` för att hantera rollförändringar och auditloggning
-     - `TeamMessageCreatedHandler` för att hantera nya teammeddelanden och uppdatera aktivitet
-   - Skapat `TeamEventHandlerFactory` för enkel instansiering och registrering av handlers
-   - Implementerat `DomainEventHandlerInitializer` för att registrera alla handlers vid appstart
-   - Strukturerade enhetstester för validering av event handler-funktionalitet
-   - Förbättrat felhantering vid eventbehandling med detaljerade felmeddelanden
-   - Implementerat konsekventa loggningsrutiner för felsökning och övervakning
-
-6. **Event Handlers för User-domänen** - Implementerat strukturerad hantering av user-relaterade domänevents:
-   - Använt samma `BaseEventHandler` mönster för user event handlers
-   - Implementerat specifika handlers för användarrelaterade events:
-     - `UserCreatedHandler` för att hantera användarregistrering och initiera statistik
-     - `UserProfileUpdatedHandler` för att synkronisera profilinformation över teammedlemskap
-     - `UserTeamJoinedHandler` för att hantera användarspecifik logik när en användare ansluter till ett team
-     - `UserStatusChangedHandler` för att hantera ändringar i användares status och uppdatera relaterade team
-   - Skapat `UserEventHandlerFactory` för enkel instansiering och registrering av user handlers
-   - Implementerat samma registreringsmekanism för att enhetligt hantera användarevent
-   - Skapat testinfrastruktur för att validera eventhanterbeteende
-   - Säkerställt felhantering specifik för användardomänen
-   - Implementerat loggningsstrategi för auditspårbarhet och debugginformation
-
-7. **Basklasser för Entiteter** - Implementerat grundläggande basklasser för alla domänkomponenter:
-   - Skapat `Entity<T>` basklass för alla entiteter med generisk typning
-   - Implementerat `AggregateRoot<T>` som ärver från Entity med stöd för domänevents
-   - Skapat `IDomainEvent` interface för alla domänevents
-
-8. **Domänentiteter** - Refaktorerat flera domänentiteter för att använda de nya basklasserna:
-   - Uppdaterat `Team`-entiteten för att ärva från AggregateRoot<TeamProps>
-   - Uppdaterat `User`-entiteten för att ärva från AggregateRoot<UserProps>
-   - Standardiserat domänevents för Team och User
-   - Implementerat domänevents som använder IDomainEvent-interface med BaseTeamEvent och BaseUserEvent
-
-9. **TeamSettings Refaktorering** - Förbättrat TeamSettings som ett robust värde-objekt:
-   - Konverterat TeamSettings från en enkel klass till ett fullständigt ValueObject
-   - Lagt till validering av medlemsgränser och andra inställningar
-   - Implementerat immutability och skapande av nya instanser vid uppdateringar
-   - Utökat med stöd för notifikationsinställningar, kommunikationsinställningar och behörighetsinställningar
-   - Lagt till tydligt definierade metoder för olika typer av uppdateringar
-   - Säkerställt typning med grensnitt för alla inställningstyper
-
-10. **Team Entitet Förbättring** - Refaktorerat Team-entiteten för att använda det nya TeamSettings värde-objektet:
-   - Uppdaterat typning av DTOs för att använda TeamSettingsProps
-   - Förbättrat create och update-metoder med mer robust felhantering
-   - Lagt till nya granulära metoder för att uppdatera specifika inställningsgrupper
-   - Implementerat ytterligare validering i addMember-metoden baserat på TeamSettings
-   - Kompletterat och standardiserat domänevents
-   - Förbättrat hantering av inbjudningar och teammedlemskap med tydligare regler
-   - Säkerställt att alla teammutationer publicerar relevanta och rika domänevents
-
-11. **OrganizationRepository** - Implementerat repository-pattern för Organization-domänen:
-   - Definierat ett standardiserat `OrganizationRepository` interface
-   - Dokumenterat alla metoder med tydliga beskrivningar och returtyper
-   - Säkerställt korrekt användning av Result-typen
-
-12. **OrganizationMapper** - Implementerat mapper-klass för Organization-entiteten:
-   - Skapad robust konvertering mellan domänmodell och databasobjekt
-   - Implementerat validering av data vid konvertering
-   - Förbättrad felhantering med detaljerade felmeddelanden
-
-13. **SupabaseOrganizationRepository** - Implementerat konkret repository:
-   - Implementerat alla metoder från OrganizationRepository-interfacet
-   - Säkerställt korrekt hantering av domänevents
-   - Implementerat transaktionshantering för relaterade entiteter
-
-### Applikationslagret (2024-05-XX)
-1. **Team Use Cases** - Refaktorerat team-relaterade use cases för att följa samma konsekventa mönster:
-   - Refaktorerat grundläggande use cases (CreateTeamUseCase, AddTeamMemberUseCase, RemoveTeamMemberUseCase, UpdateTeamMemberRoleUseCase, InviteTeamMemberUseCase)
-   - Refaktorerat statistik-relaterade use cases (GetTeamStatisticsUseCase, GetTeamActivitiesUseCase, CreateTeamActivityUseCase)
-   - Refaktorerat kommunikations-relaterade use cases (CreateTeamMessageUseCase, CreateThreadReplyUseCase)
-   - Implementerat konsekventa DTOs och response-objekt
-   - Förbättrat felhantering med typade felkoder
-   - Säkerställt korrekt domäneventshantering genom IDomainEventPublisher
-   - Tillämpat factory-mönster för enklare instansiering och beroendehantering
-
-2. **User Use Cases** - Refaktorerat user-relaterade use cases för att följa samma standardiserade mönster:
-   - Refaktorerat CreateUserUseCase med klass-baserad design och domäneventshantering 
-   - Refaktorerat UpdateProfileUseCase med förbättrad DTO-struktur och typade felkoder
-   - Refaktorerat DeactivateUserUseCase med standardiserad felhantering och domäneventshantering
-   - Refaktorerat ActivateUserUseCase, UpdateSettingsUseCase och UpdatePrivacySettingsUseCase
-   - Eliminerat duplikatimplementation (UpdateProfileUseCase vs updateProfile)
-   - Standardiserat returntyper med tydliga response-objekt
-   - Implementerat factory-mönster för konsekvent instansiering
-   - Säkerställt korrekt användning av Result-typen med typade felkoder
-
-### Domänlagret
-1. **TeamStatistics** - Eliminerat duplicerad kod genom att extrahera den gemensamma logiken till hjälpmetoden `createStatisticsFromData`, vilket förbättrar både underhållbarhet och testbarhet.
-   
-2. **ResourcePermissionAdded & OrganizationResource** - Förbättrat eventhantering och implementerat bättre hantering av duplicerade behörigheter i `addPermission`-metoden.
-
-3. **Subscription-domänen** - Implementerat en komplett modell för prenumerationshantering:
-   - Skapat väldefinierade värde-objekt i `SubscriptionTypes.ts`
-   - Designat ett standardiserat `SubscriptionRepository` interface
-   - Definierat `FeatureFlagService` interface för funktionalitetskontroll
-
-4. **Team-domänen** - Förbättrat repository-mönstret för Team-domänen:
-   - Standardiserat `TeamRepository` interface med förbättrad dokumentation och Result-hantering
-   - Refaktorerat Team-entiteten för att använda AggregateRoot-basklass
-   - Implementerat BaseTeamEvent för standardiserade domänevents
-   - Säkerställt korrekt användning av Result-typen för felhantering
-   - Tydliggjort ansvarsområden för repository-metoderna
-
-5. **User-domänen** - Förbättrat repository-mönstret för User-domänen:
-   - Standardiserat `UserRepository` interface enligt DDD-principer 
-   - Refaktorerat User-entiteten för att använda AggregateRoot-basklass
-   - Uppgraderat User-entiteten med bättre typning, validering och felhantering
-   - Förbättrat struktur för UserSettings som ett riktigt värde-objekt
-   - Implementerat robusta BaseUserEvent för standardiserade domänevents
-   - Utökat eventhierarkin med rikare data och bättre felhantering 
-   - Implementerat djup kopiering och immutability för alla domänobjekt
-   - Lagt till nya metoder i User-entiteten, som `updateEmail`
-   - Förbättrat typhantering med Email, PhoneNumber och andra värde-objekt
-
-6. **Värde-objekt** - Genomfört omfattande förbättringar av värde-objekt:
-   - Förbättrat `Email`-värde-objektet med robust validering och normalisering
-   - Refaktorerat `TeamName` och `TeamDescription` som fullvärdiga värde-objekt
-   - Implementerat `UserProfile` som ett komplett värde-objekt med validering, immutability, och transformation
-   - Skapat wrapper-klass för bakåtkompatibilitet med existerande UserProfile-entitet
-   - Implementerat getters i wrappern för att spegla det nya värde-objektets struktur
-   - Dokumenterat teststrategier för värde-objekt i `value-objects-testing.md`
-   - Skapat omfattande testning för alla värde-objekt
-   - Identifierat att Result-API-ändringar (från isSuccess/getValue till isOk/value) kräver anpassningar i tester
-
-### Infrastrukturlagret
-1. **EventBus** - Förbättrat implementation med `clearListeners`-metod och exporterat via interface, vilket möjliggör korrekt testning av event-driven funktionalitet.
-
-2. **Mockning** - Skapat omfattande mockning för Supabase och andra externa beroenden:
-   - Implementerat `SupabaseMock` för databastestning
-   - Skapat `SupabaseSubscriptionRepository`-stubbar för testning
-   - Exporterat testmockar via `test-utils/index.ts` för enkel åtkomst
-
-3. **Repository-implementationer** - Förbättrat implementationer enligt DDD-principer:
-   - Refaktorerat `SupabaseTeamRepository` för att hantera domänevents korrekt
-   - Refaktorerat `SupabaseUserRepository` för att följa samma mönster och principer
-   - Implementerat `SupabaseOrganizationRepository` enligt standardiserade mönster
-   - Förbättrat felhantering med mer detaljerade felmeddelanden
-   - Implementerat korrekt transaktionshantering och domäneventspublicering
-
-4. **Mappning** - Skapat robusta mappers mellan domän och infrastruktur:
-   - Implementerat `TeamMapper` med Result-baserad felhantering
-   - Implementerat `UserMapper` med validering och förbättrad konvertering
-   - Implementerat `OrganizationMapper` med konsekventa konverteringsmönster
-   - Förbättrat typkonvertering och felhantering
-   - Tydliggjort ansvarsområden för mappning mellan olika lager
-
-### Testning
-Förbättrat testbarhet genom:
-- Korrekt implementation av `EventBus` och dess interface
-- Omfattande mock-klasser för dataåtkomst
-- Förbättrat struktur för domänevents och felsökning
-- Skapat testhjälpare för Result-API-migrering
-- Skapat testhjälpare för UserProfile-hantering
-- Uppdaterat flera testfiler för att använda nya API:er
-
-## Nästa steg
-Baserat på den uppdaterade uppgiftslistan i `cleanup_tasks.md` kommer vi att fokusera på:
-
-1. Fortsätta att åtgärda tester som misslyckas efter Result-typ och UserProfile-refaktoreringar
-   - Systematiskt uppdatera testfiler med hjälp av de nya hjälpfunktionerna
-   - Särskilt fokusera på att åtgärda event-relaterade tester
-   - Standardisera använding av Test-helpers i alla testfiler
-2. Implementera förbättringar av aggregatgränser baserat på den nya dokumentationen
-   - Säkerställa att endast aggregatrötter publicerar events
-   - Tydliggöra relationer mellan aggregat
-3. Förbättra domänevents-struktur enligt de nya riktlinjerna
-   - Säkerställa att events har enhetlig namngivning och innehåll
-   - Standardisera event handlers
-4. Fylla i luckor i dokumentationen kring domänmodellen
-   - Skapa visualiseringar av aggregatgränser
-   - Dokumentera invarianter för alla aggregat
-
-## Fördelar med förbättringar
-- **Tydligare kodstruktur** - Standardiserade API:er, hjälpfunktioner och mönster
-- **Förbättrad testning** - Konsekvent testhantering och hjälpfunktioner
-- **Renare domänmodell** - Bättre definierade aggregatgränser och ansvarsområden
-- **Mer robust felhantering** - Uppdatering av Result-API:er och konsekvent felhantering
-- **Ökad utvecklarhastighet** - Hjälpfunktioner och dokumentation stödjer snabbare utveckling
-
-## Framgångar
-En viktig framgång är den ökade strukturen kring testning, särskilt hanteringen av Result-API-migreringen. Genom att skapa hjälpfunktioner och tydlig dokumentation har vi förenklat arbetet med att uppdatera tester för att matcha de nya API:erna. 
-
-Vi har också gjort viktiga framsteg i att tydliggöra aggregatgränser och domänevents-hantering, vilket bidrar till en renare och mer konsekvent domänmodell. Dokumentationen av aggregat och deras invarianter förbättrar förståelsen av systemet och underlättar både befintlig och framtida utveckling.
-
-Till sist har vi åtgärdat flera testproblem relaterade till Result-API-ändringar och UserProfile-refaktorering, vilket visar att vår strategi för att hantera dessa ändringar fungerar och kan tillämpas systematiskt på återstående tester. 
-
-## Infrastrukturella förbättringar
-
-### Logger-systemet
-Loggsystemet har refaktorerats helt enligt DDD-principer för att skapa ett mer robust och utökningsbart system:
-
-- Skapat `ILogger` interface med väldefinierat kontrakt
-- Implementerat `LoggerService` som huvudimplementation
-- Skapad modularitet genom:
-  - `ILogFormatter` för formatering av loggmeddelanden
-  - `ILogDestination` för att hantera olika outputdestinationer (konsol, fil, fjärrserver, etc.)
-- Implementerat `LoggerFactory` för att enkelt kunna skapa och konfigurera logginstanser
-- Fullt testbart med `MockDestination` för testning
-- Stöd för strukturerad loggning med kontext i JSON-format
-- Stöd för analytikhändelser
-- Skilda loggnivåer (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-
-### Cache-systemet
-Cache-systemet har också refaktorerats enligt DDD-principer för att stödja flera lagringsstrategier och användningsfall:
-
-- Skapat `ICacheService` interface som definierar det gemensamma kontraktet
-- Implementerat `CacheServiceImpl` som huvudimplementation
-- Skapat `IStorageAdapter` interface för lagringsstrategier
-- Implementerat flera storage adapters:
-  - `AsyncStorageAdapter` för React Native-miljö
-  - `MemoryStorageAdapter` för testmiljöer och webbapplikationer
-- Skapat `CacheFactory` för enkel konfiguration och instansiering
-- Implementerat `TeamCacheService` som kombinerar ICacheService med React Query för optimal datahantering
-- Stöd för TTL (Time To Live), versionering och namespaces
-- Optimistisk UI-uppdatering med automatisk rollback vid fel
-- Fullständig testning med MemoryStorageAdapter
-
-## Kontextuella queries
-Implementerat specialiserade query-klasser för team-modulen:
-
-- `TeamSearchQuery` för att söka efter team baserat på olika kriterier
-- `TeamsByOrganizationQuery` för att hämta team för en organisation
-- `TeamStatisticsDashboardQuery` för att hämta statistik för dashboard
-- `TeamMemberDetailsQuery` för att hämta detaljerad medlemsinformation
-- `TeamActivityFeedQuery` för att hämta aktiviteter med paginering
-
-Dessa queryobjekt inkapslar komplexa dataoperationer och är separerade från applikationens affärslogik i use cases, vilket ger tydligare ansvarsfördelning och bättre testbarhet.
-
-## Hooks-integrationstester
-Vi har implementerat en ny testmetodik för hooks med React Query där vi testar flera hooks tillsammans i en simulerad applikationskontext:
-
-- `team-user-hooks-integration.test.tsx` - testar samspel mellan team- och användarrelaterade hooks
-- `subscription-feature-integration.test.tsx` - testar prenumerations- och funktionsrelaterade hooks
-- `organization-team-integration.test.tsx` - testar organisations- och teamrelaterade hooks
-
-Detta ger oss bättre täckning för att upptäcka fel och beroendeproblem som kan uppstå när olika delar av applikationen interagerar. UITestHelper förenklar betydligt skapandet av nya tester och ser till att testmönstren förblir konsekventa i hela kodbasen.
+   - Skapat bas-hooks `useStandardizedOperation`

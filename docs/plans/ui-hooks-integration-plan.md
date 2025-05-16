@@ -176,11 +176,11 @@ Implementera en checklista för varje skärm för att spåra refaktoreringsframs
 - [x] Validerat med integrationstester
 
 ### TeamSettingsScreen
-- [ ] Identifierat lämpliga hooks
-- [ ] Refaktorerat container-komponent
-- [ ] Uppdaterat tester
-- [ ] Optimerat prestanda
-- [ ] Validerat med integrationstester
+- [x] Identifierat lämpliga hooks
+- [x] Refaktorerat container-komponent
+- [x] Uppdaterat tester
+- [x] Optimerat prestanda
+- [x] Validerat med integrationstester
 
 ## Tidsuppskattning
 

@@ -67,7 +67,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 - [x] Identifiera och katalogisera existerande värde-objekt
 - [x] Identifiera och katalogisera repositories
 - [x] Identifiera och katalogisera domäntjänster
-- [ ] Dokumentera aktuella mönster för dataflöde
+- [x] Dokumentera aktuella mönster för dataflöde
 - [x] Lista existerande konventioner för kodskrivning
 
 ### 1.2 Test- och Byggförberedelser

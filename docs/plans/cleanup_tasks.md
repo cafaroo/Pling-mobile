@@ -285,9 +285,9 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 
 Baserat på de senaste framstegen är de rekommenderade nästa stegen:
 
-1. **Slutför återstående end-to-end tester** - Fokusera på att slutföra tester för viktiga användarflöden:
-   - Implementera test för behörighetshanteringsflödet med fokus på rollhantering och behörigheter
-   - Skapa test för inställningsändringsflödet som validerar korrekt datalagring och användargränssnittsuppdatering
+1. **[x] Slutför återstående end-to-end tester** - Fokusera på att slutföra tester för viktiga användarflöden:
+   - [x] Implementera test för behörighetshanteringsflödet med fokus på rollhantering och behörigheter
+   - [x] Skapa test för inställningsändringsflödet som validerar korrekt datalagring och användargränssnittsuppdatering
 
 2. **[x] Skapa komponentbibliotek** - Dokumentera de återanvändbara UI-komponenterna:
    - [x] Skapa en strukturerad dokumentation för alla grundläggande UI-komponenter

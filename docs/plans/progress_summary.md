@@ -77,6 +77,60 @@ Vi har gjort betydande framsteg i implementeringen av DDD-arkitekturen i Pling-m
 
 ## Genomförda förbättringar
 
+### DTO-mappers och Applikationslagret (2024-06-XX)
+
+1. **Implementation av DTO-mappers**
+   - Skapat strukturerade mappningsfunktioner mellan domänmodellen och applikationslagrets DTOs
+   - Implementerat TeamDTOMapper i `src/application/team/dto/TeamDTOMapper.ts` för team-domänen
+   - Implementerat UserDTOMapper i `src/application/user/dto/UserDTOMapper.ts` för user-domänen
+   - Implementerat OrganizationDTOMapper i `src/application/organization/dto/OrganizationDTOMapper.ts` för organizations-domänen
+   - Implementerat SubscriptionDTOMapper i `src/application/subscription/dto/SubscriptionDTOMapper.ts` för prenumerations-domänen
+   - Standardiserat strukturen på DTO-mappers enligt DDD-principer med tydligt definierade konverteringsmetoder
+   - Säkerställt robust valideringslogik vid konvertering mellan DTO och domänmodell 
+   - Implementerat typade felhanteringsmekanismer för alla konverteringar
+   - Skapat koncisa DTOs för de vanligaste operationerna i varje domän
+
+2. **Strukturerade DTOs för domän-API**
+   - Definierat tydliga DTOs för alla domäners use cases
+   - Implementerat typade DTOs för create-, update- och delete-operationer
+   - Skapat standardiserad mönsterhantering för validering av DTO-data
+   - Implementerat konsekventa namngivningskonventioner för alla DTOs
+   - Säkerställt att all validering sker tidigt innan data når domänmodellen
+
+3. **Förbättrad separation mellan lager**
+   - Skapat en clean separation mellan applikationslagrets DTOs och domänmodellen
+   - Säkerställt att all konvertering mellan DTO och domänmodell isoleras i mapper-klasserna
+   - Implementerat tydlig ansvarsfördelning mellan use cases, mappers och domänlogik
+   - Förbättrat testbarhet genom väldefinierade gränssnitt mellan lager
+
+Dessa förbättringar bidrar till en tydligare skiktning av applikationen enligt DDD-principer. Väldefinierade DTOs och strukturerade mappers förbättrar robustheten, underhållbarheten och testbarheten i hela systemet.
+
+### Testing och kvalitetssäkring (2024-06-XX)
+
+1. **Slutförande av domäntjänsttester**
+   - Implementerat omfattande tester för `PermissionService` i `src/domain/core/services/__tests__/PermissionService.test.ts`
+   - Implementerat robusta tester för `FeatureFlagService` i `src/domain/subscription/services/__tests__/FeatureFlagService.test.ts` 
+   - Skapat en återanvändbar `DomainServiceTestHelper` i `src/test-utils/helpers/DomainServiceTestHelper.ts` som förenklar enhetstestning av domäntjänster
+   - Testfilerna täcker både gällande och ogiltig input, felhantering och edge cases
+   - Standardiserat testmetoder och assertions för konsekvent validering av domäntjänster
+   - Försett testfilerna med tydlig dokumentation och exempel för framtida tester
+
+2. **Verifiering av Result-API-migrering**
+   - Bekräftat att migreringen från gamla Result-API:et (isSuccess/getValue) till nya API:et (isOk/value) är komplett
+   - Kört verifieringsverktyget som bekräftar att alla filer använder det nya API:et konsekvent
+   - Uppdaterat de sista återstående filerna för att använda det nya API:et
+   - Dokumenterat slutförandet i `docs/testing/result-api-migration-progress.md`
+   - Implementerat automatiska tester för att säkerställa fortsatt konsekvent användning 
+
+3. **Förbättrad dokumentation för hook-integrationstestning**
+   - Utökat dokumentationen i `docs/testing/hooks-integration-testing-guide.md` med detaljerade beskrivningar
+   - Beskrivit de implementerade integrationstesterna och deras täckning
+   - Dokumenterat hur `DomainServiceTestHelper` används för att underlätta testning
+   - Standardiserat mönster för framtida integrationstester
+   - Identifierat framtida förbättringsområden för testningen
+
+Dessa förbättringar säkerställer konsekventa och högkvalitativa tester över domäntjänster, entiteter och hooks, vilket stärker vår övergripande kodkvalitet och följer DDD-principerna om tydliga gränser och domänmodell.
+
 ### Nya implementationer (2024-05-XX)
 
 1. **Testförbättringar för Result-API**
@@ -310,3 +364,76 @@ En viktig framgång är den ökade strukturen kring testning, särskilt hanterin
 Vi har också gjort viktiga framsteg i att tydliggöra aggregatgränser och domänevents-hantering, vilket bidrar till en renare och mer konsekvent domänmodell. Dokumentationen av aggregat och deras invarianter förbättrar förståelsen av systemet och underlättar både befintlig och framtida utveckling.
 
 Till sist har vi åtgärdat flera testproblem relaterade till Result-API-ändringar och UserProfile-refaktorering, vilket visar att vår strategi för att hantera dessa ändringar fungerar och kan tillämpas systematiskt på återstående tester. 
+
+## Infrastrukturella förbättringar
+
+### Logger-systemet
+Loggsystemet har refaktorerats helt enligt DDD-principer för att skapa ett mer robust och utökningsbart system:
+
+- Skapat `ILogger` interface med väldefinierat kontrakt
+- Implementerat `LoggerService` som huvudimplementation
+- Skapad modularitet genom:
+  - `ILogFormatter` för formatering av loggmeddelanden
+  - `ILogDestination` för att hantera olika outputdestinationer (konsol, fil, fjärrserver, etc.)
+- Implementerat `LoggerFactory` för att enkelt kunna skapa och konfigurera logginstanser
+- Fullt testbart med `MockDestination` för testning
+- Stöd för strukturerad loggning med kontext i JSON-format
+- Stöd för analytikhändelser
+- Skilda loggnivåer (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+### Cache-systemet
+Cache-systemet har också refaktorerats enligt DDD-principer för att stödja flera lagringsstrategier och användningsfall:
+
+- Skapat `ICacheService` interface som definierar det gemensamma kontraktet
+- Implementerat `CacheServiceImpl` som huvudimplementation
+- Skapat `IStorageAdapter` interface för lagringsstrategier
+- Implementerat flera storage adapters:
+  - `AsyncStorageAdapter` för React Native-miljö
+  - `MemoryStorageAdapter` för testmiljöer och webbapplikationer
+- Skapat `CacheFactory` för enkel konfiguration och instansiering
+- Implementerat `TeamCacheService` som kombinerar ICacheService med React Query för optimal datahantering
+- Stöd för TTL (Time To Live), versionering och namespaces
+- Optimistisk UI-uppdatering med automatisk rollback vid fel
+- Fullständig testning med MemoryStorageAdapter
+
+## Kontextuella queries
+Implementerat specialiserade query-klasser för team-modulen:
+
+- `TeamSearchQuery` för att söka efter team baserat på olika kriterier
+- `TeamsByOrganizationQuery` för att hämta team för en organisation
+- `TeamStatisticsDashboardQuery` för att hämta statistik för dashboard
+- `TeamMemberDetailsQuery` för att hämta detaljerad medlemsinformation
+- `TeamActivityFeedQuery` för att hämta aktiviteter med paginering
+
+Dessa queryobjekt inkapslar komplexa dataoperationer och är separerade från applikationens affärslogik i use cases, vilket ger tydligare ansvarsfördelning och bättre testbarhet.
+
+## Hooks-integrationstester
+Vi har implementerat en ny testmetodik för hooks med React Query där vi testar flera hooks tillsammans i en simulerad applikationskontext:
+
+- `team-user-hooks-integration.test.tsx` - testar samspel mellan team- och användarrelaterade hooks
+- `subscription-feature-integration.test.tsx` - testar prenumerations- och funktionsrelaterade hooks
+- `organization-team-integration.test.tsx` - testar organisations- och teamrelaterade hooks
+
+Detta ger oss bättre täckning för att upptäcka fel och beroendeproblem som kan uppstå när olika delar av applikationen interagerar.
+
+## DTO-mappers
+Vi har implementerat DTO-mappers för att hantera transformationer mellan domänmodeller och DTO:er för UI-lagret:
+
+- `TeamDTOMapper` i `src/application/team/dto/TeamDTOMapper.ts`
+- `UserDTOMapper` i `src/application/user/dto/UserDTOMapper.ts`
+- `OrganizationDTOMapper` i `src/application/organization/dto/OrganizationDTOMapper.ts`
+- `SubscriptionDTOMapper` i `src/application/subscription/dto/SubscriptionDTOMapper.ts`
+
+Dessa mappers upprätthåller en tydlig separation mellan domänmodeller och externa representationer, vilket hjälper oss att undvika beroendelöckighet och möjliggör oberoende evolution av domänmodeller och API-kontrakt.
+
+## Result API-migrering
+Migrering från gamla Result-API:et (isSuccess/getValue) till nya API:et (isOk/value) har verifierats. Vi har kört verifikationsverktyget och uppdaterat all nödvändig dokumentation.
+
+## Nästa steg
+Nästa steg är att fokusera på UI-lagret, inklusive:
+
+- Refaktorering av komponenter för att följa designsystemet
+- Separering av presentationskod från affärslogik
+- Standardisering av felhantering i UI
+- Refaktorering av team- och användarrelaterade skärmar
+- Begränsning av Kontext-användning till UI-tillstånd 

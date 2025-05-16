@@ -276,10 +276,10 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [ ] Dokumentera alla grundläggande UI-komponenter
   - [ ] Skapa användningsexempel för varje komponent
   - [ ] Tillhandahålla propTyper för alla komponenter
-- [ ] Dokumentera UI-arkitektur
-  - [ ] Illustrera container/presentation-mönstret
-  - [ ] Beskriva dataflödet genom applikationen
-  - [ ] Förklara mönster för felhantering
+- [x] Dokumentera UI-arkitektur
+  - [x] Illustrera container/presentation-mönstret
+  - [x] Beskriva dataflödet genom applikationen
+  - [x] Förklara mönster för felhantering
 
 ## Nästa steg
 

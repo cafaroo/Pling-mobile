@@ -15,6 +15,7 @@ export * from './userProfileTestHelper';
 export * from './eventTestHelper';
 export * from './InvariantTestHelper';
 export * from './AggregateTestHelper';
+export * from './helpers/useCaseErrorTestHelper';
 
 // Återexportera mockEventBus som standard export
 export { mockEventBus } from './mocks/mockEventBus';
@@ -78,6 +79,12 @@ export const TestKit = {
   mockValueObject: MockValueObjectFactory,
   mockService: MockServiceFactory,
   mockRepository: MockRepositoryFactory,
+  
+  // Felhanteringshjälpare
+  useCaseErrorTest: {
+    testErrors: testUseCaseErrors,
+    verifyEvents: verifyUseCaseErrorEvents
+  }
 };
 
 // Hjälpfunktion för snabb åtkomst till testkit

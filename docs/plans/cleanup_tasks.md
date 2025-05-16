@@ -205,7 +205,7 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 ### 6.2 Use Case-tester
 - [x] Skapa enhetstester för use cases
 - [x] Skapa mock implementations för repositories
-- [ ] Säkerställ test av felhantering
+- [x] Säkerställ test av felhantering
 
 ### 6.3 UI-tester
 - [ ] Skapa integrationstester för hooks

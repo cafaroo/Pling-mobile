@@ -560,3 +560,31 @@ Vi har slutfört ytterligare refaktorering av användarrelaterade skärmar:
    - Lagt grunden för end-to-end testning av kritiska användarflöden
 
 Dessa framsteg driver projektet framåt mot målet att ha ett konsekvent UI-lager med tydlig separation mellan presentation och affärslogik, vilket förbättrar både underhållbarheten och testbarheten av kodbasen. 
+
+## Fortsatta framsteg för UI-refaktorering (2024-06-XX)
+
+Vi har slutfört ytterligare refaktorering av team-relaterade skärmar:
+
+1. **TeamMembersScreen refaktorering**
+   - Implementerat `TeamMembersScreenPresentation` som en ren presentationskomponent utan affärslogik
+   - Implementerat `TeamMembersScreenContainer` som hanterar all affärslogik och dataflöde
+   - Skapat tydlig separation av ansvar enligt container/presentation-mönstret
+   - Säkerställt bakåtkompatibilitet genom en wrapper för enkel migration
+   - Implementerat en animerad övergång för formuläret för att lägga till medlemmar
+   - Förbättrat hantering av olika tillstånd (laddning, fel, tom lista)
+   - Skrivit omfattande tester för både presentation och container
+   
+2. **TeamActivitiesScreen implementation**
+   - Skapat helt ny `TeamActivitiesScreenPresentation` med modern UI för aktivitetsvisning 
+   - Implementerat `TeamActivitiesScreenContainer` för att hantera datahämtning och filtrering
+   - Lagt till avancerade filtreringsfunktioner för aktivitetstyp, datum och textsökning
+   - Integrerat med useTeamActivities-hook för hantering av aktivitetsdata
+   - Implementerat "lazy loading" med paginering för bättre prestanda
+   - Skapat ett fint visuellt gränssnitt med färgkodade aktivitetstyper
+   - Implementerat användbara funktioner som datumformatering och statusvisualisering
+   - Skrivit omfattande tester för både presentation och container
+   - Säkerställt bakåtkompatibilitet genom en wrapper för enkel migration
+
+Båda dessa refaktoreringar följer projektets etablerade container/presentation-mönster och bidrar till ett mer konsekvent, testbart och underhållbart UI-lager. Refaktoreringarna har även förbättrat användargränssnittet med bättre design och UX.
+
+Med dessa refaktoreringar har vi nu slutfört alla planerade team-relaterade skärmar enligt cleanup_tasks.md. Nästa steg blir att fokusera på UI-integrationstester för att validera samspelet mellan de refaktorerade komponenterna. 

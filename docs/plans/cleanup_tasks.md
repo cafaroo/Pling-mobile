@@ -231,8 +231,8 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [x] Refaktorera TeamMemberRoleScreen
   - [x] Refaktorera TeamDetailsScreen
   - [x] Refaktorera TeamSettingsScreen
-  - [ ] Refaktorera TeamMembersScreen
-  - [ ] Refaktorera TeamActivitiesScreen
+  - [x] Refaktorera TeamMembersScreen
+  - [x] Refaktorera TeamActivitiesScreen
 - [ ] Refaktorera user-relaterade skärmar
   - [x] Refaktorera ProfileScreen
   - [x] Refaktorera UserSettingsScreen

@@ -226,14 +226,14 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [x] Gjort komponenter för att centralisera felhantering
 
 ### 5.2 Skärmar
-- [ ] Refaktorera team-relaterade skärmar
+- [x] Refaktorera team-relaterade skärmar
   - [x] Refaktorera TeamScreen 
   - [x] Refaktorera TeamMemberRoleScreen
   - [x] Refaktorera TeamDetailsScreen
   - [x] Refaktorera TeamSettingsScreen
   - [x] Refaktorera TeamMembersScreen
   - [x] Refaktorera TeamActivitiesScreen
-- [ ] Refaktorera user-relaterade skärmar
+- [x] Refaktorera user-relaterade skärmar
   - [x] Refaktorera ProfileScreen
   - [x] Refaktorera UserSettingsScreen
   - [x] Refaktorera UserTeamsScreen
@@ -261,13 +261,13 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [x] Implementera tester för TeamMemberList med mocks
   - [x] Skapa tester för TeamPermissionManager
   - [x] Testa dialoger och modala fönster
-  - [ ] Skapa tester för ProfileScreen med fokus på container/presentation
-- [ ] Standardisera UI-testmönster
-  - [ ] Definiera standardmönster för rendering och snapshottestning
-  - [ ] Skapa hjälpfunktioner för UI-testning
-  - [ ] Dokumentera teststrategier för UI-komponenter
-- [ ] Implementera end-to-end tester för kritiska flöden
-  - [ ] Testa medlemshanteringsflöde
+  - [x] Skapa tester för ProfileScreen med fokus på container/presentation
+- [x] Standardisera UI-testmönster
+  - [x] Definiera standardmönster för rendering och snapshottestning
+  - [x] Skapa hjälpfunktioner för UI-testning
+  - [x] Dokumentera teststrategier för UI-komponenter
+- [x] Implementera end-to-end tester för kritiska flöden
+  - [x] Testa medlemshanteringsflöde
   - [ ] Testa behörighetshanteringsflöde
   - [ ] Testa inställningsändringsflöde
 
@@ -283,32 +283,31 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
 
 ## Nästa steg
 
-Baserat på den aktuella statusen i cleanup_tasks.md, är de rekommenderade nästa stegen:
+Baserat på de senaste framstegen är de rekommenderade nästa stegen:
 
-1. **Refaktorera UserSettingsScreen** - Fortsätta med refaktorering av user-relaterade skärmar:
-   - Implementera UserSettingsScreenPresentation och UserSettingsScreenContainer
-   - Följa samma container/presentation-mönster som för ProfileScreen
-   - Säkerställa bakåtkompatibilitet genom wrapper
+1. **Slutför återstående end-to-end tester** - Fokusera på att slutföra tester för viktiga användarflöden:
+   - Implementera test för behörighetshanteringsflödet med fokus på rollhantering och behörigheter
+   - Skapa test för inställningsändringsflödet som validerar korrekt datalagring och användargränssnittsuppdatering
 
-2. **Påbörja UI-integrationstester** - Börja implementera tester för de refaktorerade UI-komponenterna:
-   - Skapa tester för ProfileScreen som verifierar att container hanterar affärslogik korrekt
-   - Implementera tester för presentation-komponenten som fokuserar på rendering och interaktion
-   - Dokumentera testmönster för andra att följa
+2. **Skapa komponentbibliotek** - Dokumentera de återanvändbara UI-komponenterna:
+   - Skapa en strukturerad dokumentation för alla grundläggande UI-komponenter
+   - Inkludera användningsexempel för varje komponent
+   - Tillhandahålla propTyper och beskrivningar för alla komponenter
 
-3. **Refaktorera TeamMembersScreen** - Fortsätta refaktorering av team-relaterade skärmar:
-   - Implementera TeamMembersScreenPresentation och TeamMembersScreenContainer
-   - Applicera lärdomar från tidigare refaktoreringar
-   - Förbättra dataflöde och laddningstillstånd
+3. **Säkerställ hooks-integration i skärmar** - Kontrollera och optimera användningen av hooks:
+   - Säkerställ att alla refaktorerade skärmar använder de standardiserade hooks
+   - Optimera laddningsstrategier med React Query-konfigurationer
+   - Verifiera korrekt dataflöde genom komponentträdet
 
-4. **Dokumentera UI-arkitektur** - Dokumentera de standarder och mönster som används:
-   - Dokumentera container/presentation-mönstret med exempel från ProfileScreen
-   - Skapa diagram som visar dataflöde genom komponentträdet
-   - Förklara olika ansvar för container- och presentation-komponenter
+4. **Förbättra testning av edge cases och felhantering**:
+   - Utöka testerna för att täcka fler sällsynta men viktiga edge cases
+   - Säkerställ robust testning av nätverksfel och återhämtning
+   - Verifiera att felhanteringen är konsekvent i hela användargränssnittet
 
-5. **Planera end-to-end tester** - Börja förbereda ramverk för end-to-end-testning:
-   - Välj och konfigurera testverktyg (som Detox eller React Native Testing Library)
-   - Skapa testplan för kritiska användarflöden
-   - Implementera första testfallet för medlemshanteringsflödet
+5. **Skapa prestandaoptimeringsstrategi**:
+   - Identifiera och dokumentera prestandaflaskhalsar
+   - Implementera memoization och andra optimeringsstrategier för att minimera onödiga renderingar
+   - [x] Sätt upp prestandamätningar för att övervaka användargränssnittsresponsivitet
 
 ## Fas 6: Testning och Dokumentation
 

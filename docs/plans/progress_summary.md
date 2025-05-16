@@ -466,6 +466,12 @@ I linje med DDD-principer har vi refaktorerat stora delar av UI-lagret för att 
      - Bättre felhanteringsstrategier för olika typer av operationer (hämtning, lägga till, ta bort, ändra roller)
      - Mer detaljerad progress-information för långvariga operationer
      - Stöd för animerade övergångar i formulärvisning
+   - **TeamMemberRoleScreen**: Uppdelad i `TeamMemberRoleScreenPresentation` och `TeamMemberRoleScreenContainer`
+     - Förbättrad separation av affärslogik från UI-rendering
+     - Tydlig hantering av behörighetskontroller
+     - Förbättrad feedback via snackbars och banners
+     - Bättre tillståndshantering för ändringar i roller och behörigheter
+     - Konsekvent felhantering och laddningstillstånd
 
 4. **Förbättrad testbarhet för UI-komponenter**
    - Skapad teststruktur för presentationskomponenter

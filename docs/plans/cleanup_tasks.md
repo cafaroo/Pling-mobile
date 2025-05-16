@@ -257,10 +257,10 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [x] Dokumenterat mönster för kontextanvändning
 
 ### 5.4 UI-integrationstester
-- [ ] Skapa integrationstester för UI-komponenter
-  - [ ] Implementera tester för TeamMemberList med mocks
-  - [ ] Skapa tester för TeamPermissionManager
-  - [ ] Testa dialoger och modala fönster
+- [x] Skapa integrationstester för UI-komponenter
+  - [x] Implementera tester för TeamMemberList med mocks
+  - [x] Skapa tester för TeamPermissionManager
+  - [x] Testa dialoger och modala fönster
   - [ ] Skapa tester för ProfileScreen med fokus på container/presentation
 - [ ] Standardisera UI-testmönster
   - [ ] Definiera standardmönster för rendering och snapshottestning

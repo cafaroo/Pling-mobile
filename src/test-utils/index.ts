@@ -41,4 +41,44 @@ export { mockAsyncStorage } from './mocks/AsyncStorageMock';
 export { mockSupabaseClient, createSupabaseMock } from './mocks/SupabaseMock';
 
 // React Native Toast Message mock
-export { toast } from './mocks/ReactNativeToastMessage'; 
+export { toast } from './mocks/ReactNativeToastMessage';
+
+// Exportera helpers
+export { InvariantTestHelper } from './helpers/invariantTestHelper';
+export { AggregateTestHelper } from './helpers/aggregateTestHelper';
+
+// Exportera mock factories
+export { MockDomainEvents } from './mocks/mockDomainEvents';
+export { MockEntityFactory } from './mocks/mockEntityFactory';
+export { MockValueObjectFactory } from './mocks/mockValueObjectFactory';
+export { MockServiceFactory } from './mocks/mockServiceFactory';
+export { MockRepositoryFactory } from './mocks/mockRepositoryFactory';
+
+// Existerande hjälpare
+export { ResultTestHelper } from './helpers/resultTestHelper';
+export { UserProfileTestHelper } from './helpers/userProfileTestHelper';
+
+/**
+ * Kombinerat testhjälppaket för domäntestning.
+ * Innehåller allt som behövs för att testa domänmodellen:
+ * - Testhjälpare för aggregat, invarianter och events
+ * - Mock-factories för entities, värde-objekt, tjänster och repositories
+ * - Verktyg för att testa Result-API och UserProfile
+ */
+export const TestKit = {
+  // Testhjälpare
+  aggregate: AggregateTestHelper,
+  invariant: InvariantTestHelper,
+  events: MockDomainEvents,
+  result: ResultTestHelper,
+  profile: UserProfileTestHelper,
+  
+  // Mock-factories
+  mockEntity: MockEntityFactory,
+  mockValueObject: MockValueObjectFactory,
+  mockService: MockServiceFactory,
+  mockRepository: MockRepositoryFactory,
+};
+
+// Hjälpfunktion för snabb åtkomst till testkit
+export const createTestKit = () => TestKit; 

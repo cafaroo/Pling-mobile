@@ -237,10 +237,10 @@ Denna fil innehåller konkreta uppgifter för att implementera DDD-strukturplane
   - [x] Refaktorera ProfileScreen
   - [x] Refaktorera UserSettingsScreen
   - [x] Refaktorera UserTeamsScreen
-- [ ] Säkerställ användning av hooks från applikationslagret
-  - [ ] Integrera refaktorerade hooks i skärmar
-  - [ ] Säkerställ korrekt dataflöde genom komponentträdet
-  - [ ] Implementera optimala laddningsstrategier
+- [x] Säkerställ användning av hooks från applikationslagret
+  - [x] Integrera refaktorerade hooks i skärmar
+  - [x] Säkerställ korrekt dataflöde genom komponentträdet
+  - [x] Implementera optimala laddningsstrategier
 
 ### 5.3 Kontext
 - [x] Identifiera och begränsa anvädning av Kontext

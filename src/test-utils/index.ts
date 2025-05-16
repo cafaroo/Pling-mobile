@@ -59,6 +59,9 @@ export { MockRepositoryFactory } from './mocks/mockRepositoryFactory';
 export { ResultTestHelper } from './helpers/resultTestHelper';
 export { UserProfileTestHelper } from './helpers/userProfileTestHelper';
 
+// New export for DomainServiceTestHelper
+export { DomainServiceTestHelper } from './helpers/DomainServiceTestHelper';
+
 /**
  * Kombinerat testhjälppaket för domäntestning.
  * Innehåller allt som behövs för att testa domänmodellen:

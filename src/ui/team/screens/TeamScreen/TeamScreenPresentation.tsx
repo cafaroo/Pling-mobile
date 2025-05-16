@@ -17,6 +17,8 @@ export interface TeamMember {
 export interface TeamScreenPresentationProps {
   // Data
   team?: Team;
+  teamStatistics?: any; // TeamStatistics-typ
+  isTeamStatisticsLoading?: boolean;
   isCurrentUserAdmin: boolean;
   showAddMemberForm: boolean;
   fadeAnim: Animated.Value;
@@ -50,6 +52,8 @@ export interface TeamScreenPresentationProps {
 
 export const TeamScreenPresentation: React.FC<TeamScreenPresentationProps> = ({
   team,
+  teamStatistics,
+  isTeamStatisticsLoading,
   isCurrentUserAdmin,
   showAddMemberForm,
   fadeAnim,
@@ -101,6 +105,45 @@ export const TeamScreenPresentation: React.FC<TeamScreenPresentationProps> = ({
       />
     );
   };
+
+  // Renderingsfunktion för teamstatistik
+  const renderTeamStatistics = () => {
+    if (!team) return null;
+
+    return (
+      <View style={styles.statisticsContainer}>
+        <Text style={styles.sectionTitle}>Teamstatistik</Text>
+        
+        {isTeamStatisticsLoading ? (
+          <View style={styles.statisticsLoadingContainer}>
+            <ActivityIndicator size="small" color="#0066cc" />
+            <Text style={styles.loadingText}>Laddar statistik...</Text>
+          </View>
+        ) : teamStatistics ? (
+          <View style={styles.statisticsGrid}>
+            <View style={styles.statisticsItem}>
+              <Text style={styles.statisticsValue}>{teamStatistics.totalMembers || 0}</Text>
+              <Text style={styles.statisticsLabel}>Medlemmar</Text>
+            </View>
+            <View style={styles.statisticsItem}>
+              <Text style={styles.statisticsValue}>{teamStatistics.totalActivities || 0}</Text>
+              <Text style={styles.statisticsLabel}>Aktiviteter</Text>
+            </View>
+            <View style={styles.statisticsItem}>
+              <Text style={styles.statisticsValue}>{teamStatistics.totalMessages || 0}</Text>
+              <Text style={styles.statisticsLabel}>Meddelanden</Text>
+            </View>
+            <View style={styles.statisticsItem}>
+              <Text style={styles.statisticsValue}>{teamStatistics.activeThisWeek || 0}</Text>
+              <Text style={styles.statisticsLabel}>Aktiva denna vecka</Text>
+            </View>
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>Ingen statistik tillgänglig</Text>
+        )}
+      </View>
+    );
+  };
   
   // Om vi har team-data, visa teamet
   if (team) {
@@ -112,6 +155,9 @@ export const TeamScreenPresentation: React.FC<TeamScreenPresentationProps> = ({
             <Text style={styles.teamDescription}>{team.description}</Text>
           )}
         </View>
+        
+        {/* Teamstatistik */}
+        {renderTeamStatistics()}
         
         <View style={styles.membersHeader}>
           <Text style={styles.sectionTitle}>Medlemmar</Text>
@@ -203,7 +249,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa'
   },
   header: {
-    marginBottom: 24
+    marginBottom: 16
   },
   teamName: {
     fontSize: 24,
@@ -213,7 +259,48 @@ const styles = StyleSheet.create({
   teamDescription: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 16
+    marginBottom: 8
+  },
+  statisticsContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  statisticsLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+  },
+  statisticsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  statisticsItem: {
+    width: '48%',
+    backgroundColor: '#f5f7fa',
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  statisticsValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0066cc',
+  },
+  statisticsLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
   },
   membersHeader: {
     flexDirection: 'row',
@@ -250,24 +337,29 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000
+    zIndex: 10
   },
   loadingOverlayText: {
     color: '#fff',
-    marginTop: 16,
-    fontSize: 16
+    fontSize: 18,
+    marginTop: 16
   },
   emptyText: {
     textAlign: 'center',
-    marginTop: 32,
-    color: '#666'
+    fontSize: 16,
+    color: '#999',
+    marginTop: 24
   },
   refreshContainer: {
-    marginTop: 20,
+    marginTop: 24,
     alignItems: 'center'
   }
 }); 

@@ -17,13 +17,13 @@ Projektet har refaktorerat en stor del av hook-logiken till applikationslagret, 
 
 ### Team-relaterade skärmar
 
-1. **TeamScreen**
-   - Använd `useTeam` och `useTeamWithStandardHook` för datahämtning
-   - Implementera korrekt felhantering och laddningstillstånd
+1. **TeamScreen** ✅
+   - ✅ Använd `useTeam` och `useTeamWithStandardHook` för datahämtning
+   - ✅ Implementera korrekt felhantering och laddningstillstånd
 
-2. **TeamMembersScreen**
-   - Använd `useTeamMembers` hook för att hämta och hantera medlemmar
-   - Implementera sidnumrering och filtrering med optimerad caching
+2. **TeamMembersScreen** ✅
+   - ✅ Använd `useTeamMembers` hook för att hämta och hantera medlemmar
+   - ✅ Implementera sidnumrering och filtrering med optimerad caching
 
 3. **TeamActivitiesScreen**
    - Använd `useTeamActivities` för att hämta aktivitetsflöde
@@ -154,6 +154,28 @@ Som exempelfall, nedan följer en detaljerad implementation för TeamMembersScre
 
 Implementera en checklista för varje skärm för att spåra refaktoreringsframsteg:
 
+### TeamScreen
+- [x] Identifierat lämpliga hooks
+- [x] Refaktorerat container-komponent
+- [x] Uppdaterat tester
+- [x] Optimerat prestanda
+- [x] Validerat med integrationstester
+
+### TeamMembersScreen
+- [x] Identifierat lämpliga hooks
+- [x] Refaktorerat container-komponent
+- [x] Uppdaterat tester
+- [x] Optimerat prestanda
+- [x] Validerat med integrationstester
+
+### TeamActivitiesScreen
+- [ ] Identifierat lämpliga hooks
+- [ ] Refaktorerat container-komponent
+- [ ] Uppdaterat tester
+- [ ] Optimerat prestanda
+- [ ] Validerat med integrationstester
+
+### TeamSettingsScreen
 - [ ] Identifierat lämpliga hooks
 - [ ] Refaktorerat container-komponent
 - [ ] Uppdaterat tester

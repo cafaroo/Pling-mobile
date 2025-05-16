@@ -1,5 +1,5 @@
 // Denna fil är bevarad för bakåtkompatibilitet
 // Kommer att fasas ut när alla importer har migrerats till den nya strukturen
 
-import { ProfileScreenContainer } from './ProfileScreen';
-export { ProfileScreenContainer as ProfileScreen }; 
+import { TeamMembersScreenContainer } from './TeamMembersScreen';
+export { TeamMembersScreenContainer as TeamMembersScreen }; 

@@ -1,43 +1,60 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert, Animated } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTeamWithStandardHook } from '@/application/team/hooks/useTeamWithStandardHook';
 import { useUserContext } from '@/ui/user/context/UserContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { TeamScreenPresentation } from './TeamScreenPresentation';
+import { TeamMembersScreenPresentation } from './TeamMembersScreenPresentation';
 import { PresentationAdapter } from '@/ui/shared/adapters/PresentationAdapter';
 
-export interface TeamScreenContainerProps {
-  teamId: string;
+export interface TeamMembersScreenContainerProps {
+  // Dessa props används endast för direkt komponentanrop, inte vid användning med Expo Router
+  teamId?: string;
 }
 
-export const TeamScreenContainer: React.FC<TeamScreenContainerProps> = ({ teamId }) => {
+export const TeamMembersScreenContainer: React.FC<TeamMembersScreenContainerProps> = ({ 
+  teamId: propTeamId 
+}) => {
+  const router = useRouter();
+  const { id: paramTeamId } = useLocalSearchParams<{ id: string }>();
+  const teamId = propTeamId || paramTeamId || '';
   const { currentUser } = useUserContext();
   const { 
     getTeam, 
     addTeamMember, 
     removeTeamMember,
     updateTeamMemberRole,
-    getTeamStatistics 
+    getTeamMembers // Antag att denna hook existerar för att specifikt hämta medlemmar med paginering
   } = useTeamWithStandardHook();
   
   const [showAddMemberForm, setShowAddMemberForm] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [searchQuery, setSearchQuery] = useState('');
   const queryClient = useQueryClient();
   
   // Hämta team-data med standardiserad hook
   useEffect(() => {
-    // Använd refetch för att undvika duplicerade anrop om datan redan finns i cache
-    if (!getTeam.data || getTeam.data.id !== teamId) {
+    if (teamId && (!getTeam.data || getTeam.data.id !== teamId)) {
       getTeam.execute({ teamId });
     }
   }, [teamId, getTeam]);
-  
-  // Hämta teamstatistik om teamet laddats framgångsrikt
+
+  // Hämta medlemmar med paginering när teamId, sida eller sökfråga ändras
   useEffect(() => {
-    if (getTeam.isSuccess && getTeam.data && !getTeamStatistics.isLoading) {
-      getTeamStatistics.execute({ teamId });
+    if (teamId) {
+      // Om getTeamMembers finns, använd den för paginering
+      if (getTeamMembers?.execute) {
+        getTeamMembers.execute({ 
+          teamId, 
+          page: currentPage, 
+          pageSize,
+          searchQuery: searchQuery.trim() || undefined
+        });
+      }
     }
-  }, [getTeam.isSuccess, getTeam.data, teamId, getTeamStatistics]);
+  }, [teamId, currentPage, pageSize, searchQuery, getTeamMembers]);
   
   // Animera in formuläret
   useEffect(() => {
@@ -48,7 +65,7 @@ export const TeamScreenContainer: React.FC<TeamScreenContainerProps> = ({ teamId
     }).start();
   }, [showAddMemberForm, fadeAnim]);
   
-  // Hantera tillägg av ny medlem med useCallback för att förbättra prestanda
+  // Hantera tillägg av ny medlem
   const handleAddMember = useCallback(async (userId: string, role: string) => {
     try {
       const result = await addTeamMember.execute({ 
@@ -61,15 +78,16 @@ export const TeamScreenContainer: React.FC<TeamScreenContainerProps> = ({ teamId
         setShowAddMemberForm(false);
         Alert.alert('Lyckades', 'Medlemmen har lagts till i teamet.');
         
-        // Invalidera cache för att uppdatera teamvisninen
+        // Invalidera cache för att uppdatera medlemslistan
         queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+        queryClient.invalidateQueries({ queryKey: ['teamMembers', teamId] });
       }
     } catch (error) {
       // Felhanteringen sköts automatiskt av standardiserade hook
     }
   }, [addTeamMember, teamId, queryClient]);
   
-  // Hantera borttagning av medlem med useCallback
+  // Hantera borttagning av medlem
   const handleRemoveMember = useCallback(async (memberId: string) => {
     Alert.alert(
       'Ta bort medlem',
@@ -81,9 +99,11 @@ export const TeamScreenContainer: React.FC<TeamScreenContainerProps> = ({ teamId
           style: 'destructive',
           onPress: async () => {
             const result = await removeTeamMember.execute({ teamId, userId: memberId });
+            
             if (result.isOk()) {
-              // Invalidera cache för att uppdatera teamvisningen
+              // Invalidera cache för att uppdatera medlemslistan
               queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+              queryClient.invalidateQueries({ queryKey: ['teamMembers', teamId] });
             }
           }
         }
@@ -91,7 +111,7 @@ export const TeamScreenContainer: React.FC<TeamScreenContainerProps> = ({ teamId
     );
   }, [removeTeamMember, teamId, queryClient]);
   
-  // Hantera ändring av roll med useCallback
+  // Hantera ändring av roll
   const handleRoleChange = useCallback(async (memberId: string, newRole: string) => {
     try {
       const result = await updateTeamMemberRole.execute({ 
@@ -101,15 +121,16 @@ export const TeamScreenContainer: React.FC<TeamScreenContainerProps> = ({ teamId
       });
       
       if (result.isOk()) {
-        // Invalidera cache för att uppdatera teamvisningen
+        // Invalidera cache för att uppdatera medlemslistan
         queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+        queryClient.invalidateQueries({ queryKey: ['teamMembers', teamId] });
       }
     } catch (error) {
       // Felhanteringen sköts automatiskt av standardiserade hook
     }
   }, [updateTeamMemberRole, teamId, queryClient]);
   
-  // Visa fel för operationer om de uppstår med useEffect
+  // Visa fel för operationer om de uppstår
   useEffect(() => {
     if (addTeamMember.error) {
       Alert.alert('Fel vid tillägg av medlem', addTeamMember.error.message);
@@ -154,11 +175,35 @@ export const TeamScreenContainer: React.FC<TeamScreenContainerProps> = ({ teamId
   // Hantera manuell uppdatering med useCallback
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['team', teamId] });
+    queryClient.invalidateQueries({ queryKey: ['teamMembers', teamId] });
     getTeam.execute({ teamId });
-    if (getTeam.data) {
-      getTeamStatistics.execute({ teamId });
+    
+    // Om getTeamMembers finns, använd den för paginering
+    if (getTeamMembers?.execute) {
+      getTeamMembers.execute({ 
+        teamId, 
+        page: currentPage, 
+        pageSize,
+        searchQuery: searchQuery.trim() || undefined
+      });
     }
-  }, [queryClient, getTeam, getTeamStatistics, teamId]);
+  }, [queryClient, getTeam, getTeamMembers, teamId, currentPage, pageSize, searchQuery]);
+
+  // Hantera sökning
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1); // Återställ till första sidan vid ny sökning
+  }, []);
+
+  // Hantera sidändring
+  const handlePageChange = useCallback((newPage: number) => {
+    setCurrentPage(newPage);
+  }, []);
+
+  // Hantera tillbaka-navigering med useCallback
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
   
   // Bestäm om användaren är admin med useMemo
   const isCurrentUserAdmin = useMemo(() => 
@@ -175,14 +220,20 @@ export const TeamScreenContainer: React.FC<TeamScreenContainerProps> = ({ teamId
       error={getTeam.error}
       onRetry={() => getTeam.retry()}
       renderData={(team) => (
-        <TeamScreenPresentation
-          team={team}
-          teamStatistics={getTeamStatistics.data}
-          isTeamStatisticsLoading={getTeamStatistics.isLoading}
+        <TeamMembersScreenPresentation
+          teamId={teamId}
+          teamName={team.name}
+          teamDescription={team.description}
+          members={getTeamMembers?.data || team.members}
+          totalMembersCount={getTeamMembers?.data?.totalCount || team.members?.length || 0}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          searchQuery={searchQuery}
           isCurrentUserAdmin={isCurrentUserAdmin}
           showAddMemberForm={showAddMemberForm}
           fadeAnim={fadeAnim}
           isLoading={getTeam.isLoading}
+          isMembersLoading={getTeamMembers?.isLoading || false}
           loadingMessage={getTeam.progress?.message}
           loadingProgress={getTeam.progress?.percent}
           isAnyOperationLoading={isAnyOperationLoading}
@@ -192,8 +243,11 @@ export const TeamScreenContainer: React.FC<TeamScreenContainerProps> = ({ teamId
           onRemoveMember={handleRemoveMember}
           onRoleChange={handleRoleChange}
           onToggleAddMemberForm={handleToggleAddMemberForm}
+          onSearch={handleSearch}
+          onPageChange={handlePageChange}
           onRetry={() => getTeam.retry()}
           onRefresh={handleRefresh}
+          onBack={handleBack}
           addMemberProgress={addTeamMember.progress}
           isAddMemberLoading={addTeamMember.isLoading}
         />

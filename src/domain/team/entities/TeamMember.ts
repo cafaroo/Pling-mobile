@@ -1,7 +1,7 @@
 import { ValueObject } from '@/shared/domain/ValueObject';
 import { UniqueId } from '@/shared/domain/UniqueId';
 import { Result, ok, err } from '@/shared/core/Result';
-import { TeamRole } from '../value-objects/TeamRole';
+import { TeamRole, parseTeamRole } from '../value-objects/TeamRole';
 import { TeamError } from '../errors/TeamError';
 
 interface TeamMemberProps {
@@ -29,7 +29,12 @@ export class TeamMember extends ValueObject<TeamMemberProps> {
 
   public static create(props: TeamMemberProps): Result<TeamMember, TeamError> {
     try {
-      TeamRole.create(props.role); // Validera att rollen är giltig
+      // Validera att rollen är giltig med parseTeamRole
+      const roleResult = parseTeamRole(props.role);
+      if (roleResult.isErr()) {
+        return err(new TeamError.InvalidRole(props.role));
+      }
+      
       return ok(new TeamMember(props));
     } catch (error) {
       return err(error as Error);

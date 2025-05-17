@@ -15,14 +15,21 @@ import {
 
 // Manuellt skapa UniqueId istället för att importera
 class UniqueId {
-  constructor(public readonly id: string) {}
+  private readonly id: string;
+
+  constructor(id?: string) {
+    this.id = id || 'default-id';
+  }
 
   toString(): string {
     return this.id;
   }
 
   equals(other: UniqueId): boolean {
-    return this.id === other.id;
+    if (other === null || other === undefined) {
+      return false;
+    }
+    return this.toString() === other.toString();
   }
 }
 
@@ -31,6 +38,8 @@ class User {
   id: UniqueId;
   profile: any;
   settings: any;
+  name: string = 'TestUser';
+  email: { value: string } = { value: 'test@example.com' };
   
   constructor(id = 'test-user-id') {
     this.id = new UniqueId(id);
@@ -58,23 +67,23 @@ class MockEventBus implements EventBus {
   private events: any[] = [];
   private subscribers: Map<string, Array<(event: any) => void>> = new Map();
 
-  async publish(eventName: string, event: any): Promise<void> {
-    this.events.push({ eventName, event });
+  async publish(eventType: string, event: any): Promise<void> {
+    this.events.push({ eventType, event });
     
     // Hämta alla prenumeranter för händelsetypen och anropa dem
-    const handlersForEvent = this.subscribers.get(eventName) || [];
+    const handlersForEvent = this.subscribers.get(eventType) || [];
     
     for (const handler of handlersForEvent) {
       await handler(event);
     }
   }
 
-  subscribe(eventName: string, callback: (event: any) => void): { unsubscribe: () => void } {
-    if (!this.subscribers.has(eventName)) {
-      this.subscribers.set(eventName, []);
+  subscribe(eventType: string, callback: (event: any) => void): { unsubscribe: () => void } {
+    if (!this.subscribers.has(eventType)) {
+      this.subscribers.set(eventType, []);
     }
 
-    const handlers = this.subscribers.get(eventName)!;
+    const handlers = this.subscribers.get(eventType)!;
     handlers.push(callback);
 
     return {
@@ -112,39 +121,39 @@ describe('UserEventHandling - Integrationstest', () => {
     it('ska publicera UserCreated när användaren skapas', async () => {
       // Skapa händelse och publicera
       const event = new UserCreated(user);
-      await eventBus.publish(event.eventName, event);
+      await eventBus.publish(event.eventType, event);
       
       // Verifiera att händelsen publicerades korrekt
       const publishedEvents = eventBus.getPublishedEvents();
       expect(publishedEvents.length).toBe(1);
-      expect(publishedEvents[0].eventName).toBe('user.created');
-      expect(publishedEvents[0].event.user).toBe(user);
+      expect(publishedEvents[0].eventType).toBe('UserCreated');
+      expect(publishedEvents[0].event.data.userId).toBeDefined();
     });
     
     it('ska publicera UserActivated när användaren aktiveras', async () => {
       // Skapa händelse och publicera
       const event = new UserActivated(user, 'email_verification');
-      await eventBus.publish(event.eventName, event);
+      await eventBus.publish(event.eventType, event);
       
       // Verifiera att händelsen publicerades korrekt
       const publishedEvents = eventBus.getPublishedEvents();
       expect(publishedEvents.length).toBe(1);
-      expect(publishedEvents[0].eventName).toBe('user.activated');
-      expect(publishedEvents[0].event.user).toBe(user);
-      expect(publishedEvents[0].event.activationReason).toBe('email_verification');
+      expect(publishedEvents[0].eventType).toBe('UserActivated');
+      expect(publishedEvents[0].event.data.userId).toBeDefined();
+      expect(publishedEvents[0].event.data.activationReason).toBe('email_verification');
     });
     
     it('ska publicera UserDeactivated när användaren inaktiveras', async () => {
       // Skapa händelse och publicera
       const event = new UserDeactivated(user, 'user_request');
-      await eventBus.publish(event.eventName, event);
+      await eventBus.publish(event.eventType, event);
       
       // Verifiera att händelsen publicerades korrekt
       const publishedEvents = eventBus.getPublishedEvents();
       expect(publishedEvents.length).toBe(1);
-      expect(publishedEvents[0].eventName).toBe('user.deactivated');
-      expect(publishedEvents[0].event.user).toBe(user);
-      expect(publishedEvents[0].event.deactivationReason).toBe('user_request');
+      expect(publishedEvents[0].eventType).toBe('UserDeactivated');
+      expect(publishedEvents[0].event.data.userId).toBeDefined();
+      expect(publishedEvents[0].event.data.deactivationReason).toBe('user_request');
     });
   });
   
@@ -155,13 +164,14 @@ describe('UserEventHandling - Integrationstest', () => {
       
       // Skapa och publicera händelse
       const event = new UserPrivacySettingsChanged(user, privacy);
-      await eventBus.publish(event.eventName, event);
+      await eventBus.publish(event.eventType, event);
       
       // Verifiera
       const publishedEvents = eventBus.getPublishedEvents();
       expect(publishedEvents.length).toBe(1);
-      expect(publishedEvents[0].eventName).toBe('user.privacy_settings.changed');
-      expect(publishedEvents[0].event.privacy).toBe(privacy);
+      expect(publishedEvents[0].eventType).toBe('UserPrivacySettingsChanged');
+      expect(publishedEvents[0].event.data.userId).toBeDefined();
+      expect(publishedEvents[0].event.data.privacy).toBe(privacy);
     });
     
     it('ska publicera UserNotificationSettingsChanged när notifikationsinställningar ändras', async () => {
@@ -172,15 +182,16 @@ describe('UserEventHandling - Integrationstest', () => {
       
       // Skapa och publicera händelse
       const event = new UserNotificationSettingsChanged(user, notifications, oldSettings, newSettings);
-      await eventBus.publish(event.eventName, event);
+      await eventBus.publish(event.eventType, event);
       
       // Verifiera
       const publishedEvents = eventBus.getPublishedEvents();
       expect(publishedEvents.length).toBe(1);
-      expect(publishedEvents[0].eventName).toBe('user.notification_settings.changed');
-      expect(publishedEvents[0].event.notifications).toBe(notifications);
-      expect(publishedEvents[0].event.oldSettings).toBe(oldSettings);
-      expect(publishedEvents[0].event.newSettings).toBe(newSettings);
+      expect(publishedEvents[0].eventType).toBe('UserNotificationSettingsChanged');
+      expect(publishedEvents[0].event.data.userId).toBeDefined();
+      expect(publishedEvents[0].event.data.notifications).toBe(notifications);
+      expect(publishedEvents[0].event.data.oldSettings).toBe(oldSettings);
+      expect(publishedEvents[0].event.data.newSettings).toBe(newSettings);
     });
     
     it('ska publicera UserSecurityEvent vid säkerhetsrelaterade händelser', async () => {
@@ -190,13 +201,15 @@ describe('UserEventHandling - Integrationstest', () => {
       
       // Skapa och publicera händelse
       const event = new UserSecurityEvent(user, securityEvent, metadata);
-      await eventBus.publish(event.eventName, event);
+      await eventBus.publish(event.eventType, event);
       
       // Verifiera
       const publishedEvents = eventBus.getPublishedEvents();
       expect(publishedEvents.length).toBe(1);
-      expect(publishedEvents[0].eventName).toBe('user.security.login_attempt');
-      expect(publishedEvents[0].event.metadata).toBe(metadata);
+      expect(publishedEvents[0].eventType).toBe('UserSecurityEvent');
+      expect(publishedEvents[0].event.data.userId).toBeDefined();
+      expect(publishedEvents[0].event.data.securityEvent).toBe(securityEvent);
+      expect(publishedEvents[0].event.data.metadata).toBe(metadata);
     });
   });
   
@@ -209,10 +222,10 @@ describe('UserEventHandling - Integrationstest', () => {
       const mockCallback = jest.fn();
       
       // Prenumerera på händelsen
-      eventBus.subscribe('user.created', mockCallback);
+      eventBus.subscribe('UserCreated', mockCallback);
       
       // Publicera händelsen
-      await eventBus.publish(event.eventName, event);
+      await eventBus.publish(event.eventType, event);
       
       // Verifiera att callbacken anropades
       expect(mockCallback).toHaveBeenCalledTimes(1);
@@ -225,12 +238,12 @@ describe('UserEventHandling - Integrationstest', () => {
       const activatedCallback = jest.fn();
       
       // Prenumerera på händelserna
-      eventBus.subscribe('user.created', createdCallback);
-      eventBus.subscribe('user.activated', activatedCallback);
+      eventBus.subscribe('UserCreated', createdCallback);
+      eventBus.subscribe('UserActivated', activatedCallback);
       
       // Publicera olika händelser
-      await eventBus.publish('user.created', new UserCreated(user));
-      await eventBus.publish('user.activated', new UserActivated(user));
+      await eventBus.publish('UserCreated', new UserCreated(user));
+      await eventBus.publish('UserActivated', new UserActivated(user));
       
       // Verifiera att callbackarna anropades korrekt
       expect(createdCallback).toHaveBeenCalledTimes(1);

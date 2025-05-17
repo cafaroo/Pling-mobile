@@ -44,6 +44,34 @@ export class UserSettings extends ValueObject<UserSettingsProps> {
   }
 
   /**
+   * Hämtar det aktuella temat
+   */
+  get theme(): Theme {
+    return this.props.theme;
+  }
+  
+  /**
+   * Hämtar det aktuella språket
+   */
+  get language(): string {
+    return this.props.language;
+  }
+  
+  /**
+   * Hämtar notifikationsinställningar
+   */
+  get notifications(): UserSettingsProps['notifications'] {
+    return { ...this.props.notifications };
+  }
+  
+  /**
+   * Hämtar sekretessinställningar
+   */
+  get privacy(): UserSettingsProps['privacy'] {
+    return { ...this.props.privacy };
+  }
+
+  /**
    * Skapar UserSettings med grundläggande validering
    * 
    * @param props Användarinställningar att skapa (partiell)

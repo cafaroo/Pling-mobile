@@ -1,136 +1,82 @@
+/**
+ * updateSettings Use Case
+ * 
+ * Uppdatera en användares inställningar som tema, språk, notifikationer, osv.
+ */
+
 import { Result, ok, err } from '@/shared/core/Result';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
-import { UserSettings } from '@/domain/user/entities/UserSettings';
-import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
-import { UniqueId } from '@/shared/core/UniqueId';
+import { User } from '@/domain/user/entities/User';
+import { EventBus } from '@/shared/core/EventBus';
+import { UserSettingsUpdated } from '@/domain/user/events/UserEvent';
 
-export interface UpdateSettingsDTO {
+export interface UpdateSettingsInput {
   userId: string;
-  language?: string;
-  theme?: 'light' | 'dark' | 'system';
-  notifications?: {
-    email?: boolean;
-    push?: boolean;
-    inApp?: boolean;
-  };
-  privacy?: {
-    showProfile?: boolean;
-    showActivity?: boolean;
-    showTeams?: boolean;
+  settings: {
+    theme?: 'light' | 'dark' | 'system';
+    language?: 'sv' | 'en' | 'no' | 'da' | 'fi';
+    notifications?: {
+      email?: boolean;
+      push?: boolean;
+      inApp?: boolean;
+    };
+    privacy?: {
+      showProfile?: boolean;
+      showActivity?: boolean;
+      showTeams?: boolean;
+    };
   };
 }
 
-export interface UpdateSettingsResponse {
-  userId: string;
-  theme: string;
-  language: string;
-  updatedAt: Date;
+export interface UpdateSettingsDeps {
+  userRepo: UserRepository;
+  eventBus: EventBus;
 }
 
-type UpdateSettingsError = {
-  message: string;
-  code: 'USER_NOT_FOUND' | 'VALIDATION_ERROR' | 'DATABASE_ERROR' | 'UNEXPECTED_ERROR';
+export const updateSettings = (deps: UpdateSettingsDeps) => {
+  const { userRepo, eventBus } = deps;
+
+  return async (input: UpdateSettingsInput): Promise<Result<User, Error>> => {
+    try {
+      const { userId, settings } = input;
+
+      // Hitta användaren
+      const userResult = await userRepo.findById(userId);
+      if (userResult.isErr()) {
+        return err(new Error(`Kunde inte hitta användaren: ${userResult.error.message}`));
+      }
+
+      const user = userResult.value;
+
+      // Hämta befintliga inställningar för att spara gamla värden för eventet
+      const oldSettings = user.settings ? user.settings.toDTO() : {};
+
+      // Uppdatera användarinställningar
+      const updateResult = user.updateSettings(settings);
+      if (updateResult.isErr()) {
+        return err(new Error(`Kunde inte uppdatera inställningar: ${updateResult.error}`));
+      }
+
+      // Spara användaren
+      const saveResult = await userRepo.save(user);
+      if (saveResult.isErr()) {
+        return err(new Error(`Kunde inte spara användaren: ${saveResult.error.message}`));
+      }
+
+      // Publicera event
+      eventBus.publish(new UserSettingsUpdated(
+        user,
+        {
+          newSettings: user.settings ? user.settings.toDTO() : {},
+          oldSettings
+        }
+      ));
+
+      return ok(user);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error('Okänt fel vid uppdatering av inställningar'));
+    }
+  };
 };
 
-interface Dependencies {
-  userRepo: UserRepository;
-  eventPublisher: IDomainEventPublisher;
-}
-
-/**
- * Användarfall för att uppdatera användarinställningar
- */
-export class UpdateSettingsUseCase {
-  constructor(
-    private readonly userRepo: UserRepository,
-    private readonly eventPublisher: IDomainEventPublisher
-  ) {}
-
-  static create(deps: Dependencies): UpdateSettingsUseCase {
-    return new UpdateSettingsUseCase(
-      deps.userRepo,
-      deps.eventPublisher
-    );
-  }
-
-  async execute(dto: UpdateSettingsDTO): Promise<Result<UpdateSettingsResponse, UpdateSettingsError>> {
-    try {
-      const userIdObj = new UniqueId(dto.userId);
-      
-      // Hämta användaren
-      const userResult = await this.userRepo.findById(userIdObj);
-      
-      if (userResult.isErr()) {
-        return err({
-          message: `Användaren hittades inte: ${userResult.error}`,
-          code: 'USER_NOT_FOUND'
-        });
-      }
-      
-      const user = userResult.value;
-      
-      // Skapa nya inställningar baserat på användarens nuvarande inställningar
-      // och de inställningar som ska uppdateras
-      const currentSettings = user.settings || {};
-      
-      const settingsResult = UserSettings.create({
-        language: dto.language || currentSettings.language,
-        theme: dto.theme || currentSettings.theme,
-        notifications: {
-          ...currentSettings.notifications,
-          ...dto.notifications
-        },
-        privacy: {
-          ...currentSettings.privacy,
-          ...dto.privacy
-        }
-      });
-      
-      if (settingsResult.isErr()) {
-        return err({
-          message: settingsResult.error,
-          code: 'VALIDATION_ERROR'
-        });
-      }
-      
-      // Uppdatera användarens inställningar
-      const updateResult = user.updateSettings(settingsResult.value);
-      if (updateResult.isErr()) {
-        return err({
-          message: updateResult.error,
-          code: 'VALIDATION_ERROR'
-        });
-      }
-      
-      // Spara användaren
-      const saveResult = await this.userRepo.save(user);
-      if (saveResult.isErr()) {
-        return err({
-          message: `Kunde inte uppdatera inställningarna: ${saveResult.error}`,
-          code: 'DATABASE_ERROR'
-        });
-      }
-      
-      // Publicera domänevents
-      const domainEvents = user.getDomainEvents();
-      for (const event of domainEvents) {
-        await this.eventPublisher.publish(event);
-      }
-      
-      // Rensa events
-      user.clearEvents();
-      
-      return ok({
-        userId: user.id.toString(),
-        theme: user.settings.theme,
-        language: user.settings.language,
-        updatedAt: user.updatedAt
-      });
-    } catch (error) {
-      return err({
-        message: `Ett oväntat fel uppstod vid uppdatering av inställningar: ${error instanceof Error ? error.message : String(error)}`,
-        code: 'UNEXPECTED_ERROR'
-      });
-    }
-  }
-} 
+export default updateSettings; 

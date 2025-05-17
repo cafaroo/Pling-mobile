@@ -26,6 +26,11 @@ export interface SubscriptionRepository {
   getActiveByOrganizationId(organizationId: UniqueId): Promise<Result<Subscription | null, string>>;
   
   /**
+   * Hämta prenumeration för en organisation
+   */
+  getByOrganizationId(organizationId: string): Promise<Result<any, string>>;
+  
+  /**
    * Hämta alla prenumerationer för en organisation
    */
   getAllByOrganizationId(organizationId: UniqueId): Promise<Result<Subscription[], string>>;
@@ -65,4 +70,19 @@ export interface SubscriptionRepository {
    * Hämta en prenumerationsplan med specifikt ID
    */
   getSubscriptionPlanById(planId: string): Promise<Result<any, string>>;
+  
+  /**
+   * Hämta en prenumerationsplan med specifikt ID
+   * @deprecated Använd getSubscriptionPlanById istället
+   */
+  getSubscriptionPlan(planId: string): Promise<Result<any, string>>;
+  
+  /**
+   * Logga användningsstatistik för en prenumeration
+   */
+  logUsage(
+    subscriptionId: string,
+    metricName: string,
+    value: number
+  ): Promise<Result<void, string>>;
 } 

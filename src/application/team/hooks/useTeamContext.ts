@@ -1,17 +1,18 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, createElement } from 'react';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
-import { UserRepository } from '@/domain/user/repositories/UserRepository';
-import { TeamActivityRepository } from '@/domain/team/repositories/TeamActivityRepository';
+import { TeamService } from '@/domain/team/services/TeamService';
+import { DefaultTeamService } from '@/domain/team/services/DefaultTeamService';
 import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
-import { useTeamStandardized } from './useTeamStandardized';
+import { SupabaseTeamRepository } from '@/infrastructure/supabase/repositories/team/SupabaseTeamRepository';
+import { DomainEventPublisher } from '@/infrastructure/events/DomainEventPublisher';
+import { supabase } from '@/infrastructure/supabase';
 
 /**
- * Kontext för att hantera team-relaterade beroenden
+ * Kontext för hantering av team-relaterade beroenden
  */
 interface TeamContextType {
   teamRepository: TeamRepository;
-  userRepository: UserRepository;
-  teamActivityRepository: TeamActivityRepository;
+  teamService: TeamService;
   eventPublisher: IDomainEventPublisher;
 }
 
@@ -25,8 +26,7 @@ const TeamContext = createContext<TeamContextType | null>(null);
  */
 interface TeamContextProviderProps {
   teamRepository: TeamRepository;
-  userRepository: UserRepository;
-  teamActivityRepository: TeamActivityRepository;
+  teamService?: TeamService;
   eventPublisher: IDomainEventPublisher;
   children: React.ReactNode;
 }
@@ -36,22 +36,23 @@ interface TeamContextProviderProps {
  */
 export function TeamContextProvider({
   teamRepository,
-  userRepository,
-  teamActivityRepository,
+  teamService,
   eventPublisher,
   children,
 }: TeamContextProviderProps) {
+  // Skapa TeamService om den inte tillhandahålls
+  const teamServiceInstance = teamService || new DefaultTeamService(teamRepository, eventPublisher);
+
   const value = {
     teamRepository,
-    userRepository,
-    teamActivityRepository,
+    teamService: teamServiceInstance,
     eventPublisher,
   };
 
-  return (
-    <TeamContext.Provider value={value}>
-      {children}
-    </TeamContext.Provider>
+  return createElement(
+    TeamContext.Provider,
+    { value },
+    children
   );
 }
 
@@ -62,27 +63,25 @@ export function useTeamDependencies(): TeamContextType {
   const context = useContext(TeamContext);
   
   if (!context) {
-    throw new Error('useTeamDependencies måste användas inom en TeamContextProvider');
+    // Fallback till default implementationer om ingen provider finns
+    const supabaseClient = supabase;
+    const teamRepository = new SupabaseTeamRepository(supabaseClient);
+    const eventPublisher = new DomainEventPublisher();
+    const teamService = new DefaultTeamService(teamRepository, eventPublisher);
+    
+    return {
+      teamRepository,
+      teamService,
+      eventPublisher
+    };
   }
   
   return context;
 }
 
 /**
- * Hook för att hämta standardiserade team-relaterade hooks
+ * Hook för att hämta standardiserade team-relaterade beroenden
  */
-export function useTeam() {
-  const {
-    teamRepository,
-    userRepository,
-    teamActivityRepository,
-    eventPublisher,
-  } = useTeamDependencies();
-  
-  return useTeamStandardized(
-    teamRepository,
-    userRepository,
-    teamActivityRepository,
-    eventPublisher
-  );
+export function useTeamContext(): TeamContextType {
+  return useTeamDependencies();
 } 

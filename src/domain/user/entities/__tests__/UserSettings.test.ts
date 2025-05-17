@@ -14,12 +14,14 @@ describe('UserSettings', () => {
         expect(settings.notifications).toEqual({
           email: true,
           push: true,
-          inApp: true
+          inApp: true,
+          frequency: 'daily'
         });
         expect(settings.privacy).toEqual({
           showProfile: true,
           showActivity: true,
-          showTeams: true
+          showTeams: true,
+          profileVisibility: 'friends'
         });
       }
     });
@@ -31,12 +33,14 @@ describe('UserSettings', () => {
         notifications: {
           email: false,
           push: false,
-          inApp: false
+          inApp: false,
+          frequency: 'daily'
         },
         privacy: {
           showProfile: false,
           showActivity: false,
-          showTeams: false
+          showTeams: false,
+          profileVisibility: 'friends'
         }
       };
 
@@ -50,12 +54,14 @@ describe('UserSettings', () => {
         expect(settings.notifications).toEqual({
           email: false,
           push: false,
-          inApp: false
+          inApp: false,
+          frequency: 'daily'
         });
         expect(settings.privacy).toEqual({
           showProfile: false,
           showActivity: false,
-          showTeams: false
+          showTeams: false,
+          profileVisibility: 'friends'
         });
       }
     });
@@ -65,7 +71,7 @@ describe('UserSettings', () => {
       
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toBe('Ogiltigt tema');
+        expect(result.error).toBe('Ogiltigt tema. Stöder: light, dark, system');
       }
     });
 
@@ -74,7 +80,7 @@ describe('UserSettings', () => {
       
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toBe('Ogiltigt språk');
+        expect(result.error).toBe('Ogiltigt språk. Stöder: sv, en, no, da, fi');
       }
     });
   });
@@ -91,12 +97,14 @@ describe('UserSettings', () => {
           notifications: {
             email: false,
             push: false,
-            inApp: false
+            inApp: false,
+            frequency: 'weekly'
           },
           privacy: {
             showProfile: false,
             showActivity: false,
-            showTeams: false
+            showTeams: false,
+            profileVisibility: 'private'
           }
         };
         
@@ -108,7 +116,9 @@ describe('UserSettings', () => {
           expect(updatedSettings.theme).toBe('dark');
           expect(updatedSettings.language).toBe('en');
           expect(updatedSettings.notifications.email).toBe(false);
+          expect(updatedSettings.notifications.frequency).toBe('weekly');
           expect(updatedSettings.privacy.showProfile).toBe(false);
+          expect(updatedSettings.privacy.profileVisibility).toBe('private');
         }
       }
     });
@@ -147,7 +157,8 @@ describe('UserSettings', () => {
         const newNotifications = {
           email: false,
           push: false,
-          inApp: false
+          inApp: false,
+          frequency: 'daily'
         };
         
         const result = settings.value.update({ notifications: newNotifications });
@@ -167,7 +178,8 @@ describe('UserSettings', () => {
         const newPrivacy = {
           showProfile: false,
           showActivity: false,
-          showTeams: false
+          showTeams: false,
+          profileVisibility: 'friends'
         };
         
         const result = settings.value.update({ privacy: newPrivacy });

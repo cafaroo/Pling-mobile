@@ -3,6 +3,12 @@
  */
 
 import '@testing-library/jest-native/extend-expect';
+import { configure } from '@testing-library/react-native';
+
+// Konfigurera testing library
+configure({
+  asyncUtilTimeout: 5000, // default timeout för waitFor
+});
 
 // Mocka miljövariabler för tester
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://mock-test-supabase.co';
@@ -108,9 +114,54 @@ global = {
     removeEventListener: () => {},
   },
   __mockEventBus: {
-    publish: jest.fn().mockResolvedValue(undefined),
-    subscribe: jest.fn().mockImplementation(() => ({ unsubscribe: jest.fn() })),
-    unsubscribe: jest.fn()
+    publish: jest.fn().mockImplementation(async (eventType, payload) => {
+      // Standardisera payload baserat på eventtyp
+      const enhancedPayload = (() => {
+        if (!payload) return {};
+        
+        switch (eventType) {
+          case 'subscription.created':
+            return {
+              ...payload,
+              planId: payload.planId || 'unknown-plan',
+              status: payload.status || 'active',
+              timestamp: payload.timestamp || new Date()
+            };
+          
+          case 'subscription.updated':
+            return {
+              ...payload,
+              status: payload.status || 'active',
+              timestamp: payload.timestamp || new Date()
+            };
+          
+          default:
+            return payload;
+        }
+      })();
+      
+      // Lagra event för verifiering i tester
+      if (!global.__publishedEvents) {
+        global.__publishedEvents = [];
+      }
+      
+      global.__publishedEvents.push({
+        eventType,
+        payload: enhancedPayload
+      });
+      
+      return Promise.resolve();
+    }),
+    
+    subscribe: jest.fn().mockImplementation((eventType, callback) => {
+      return {
+        unsubscribe: jest.fn()
+      };
+    }),
+    
+    unsubscribe: jest.fn(),
+    
+    clearListeners: jest.fn()
   },
   __mockUniqueId: function(id) {
     return {
@@ -662,13 +713,27 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 // Global mocks
-global.fetch = jest.fn().mockImplementation(() => 
-  Promise.resolve({
+global.fetch = jest.fn().mockImplementation((url) => {
+  if (url.includes('/subscriptions')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({
+        id: 'sub-123',
+        status: 'active',
+        currentPeriodStart: Date.now() / 1000,
+        currentPeriodEnd: (Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000,
+        createdAt: Date.now() / 1000,
+        updatedAt: Date.now() / 1000
+      })
+    });
+  }
+
+  // Generisk fallback för andra anrop
+  return Promise.resolve({
     ok: true,
-    json: () => Promise.resolve({}),
-    text: () => Promise.resolve(''),
-  })
-);
+    json: () => Promise.resolve({})
+  });
+});
 
 // Mock för console.error för att förhindra fula felmeddelanden i testutdata
 const originalConsoleError = console.error;
@@ -686,6 +751,7 @@ console.error = (...args) => {
 // Rensa mockar efter varje test
 afterEach(() => {
   jest.clearAllMocks();
+  global.fetch.mockClear();
 });
 
 // Global error handling
@@ -892,4 +958,12 @@ jest.spyOn(console, 'error').mockImplementation((...args) => {
     return;
   }
   console.error(...args);
+});
+
+// Tillägg för mock av SubscriptionService-metoder
+jest.mock('./src/domain/subscription/services/DefaultSubscriptionService', () => {
+  const original = jest.requireActual('./src/domain/subscription/services/DefaultSubscriptionService');
+  return {
+    ...original,
+  };
 }); 

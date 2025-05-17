@@ -7,6 +7,7 @@ import { UserCreated } from '@/domain/user/events/UserEvent';
 import { PhoneNumber } from '@/domain/user/value-objects/PhoneNumber';
 import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
 import { UniqueId } from '@/shared/core/UniqueId';
+import { EventBus } from '@/shared/core/EventBus';
 
 export interface CreateUserDTO {
   email: string;
@@ -44,6 +45,9 @@ export interface CreateUserDTO {
   roleIds?: string[];
 }
 
+// För kompatibilitet med tester
+export type CreateUserInput = CreateUserDTO;
+
 export interface CreateUserResponse {
   userId: string;
   email: string;
@@ -59,6 +63,12 @@ type CreateUserError = {
 interface Dependencies {
   userRepo: UserRepository;
   eventPublisher: IDomainEventPublisher;
+}
+
+// För kompatibilitet med tester
+interface TestDependencies {
+  userRepo: UserRepository;
+  eventBus: EventBus;
 }
 
 export class CreateUserUseCase {
@@ -190,4 +200,36 @@ export class CreateUserUseCase {
       });
     }
   }
-} 
+}
+
+// Funktionell version för kompatibilitet med tester
+export function createUser(deps: TestDependencies) {
+  // Adaptera eventBus till eventPublisher
+  const eventPublisher: IDomainEventPublisher = {
+    publish: async (event) => {
+      deps.eventBus.publish(event);
+      return ok(undefined);
+    }
+  };
+
+  const useCase = new CreateUserUseCase(deps.userRepo, eventPublisher);
+  
+  return async (input: CreateUserInput): Promise<Result<User, string>> => {
+    const result = await useCase.execute(input);
+    
+    if (result.isErr()) {
+      return err(result.error.message);
+    }
+    
+    // Hämta den skapade användaren från repo för testkompabilitet
+    const userResult = await deps.userRepo.findById(result.value.userId);
+    
+    if (userResult.isErr()) {
+      return err(`Användaren skapades men kunde inte hämtas: ${userResult.error}`);
+    }
+    
+    return ok(userResult.value);
+  };
+}
+
+export default createUser; 

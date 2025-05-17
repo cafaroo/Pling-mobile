@@ -1,7 +1,7 @@
 import { ValueObject } from '../../../shared/core/ValueObject';
 import { UniqueId } from '../../../shared/core/UniqueId';
 import { Result, ok, err } from '../../../shared/core/Result';
-import { TeamRole } from './TeamRole';
+import { TeamRole, parseTeamRole } from './TeamRole';
 
 interface TeamMemberProps {
   userId: UniqueId;
@@ -28,21 +28,27 @@ export class TeamMember extends ValueObject<TeamMemberProps> {
 
   public static create(props: {
     userId: string | UniqueId;
-    role: TeamRole;
-    joinedAt: Date;
+    role: TeamRole | string;
+    joinedAt?: Date;
   }): Result<TeamMember, string> {
     try {
       const userId = props.userId instanceof UniqueId
         ? props.userId
         : new UniqueId(props.userId);
+      
+      // Konvertera role till TeamRole
+      const roleResult = parseTeamRole(props.role);
+      if (roleResult.isErr()) {
+        return err(roleResult.error);
+      }
 
       return ok(new TeamMember({
         userId,
-        role: props.role,
-        joinedAt: props.joinedAt
+        role: roleResult.value,
+        joinedAt: props.joinedAt || new Date()
       }));
     } catch (error) {
-      return err(`Kunde inte skapa teammedlem: ${error.message}`);
+      return err(`Kunde inte skapa teammedlem: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

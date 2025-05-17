@@ -5,15 +5,30 @@ import { StripeIntegrationService } from './StripeIntegrationService';
 import { Result, ok, err } from '@/shared/core/Result';
 
 /**
+ * Fallback logger som används om ingen logger injiceras
+ */
+const defaultLogger: Logger = {
+  info: (message: string, meta?: any) => console.info(message, meta),
+  warn: (message: string, meta?: any) => console.warn(message, meta),
+  error: (message: string, meta?: any) => console.error(message, meta),
+  debug: (message: string, meta?: any) => console.debug(message, meta)
+};
+
+/**
  * Service för att hantera schemalagda jobb relaterade till prenumerationer
  */
 export class SubscriptionSchedulerService {
+  private readonly logger: Logger;
+
   constructor(
     private readonly subscriptionRepository: SubscriptionRepository,
     private readonly stripeService: StripeIntegrationService,
     private readonly eventBus: EventBus,
-    private readonly logger: Logger
-  ) {}
+    logger?: Logger
+  ) {
+    // Använd den injicerade loggern eller fallback till defaultLogger
+    this.logger = logger || defaultLogger;
+  }
 
   /**
    * Kontrollerar prenumerationer som är nära förnyelsedatum och skickar påminnelser

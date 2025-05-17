@@ -7,7 +7,6 @@
 
 import { UserProfile } from '@/domain/user/value-objects/UserProfile';
 import { Result } from '@/shared/core/Result';
-import { makeResultCompatible } from './resultTestHelper';
 
 /**
  * Skapar ett mock UserProfile-objekt med standardvärden
@@ -36,7 +35,7 @@ export function createMockUserProfile(overrides: Partial<{
 
   const profileProps = { ...defaults, ...overrides };
   
-  return makeResultCompatible(UserProfile.create({
+  return UserProfile.create({
     firstName: profileProps.firstName,
     lastName: profileProps.lastName,
     bio: profileProps.bio,
@@ -44,7 +43,7 @@ export function createMockUserProfile(overrides: Partial<{
     phoneNumber: profileProps.phoneNumber,
     location: profileProps.location,
     website: profileProps.website
-  }));
+  });
 }
 
 /**
@@ -98,7 +97,7 @@ export function extendUserProfileWithMocks(profile: UserProfile): UserProfile & 
       ...profile.toValue(),
       ...data
     });
-    return makeResultCompatible(updatedResult);
+    return updatedResult;
   });
   
   // @ts-expect-error Vi lägger till properties dynamiskt

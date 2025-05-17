@@ -3,7 +3,7 @@ import { TeamCreated } from '@/domain/team/events/TeamEvents';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { UniqueId } from '@/shared/core/UniqueId';
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { User } from '@/domain/user/entities/User';
 import { Team } from '@/domain/team/entities/Team';
 
@@ -46,10 +46,10 @@ describe('TeamCreatedHandler', () => {
     handler = new TeamCreatedHandler(mockTeamRepository, mockUserRepository);
     
     // Konfigurera standardbeteende för repositories
-    mockUserRepository.findById.mockResolvedValue(Result.ok(mockUser));
-    mockTeamRepository.findById.mockResolvedValue(Result.ok(mockTeam));
-    mockUserRepository.save.mockResolvedValue(Result.ok());
-    mockTeamRepository.save.mockResolvedValue(Result.ok());
+    mockUserRepository.findById.mockResolvedValue(ok(mockUser));
+    mockTeamRepository.findById.mockResolvedValue(ok(mockTeam));
+    mockUserRepository.save.mockResolvedValue(ok(undefined));
+    mockTeamRepository.save.mockResolvedValue(ok(undefined));
   });
   
   it('should update user team membership when handling TeamCreated event', async () => {
@@ -64,7 +64,7 @@ describe('TeamCreatedHandler', () => {
     const result = await handler['processEvent'](event);
     
     // Assert
-    expect(result.isSuccess).toBe(true);
+    expect(result.isOk()).toBe(true);
     expect(mockUserRepository.findById).toHaveBeenCalledWith(ownerId);
     expect(mockUser.addTeamMembership).toHaveBeenCalledWith(teamId);
     expect(mockUserRepository.save).toHaveBeenCalledWith(mockUser);
@@ -79,13 +79,13 @@ describe('TeamCreatedHandler', () => {
     const event = new TeamCreated(teamId, ownerId, teamName);
     
     // Konfigurera mockUserRepository att returnera fel
-    mockUserRepository.findById.mockResolvedValue(Result.fail('Användaren hittades inte'));
+    mockUserRepository.findById.mockResolvedValue(err('Användaren hittades inte'));
     
     // Act
     const result = await handler['processEvent'](event);
     
     // Assert
-    expect(result.isFailure).toBe(true);
+    expect(result.isErr()).toBe(true);
     expect(result.error).toContain('Kunde inte hitta teamägaren');
     expect(mockUser.addTeamMembership).not.toHaveBeenCalled();
     expect(mockUserRepository.save).not.toHaveBeenCalled();
@@ -103,7 +103,7 @@ describe('TeamCreatedHandler', () => {
     const result = await handler['processEvent'](event);
     
     // Assert
-    expect(result.isSuccess).toBe(true);
+    expect(result.isOk()).toBe(true);
     expect(mockTeamRepository.findById).toHaveBeenCalledWith(teamId);
     // Verifiera att teamet sparades efter eventuell uppdatering
     expect(mockTeamRepository.save).not.toHaveBeenCalled(); // Notera: vi uppdaterar inte teamet i denna implementation

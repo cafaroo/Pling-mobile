@@ -48,6 +48,15 @@ export class SupabaseSubscriptionRepository implements SubscriptionRepository {
     }
   }
 
+  async getByOrganizationId(organizationId: string): Promise<Result<any, string>> {
+    try {
+      // Detta är bara en stub för tester
+      return ok(null);
+    } catch (error) {
+      return err(`Failed to get subscription by organization: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   async getAllByOrganizationId(organizationId: UniqueId): Promise<Result<Subscription[], string>> {
     try {
       // Detta är bara en stub för tester
@@ -114,6 +123,26 @@ export class SupabaseSubscriptionRepository implements SubscriptionRepository {
       return ok(null);
     } catch (error) {
       return err(`Failed to get subscription plan: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * @deprecated Använd getSubscriptionPlanById istället
+   */
+  async getSubscriptionPlan(planId: string): Promise<Result<any, string>> {
+    return this.getSubscriptionPlanById(planId);
+  }
+
+  async logUsage(
+    subscriptionId: string,
+    metricName: string,
+    value: number
+  ): Promise<Result<void, string>> {
+    try {
+      // Detta är bara en stub för tester
+      return ok(undefined);
+    } catch (error) {
+      return err(`Failed to log usage: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 } 

@@ -40,6 +40,28 @@ class BaseMockUserEvent {
 }
 
 /**
+ * Mockad implementation av UserCreatedEvent
+ * För att stödja både nya och gamla testscenarion
+ */
+export class MockUserCreatedEvent extends BaseMockUserEvent {
+  public readonly userId: UniqueId;
+  public readonly email: string;
+  public readonly name: string;
+  
+  constructor(user: User | { id: UniqueId | string }, email: string = 'test@example.com', userName: string = 'Test User') {
+    super('UserCreated', user, { email, name: userName });
+    
+    // Direkta egenskaper för att stödja event.userId istället för event.data.userId
+    const userId = user instanceof User ? user.id : 
+      (user.id instanceof UniqueId ? user.id : new UniqueId(user.id as string));
+    
+    this.userId = userId;
+    this.email = email;
+    this.name = userName;
+  }
+}
+
+/**
  * Mockad implementation av UserActivatedEvent
  */
 export class MockUserActivatedEvent extends BaseMockUserEvent {
@@ -60,19 +82,6 @@ export class MockUserDeactivatedEvent extends BaseMockUserEvent {
   constructor(user: User | { id: UniqueId | string }, deactivationReason: string = '') {
     super('user.account.deactivated', user, { deactivationReason });
     this.deactivationReason = deactivationReason;
-  }
-}
-
-/**
- * Mockad implementation av UserCreatedEvent
- */
-export class MockUserCreatedEvent extends BaseMockUserEvent {
-  constructor(user: User | { id: UniqueId | string }, email?: string, name?: string) {
-    const additionalData: Record<string, any> = {};
-    if (email) additionalData.email = email;
-    if (name) additionalData.name = name;
-    
-    super('user.created', user, additionalData);
   }
 }
 

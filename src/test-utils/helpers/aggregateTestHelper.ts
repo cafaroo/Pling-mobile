@@ -157,4 +157,101 @@ export class AggregateTestHelper {
     // Rensa events från aggregatet
     aggregate.clearEvents();
   }
+
+  /**
+   * Kontrollera om ett aggregat har en specifik händelse i sin lista av domänhändelser
+   */
+  static hasEvent(aggregate: any, eventClass: new (...args: any[]) => IDomainEvent): boolean {
+    if (!aggregate.domainEvents) {
+      return false;
+    }
+
+    return aggregate.domainEvents.some((event: IDomainEvent) => 
+      event instanceof eventClass
+    );
+  }
+
+  /**
+   * Hämta alla händelser av en viss typ från ett aggregat
+   */
+  static getEvents(aggregate: any, eventClass: new (...args: any[]) => IDomainEvent): IDomainEvent[] {
+    if (!aggregate.domainEvents) {
+      return [];
+    }
+
+    return aggregate.domainEvents.filter((event: IDomainEvent) => 
+      event instanceof eventClass
+    );
+  }
+
+  /**
+   * Testa att en operation på ett aggregat skapar den förväntade händelsen
+   */
+  static assertEventPublished(
+    operation: () => void,
+    eventClass: new (...args: any[]) => IDomainEvent
+  ): void {
+    // Rensa händelser innan testet
+    MockDomainEvents.clearEvents();
+    
+    // Utför operationen
+    operation();
+    
+    // Kontrollera om händelsen publicerades
+    const events = MockDomainEvents.getEvents();
+    const hasEvent = events.some(event => event instanceof eventClass);
+    
+    if (!hasEvent) {
+      throw new Error(`Expected event of type ${eventClass.name} was not published`);
+    }
+  }
+
+  /**
+   * Verifiera att ett aggregat har ett visst antal händelser
+   */
+  static assertEventCount(aggregate: any, count: number): void {
+    if (!aggregate.domainEvents) {
+      if (count === 0) {
+        return; // OK - inga händelser förväntade
+      }
+      throw new Error(`Expected ${count} events but aggregate has no events property`);
+    }
+
+    if (aggregate.domainEvents.length !== count) {
+      throw new Error(`Expected ${count} events but found ${aggregate.domainEvents.length}`);
+    }
+  }
+
+  /**
+   * Rensa händelser från ett aggregat
+   */
+  static clearEvents(aggregate: any): void {
+    if (aggregate.domainEvents) {
+      aggregate.domainEvents = [];
+    }
+  }
+
+  /**
+   * Verifiera att en operation ändrar en egenskap på aggregatet
+   */
+  static assertPropertyChanged(
+    aggregate: any,
+    operation: () => void,
+    property: string,
+    expectedValue: any
+  ): void {
+    // Utför operationen
+    operation();
+    
+    // Kontrollera att egenskapen har ändrats
+    const actualValue = typeof aggregate.get === 'function' 
+      ? aggregate.get(property)
+      : aggregate[property];
+
+    if (JSON.stringify(actualValue) !== JSON.stringify(expectedValue)) {
+      throw new Error(
+        `Expected property ${property} to be ${JSON.stringify(expectedValue)} but got ${JSON.stringify(actualValue)}`
+      );
+    }
+  }
 } 

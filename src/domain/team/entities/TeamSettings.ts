@@ -92,10 +92,10 @@ export class TeamSettings extends ValueObject<TeamSettingsProps> {
   /**
    * Skapar TeamSettings med standardinställningar
    * 
-   * @returns TeamSettings med standardvärden
+   * @returns Result med TeamSettings med standardvärden
    */
-  public static createDefault(): TeamSettings {
-    return new TeamSettings(TeamSettings.getDefaultProps());
+  public static createDefault(): Result<TeamSettings, string> {
+    return this.create(); // Anropa create utan props för att få standardinställningarna
   }
 
   /**
@@ -187,11 +187,17 @@ export class TeamSettings extends ValueObject<TeamSettingsProps> {
   }
 
   /**
-   * Konverterar inställningarna till ett rent JavaScript-objekt
+   * Konverterar inställningarna till ett rent JavaScript-objekt med djup kopiering
    * 
-   * @returns Kopia av inställningarna som ett objekt
+   * @returns Djup kopia av inställningarna som ett objekt
    */
   public toDTO(): TeamSettingsProps {
-    return this.toValue();
+    // Skapa en djup kopia för att se till att alla nested objekt också kopieras
+    return {
+      ...this.props,
+      notificationSettings: { ...this.props.notificationSettings },
+      communications: this.props.communications ? { ...this.props.communications } : undefined,
+      permissions: this.props.permissions ? { ...this.props.permissions } : undefined
+    };
   }
 } 

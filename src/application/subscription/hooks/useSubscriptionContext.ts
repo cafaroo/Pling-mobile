@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, createElement } from 'react';
 import { SubscriptionRepository } from '@/domain/subscription/repositories/SubscriptionRepository';
 import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
 import { SupabaseSubscriptionRepository } from '@/infrastructure/supabase/repositories/subscription/SupabaseSubscriptionRepository';
@@ -65,10 +65,10 @@ export function SubscriptionContextProvider({
     eventPublisher,
   };
 
-  return (
-    <SubscriptionContext.Provider value={value}>
-      {children}
-    </SubscriptionContext.Provider>
+  return createElement(
+    SubscriptionContext.Provider,
+    { value },
+    children
   );
 }
 

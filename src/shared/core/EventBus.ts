@@ -2,57 +2,104 @@ import { DomainEvent } from './DomainEvent';
 
 type EventHandler = (event: any) => void | Promise<void>;
 
-export class EventBus {
-  private static instance: EventBus;
-  private handlers: Map<string, EventHandler[]>;
+/**
+ * EventBus-gränssnitt
+ * 
+ * En meddelandebuss för att publicera och prenumerera på domänevents.
+ */
+export interface EventBus {
+  /**
+   * Publicerar ett event på bussen
+   * @param eventType Typ eller namn på eventet
+   * @param payload Data som ska skickas med eventet
+   */
+  publish(eventType: string, payload?: any): Promise<void>;
+  
+  /**
+   * Prenumererar på en eventtyp
+   * @param eventType Typ eller namn på event att lyssna på
+   * @param callback Funktion som anropas när event inträffar
+   * @returns Ett objekt med en unsubscribe-metod för att avbryta prenumerationen
+   */
+  subscribe(eventType: string, callback: (payload: any) => void): { unsubscribe: () => void };
+  
+  /**
+   * Avregistrerar en prenumeration
+   * @param eventType Typ eller namn på event
+   * @param callback Callback-funktion som ska avregistreras
+   */
+  unsubscribe(eventType: string, callback: (payload: any) => void): void;
+  
+  /**
+   * Rensar alla prenumerationer
+   */
+  clearListeners(): void;
+}
+
+/**
+ * En klass som hanterar prenumerationer och publicering av händelser.
+ * Används i både produktions- och testmiljö.
+ */
+export class EventBusImpl implements EventBus {
+  private subscribers: Map<string, Set<(payload: any) => void>>;
 
   constructor() {
-    if (EventBus.instance) {
-      return EventBus.instance;
-    }
-    
-    this.handlers = new Map();
-    EventBus.instance = this;
-  }
-
-  subscribe(eventType: string, handler: EventHandler): () => void {
-    const handlers = this.handlers.get(eventType) ?? [];
-    handlers.push(handler);
-    this.handlers.set(eventType, handlers);
-
-    // Returnera en unsubscribe-funktion
-    return () => {
-      const handlers = this.handlers.get(eventType) ?? [];
-      const index = handlers.indexOf(handler);
-      if (index > -1) {
-        handlers.splice(index, 1);
-        this.handlers.set(eventType, handlers);
-      }
-    };
-  }
-
-  async publish(event: { constructor: { name: string } }): Promise<void> {
-    const eventType = event.constructor.name;
-    const handlers = this.handlers.get(eventType) ?? [];
-    
-    await Promise.all(
-      handlers.map(handler => handler(event))
-    );
+    this.subscribers = new Map();
   }
 
   /**
-   * Tar bort alla event listeners
+   * Publicerar ett event på bussen
    */
-  public clearListeners(): void {
-    this.handlers = new Map();
+  async publish(eventType: string, payload?: any): Promise<void> {
+    const subscribers = this.subscribers.get(eventType);
+    if (subscribers) {
+      for (const callback of Array.from(subscribers)) {
+        await callback(payload);
+      }
+    }
+  }
+
+  /**
+   * Prenumererar på en eventtyp
+   */
+  subscribe(eventType: string, callback: (payload: any) => void): { unsubscribe: () => void } {
+    if (!this.subscribers.has(eventType)) {
+      this.subscribers.set(eventType, new Set());
+    }
+    
+    this.subscribers.get(eventType)!.add(callback);
+    
+    return {
+      unsubscribe: () => this.unsubscribe(eventType, callback)
+    };
+  }
+
+  /**
+   * Avregistrerar en prenumeration
+   */
+  unsubscribe(eventType: string, callback: (payload: any) => void): void {
+    const subscribers = this.subscribers.get(eventType);
+    if (subscribers) {
+      subscribers.delete(callback);
+    }
+  }
+
+  /**
+   * Rensar alla prenumerationer
+   */
+  clearListeners(): void {
+    this.subscribers.clear();
   }
 }
+
+// Singleton-instans för användning i applikationen
+export const eventBus = new EventBusImpl();
 
 /**
  * Returnerar den globala EventBus-instansen
  */
 export const getEventBus = (): EventBus => {
-  return new EventBus(); // Detta kommer returnera den singleton-instans som finns tack vare konstruktorn
+  return eventBus; // Returnera den globala singleton-instansen
 };
 
 export interface EventBus {

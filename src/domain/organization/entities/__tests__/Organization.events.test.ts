@@ -22,7 +22,7 @@ describe('Organization Aggregatroot Event Tests', () => {
       expect(organizationResult.isOk()).toBe(true);
       
       const organization = organizationResult.value;
-      const domainEvents = organization.getDomainEvents();
+      const domainEvents = organization.domainEvents;
       
       expect(domainEvents.length).toBe(1);
       expect(domainEvents[0]).toBeInstanceOf(OrganizationCreatedEvent);
@@ -77,7 +77,7 @@ describe('Organization Aggregatroot Event Tests', () => {
       // Assert
       expect(result.isOk()).toBe(true);
       
-      const domainEvents = organization.getDomainEvents();
+      const domainEvents = organization.domainEvents;
       expect(domainEvents.length).toBe(1);
       expect(domainEvents[0]).toBeInstanceOf(OrganizationMemberJoinedEvent);
       

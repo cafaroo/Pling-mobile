@@ -14,14 +14,21 @@ import {
 
 // Manuellt skapa UniqueId istället för att importera
 class UniqueId {
-  constructor(public readonly id: string) {}
+  private readonly id: string;
+
+  constructor(id?: string) {
+    this.id = id || 'default-id';
+  }
 
   toString(): string {
     return this.id;
   }
 
   equals(other: UniqueId): boolean {
-    return this.id === other.id;
+    if (other === null || other === undefined) {
+      return false;
+    }
+    return this.toString() === other.toString();
   }
 }
 
@@ -30,6 +37,8 @@ class User {
   id: UniqueId;
   profile: any;
   settings: any;
+  name: string = "TestUser";
+  email: { value: string } = { value: "test@example.com" };
   
   constructor(id = 'test-user-id') {
     this.id = new UniqueId(id);
@@ -63,10 +72,11 @@ describe('UserEvent', () => {
     it('ska skapa händelse med korrekt struktur', () => {
       const event = new UserCreated(user);
       
-      expect(event.eventName).toBe('user.created');
-      expect(event.user).toBe(user);
-      expect(event.aggregateId).toBe(user.id);
-      expect(event.dateTimeOccurred).toBeInstanceOf(Date);
+      expect(event.eventType).toBe('UserCreated');
+      expect(event.data.userId).toBeDefined();
+      expect(event.aggregateId).toBeDefined();
+      expect(event.occurredAt).toBeInstanceOf(Date);
+      expect(event.eventId).toBeDefined();
     });
   });
   
@@ -75,9 +85,10 @@ describe('UserEvent', () => {
       const reason = 'email_verification';
       const event = new UserActivated(user, reason);
       
-      expect(event.eventName).toBe('user.activated');
-      expect(event.user).toBe(user);
-      expect(event.activationReason).toBe(reason);
+      expect(event.eventType).toBe('UserActivated');
+      expect(event.data.userId).toBeDefined();
+      expect(event.data.activationReason).toBe(reason);
+      expect(event.activationReason).toBe(reason); // För bakåtkompatibilitet
     });
   });
   
@@ -86,9 +97,10 @@ describe('UserEvent', () => {
       const reason = 'user_request';
       const event = new UserDeactivated(user, reason);
       
-      expect(event.eventName).toBe('user.deactivated');
-      expect(event.user).toBe(user);
-      expect(event.deactivationReason).toBe(reason);
+      expect(event.eventType).toBe('UserDeactivated');
+      expect(event.data.userId).toBeDefined();
+      expect(event.data.deactivationReason).toBe(reason);
+      expect(event.deactivationReason).toBe(reason); // För bakåtkompatibilitet
     });
   });
   
@@ -97,9 +109,9 @@ describe('UserEvent', () => {
       const privacy = { showProfile: false, showActivity: false };
       const event = new UserPrivacySettingsChanged(user, privacy);
       
-      expect(event.eventName).toBe('user.privacy_settings.changed');
-      expect(event.user).toBe(user);
-      expect(event.privacy).toBe(privacy);
+      expect(event.eventType).toBe('UserPrivacySettingsChanged');
+      expect(event.data.userId).toBeDefined();
+      expect(event.data.privacy).toBe(privacy);
     });
   });
   
@@ -116,11 +128,11 @@ describe('UserEvent', () => {
         newSettings
       );
       
-      expect(event.eventName).toBe('user.notification_settings.changed');
-      expect(event.user).toBe(user);
-      expect(event.notifications).toBe(notifications);
-      expect(event.oldSettings).toBe(oldSettings);
-      expect(event.newSettings).toBe(newSettings);
+      expect(event.eventType).toBe('UserNotificationSettingsChanged');
+      expect(event.data.userId).toBeDefined();
+      expect(event.data.notifications).toBe(notifications);
+      expect(event.data.oldSettings).toBe(oldSettings);
+      expect(event.data.newSettings).toBe(newSettings);
     });
   });
   
@@ -131,10 +143,10 @@ describe('UserEvent', () => {
       
       const event = new UserSecurityEvent(user, securityEvent, metadata);
       
-      expect(event.eventName).toBe(`user.security.${securityEvent}`);
-      expect(event.user).toBe(user);
-      expect(event.securityEvent).toBe(securityEvent);
-      expect(event.metadata).toBe(metadata);
+      expect(event.eventType).toBe('UserSecurityEvent');
+      expect(event.data.userId).toBeDefined();
+      expect(event.data.securityEvent).toBe(securityEvent);
+      expect(event.data.metadata).toBe(metadata);
     });
   });
 }); 

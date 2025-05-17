@@ -43,14 +43,14 @@ export class UserProfile extends ValueObject<UserProfileProps> {
    * @returns Result med UserProfile eller felmeddelande
    */
   public static create(props: UserProfileProps): Result<UserProfile, string> {
-    // Förbehandla strängfält
+    // Förbehandla strängfält - hantera undefined-värden korrekt
     const processedProps = {
       ...props,
-      firstName: props.firstName.trim(),
-      lastName: props.lastName.trim(),
-      displayName: props.displayName?.trim(),
-      bio: props.bio?.trim(),
-      location: props.location?.trim(),
+      firstName: props.firstName ? props.firstName.trim() : '',
+      lastName: props.lastName ? props.lastName.trim() : '',
+      displayName: props.displayName ? props.displayName.trim() : undefined,
+      bio: props.bio ? props.bio.trim() : undefined,
+      location: props.location ? props.location.trim() : undefined,
       interests: props.interests ? [...props.interests] : [],
       socialLinks: props.socialLinks ? { ...props.socialLinks } : undefined
     };

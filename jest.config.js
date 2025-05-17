@@ -33,7 +33,10 @@ module.exports = {
     '^@/infrastructure/supabase/supabaseClient$': '<rootDir>/src/infrastructure/supabase/__mocks__/supabaseClient.ts',
     '^@/infrastructure/events/eventBus$': '<rootDir>/src/infrastructure/events/__mocks__/eventBus.ts',
     '^@/infrastructure/monitoring/PerformanceMonitor$': '<rootDir>/src/infrastructure/monitoring/__mocks__/PerformanceMonitor.ts',
-    'react-native-toast-message': '<rootDir>/__mocks__/react-native-toast-message.js'
+    'react-native-toast-message': '<rootDir>/__mocks__/react-native-toast-message.js',
+    '^react-native$': '<rootDir>/__mocks__/react-native.js',
+    '^stripe$': '<rootDir>/__mocks__/stripe.js',
+    '^stripe-react-native$': '<rootDir>/__mocks__/stripe-react-native.js'
   },
   testMatch: [
     '**/__tests__/**/*.[jt]s?(x)',
@@ -51,7 +54,7 @@ module.exports = {
     },
     {
       displayName: 'application',
-      testEnvironment: 'node',
+      testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/src/application/**/*.test.{ts,tsx,js,jsx}',
       ],

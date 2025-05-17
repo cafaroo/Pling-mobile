@@ -1,105 +1,62 @@
+/**
+ * activateUser Use Case
+ * 
+ * Aktiverar ett användarekonto och utlöser en UserActivated-händelse
+ */
+
+import { Result, ok, err } from '@/shared/core/Result';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
-import { Result, err, ok } from '@/shared/core/Result';
-import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
-import { UniqueId } from '@/shared/core/UniqueId';
+import { User } from '@/domain/user/entities/User';
+import { EventBus } from '@/shared/core/EventBus';
+import { UserActivated } from '@/domain/user/events/UserEvent';
 
-export interface ActivateUserDTO {
+export interface ActivateUserInput {
   userId: string;
-  reason: string;
+  reason?: string;
 }
 
-export interface ActivateUserResponse {
-  userId: string;
-  status: string;
-  activatedAt: Date;
+export interface ActivateUserDeps {
+  userRepo: UserRepository;
+  eventBus: EventBus;
 }
 
-type ActivateUserError = {
-  message: string;
-  code: 'USER_NOT_FOUND' | 'ALREADY_ACTIVE' | 'DATABASE_ERROR' | 'UNEXPECTED_ERROR';
+export const activateUser = (deps: ActivateUserDeps) => {
+  const { userRepo, eventBus } = deps;
+
+  return async (input: ActivateUserInput): Promise<Result<User, Error>> => {
+    try {
+      const { userId, reason = 'manual_activation' } = input;
+
+      // Hitta användaren
+      const userResult = await userRepo.findById(userId);
+      if (userResult.isErr()) {
+        return err(new Error(`Kunde inte hitta användaren: ${userResult.error.message}`));
+      }
+
+      const user = userResult.value;
+
+      // Kontrollera om användaren redan är aktiv
+      if (user.isActive()) {
+        return ok(user); // Returnera success om användaren redan är aktiv
+      }
+
+      // Aktivera användaren
+      user.activate();
+
+      // Spara användaren
+      const saveResult = await userRepo.save(user);
+      if (saveResult.isErr()) {
+        return err(new Error(`Kunde inte spara användaren: ${saveResult.error.message}`));
+      }
+
+      // Publicera event
+      eventBus.publish(new UserActivated(user, reason));
+
+      return ok(user);
+    } catch (error) {
+      return err(error instanceof Error ? error : new Error('Okänt fel vid aktivering av användare'));
+    }
+  };
 };
 
-interface Dependencies {
-  userRepo: UserRepository;
-  eventPublisher: IDomainEventPublisher;
-}
-
-/**
- * Användarfall för att aktivera en inaktiv användare
- */
-export class ActivateUserUseCase {
-  constructor(
-    private readonly userRepo: UserRepository,
-    private readonly eventPublisher: IDomainEventPublisher
-  ) {}
-
-  static create(deps: Dependencies): ActivateUserUseCase {
-    return new ActivateUserUseCase(
-      deps.userRepo,
-      deps.eventPublisher
-    );
-  }
-
-  async execute(dto: ActivateUserDTO): Promise<Result<ActivateUserResponse, ActivateUserError>> {
-    try {
-      const userIdObj = new UniqueId(dto.userId);
-      
-      // Hämta användaren från repository
-      const userResult = await this.userRepo.findById(userIdObj);
-      if (userResult.isErr()) {
-        return err({
-          message: `Användaren hittades inte: ${userResult.error}`,
-          code: 'USER_NOT_FOUND'
-        });
-      }
-      
-      const user = userResult.value;
-      
-      // Kontrollera om användaren redan är aktiv
-      if (user.status === 'active') {
-        return err({
-          message: 'Användaren är redan aktiverad',
-          code: 'ALREADY_ACTIVE'
-        });
-      }
-      
-      // Aktivera användaren genom att uppdatera status
-      const updateResult = user.updateStatus('active', dto.reason);
-      if (updateResult.isErr()) {
-        return err({
-          message: updateResult.error,
-          code: 'UNEXPECTED_ERROR'
-        });
-      }
-      
-      // Spara användaren
-      const saveResult = await this.userRepo.save(user);
-      if (saveResult.isErr()) {
-        return err({
-          message: `Kunde inte spara den aktiverade användaren: ${saveResult.error}`,
-          code: 'DATABASE_ERROR'
-        });
-      }
-      
-      // Publicera domänevents
-      const domainEvents = user.getDomainEvents();
-      for (const event of domainEvents) {
-        await this.eventPublisher.publish(event);
-      }
-      
-      // Rensa events
-      user.clearEvents();
-      
-      return ok({
-        userId: user.id.toString(),
-        status: user.status,
-        activatedAt: user.updatedAt
-      });
-    } catch (error) {
-      return err({
-        message: `Ett oväntat fel uppstod vid aktivering av användare: ${error instanceof Error ? error.message : String(error)}`,
-        code: 'UNEXPECTED_ERROR'
-      });
-    }
-  }
-} 
+export default activateUser; 

@@ -6,6 +6,13 @@ export namespace TeamError {
     }
   }
 
+  export class InvalidRole extends Error {
+    constructor(role: string) {
+      super(`Ogiltig teamroll: ${role}`);
+      this.name = 'InvalidRole';
+    }
+  }
+
   export class MemberAlreadyExists extends Error {
     constructor() {
       super('Användaren är redan medlem i teamet');

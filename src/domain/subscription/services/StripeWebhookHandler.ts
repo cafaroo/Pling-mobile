@@ -16,16 +16,33 @@ export enum StripeWebhookEventType {
 }
 
 /**
+ * Fallback logger som används om ingen logger injiceras
+ */
+const defaultLogger: Logger = {
+  info: (message: string, meta?: any) => console.info(message, meta),
+  warn: (message: string, meta?: any) => console.warn(message, meta),
+  error: (message: string, meta?: any) => console.error(message, meta),
+  debug: (message: string, meta?: any) => console.debug(message, meta)
+};
+
+/**
  * Stripe Webhook Handler
  * 
  * OBS: Detta är bara ett skal för att kunna mocka i testerna
  */
 export class StripeWebhookHandler {
-  constructor(
-    private readonly subscriptionRepository: SubscriptionRepository,
-    private readonly eventBus: EventBus,
-    private readonly logger: Logger
-  ) {}
+  private logger: Logger;
+
+  constructor(private readonly props: {
+    stripeClient: any;
+    subscriptionRepository: SubscriptionRepository;
+    notificationService: any;
+    eventBus: EventBus;
+    logger?: Logger;
+  }) {
+    // Använd den injicerade loggern eller fallback till defaultLogger
+    this.logger = props.logger || defaultLogger;
+  }
 
   /**
    * Verifierar webhook-signaturen från Stripe
@@ -96,12 +113,12 @@ export class StripeWebhookHandler {
   }
 
   /**
-   * Hanterar slutförda checkout-sessioner (nya prenumerationer)
+   * Hanterar en checkout.session.completed händelse från Stripe
    */
   private async handleCheckoutSessionCompleted(eventData: any): Promise<void> {
-    const session = eventData.object;
+    const session = eventData.object || {};
     
-    if (session.mode !== 'subscription') {
+    if (!session || session.mode !== 'subscription') {
       this.logger.info('Ignorerar icke-prenumerations checkout session');
       return;
     }
@@ -123,10 +140,10 @@ export class StripeWebhookHandler {
       const subscriptionData = await this.fetchSubscriptionFromStripe(subscriptionId);
       
       // Spara i databasen
-      await this.subscriptionRepository.saveSubscription(subscriptionData);
+      await this.props.subscriptionRepository.saveSubscription(subscriptionData);
       
       // Publicera händelse
-      this.eventBus.publish('subscription.created', {
+      this.props.eventBus.publish('subscription.created', {
         organizationId,
         subscriptionId,
         planId: subscriptionData.planId,
@@ -140,10 +157,10 @@ export class StripeWebhookHandler {
   }
 
   /**
-   * Hanterar lyckade fakturabetalningar
+   * Hanterar en invoice.payment_succeeded händelse från Stripe
    */
   private async handleInvoicePaymentSucceeded(eventData: any): Promise<void> {
-    const invoice = eventData.object;
+    const invoice = eventData.object || {};
     const subscriptionId = invoice.subscription;
     
     if (!subscriptionId) {
@@ -153,7 +170,7 @@ export class StripeWebhookHandler {
 
     try {
       // Hämta prenumerationen från vår databas
-      const subscription = await this.subscriptionRepository.getSubscriptionByStripeId(subscriptionId);
+      const subscription = await this.props.subscriptionRepository.getSubscriptionByStripeId(subscriptionId);
       
       if (!subscription) {
         this.logger.warn(`Kunde inte hitta prenumeration för Stripe ID: ${subscriptionId}`);
@@ -168,10 +185,10 @@ export class StripeWebhookHandler {
         updatedAt: new Date(),
       };
       
-      await this.subscriptionRepository.updateSubscription(subscription.id, updated);
+      await this.props.subscriptionRepository.updateSubscription(subscription.id, updated);
       
       // Publicera händelse
-      this.eventBus.publish('subscription.renewed', {
+      this.props.eventBus.publish('subscription.renewed', {
         organizationId: subscription.organizationId,
         subscriptionId: subscription.id,
         invoiceId: invoice.id,
@@ -186,10 +203,10 @@ export class StripeWebhookHandler {
   }
 
   /**
-   * Hanterar misslyckade fakturabetalningar
+   * Hanterar en invoice.payment_failed händelse från Stripe
    */
   private async handleInvoicePaymentFailed(eventData: any): Promise<void> {
-    const invoice = eventData.object;
+    const invoice = eventData.object || {};
     const subscriptionId = invoice.subscription;
     
     if (!subscriptionId) {
@@ -198,7 +215,7 @@ export class StripeWebhookHandler {
 
     try {
       // Hämta prenumerationen från databasen
-      const subscription = await this.subscriptionRepository.getSubscriptionByStripeId(subscriptionId);
+      const subscription = await this.props.subscriptionRepository.getSubscriptionByStripeId(subscriptionId);
       
       if (!subscription) {
         this.logger.warn(`Kunde inte hitta prenumeration för Stripe ID: ${subscriptionId}`);
@@ -211,10 +228,10 @@ export class StripeWebhookHandler {
         updatedAt: new Date(),
       };
       
-      await this.subscriptionRepository.updateSubscription(subscription.id, updated);
+      await this.props.subscriptionRepository.updateSubscription(subscription.id, updated);
       
       // Publicera händelse för att notifiera kunden
-      this.eventBus.publish('subscription.payment_failed', {
+      this.props.eventBus.publish('subscription.payment_failed', {
         organizationId: subscription.organizationId,
         subscriptionId: subscription.id,
         invoiceId: invoice.id,
@@ -230,15 +247,15 @@ export class StripeWebhookHandler {
   }
 
   /**
-   * Hanterar uppdateringar av prenumerationer
+   * Hanterar en customer.subscription.updated händelse från Stripe
    */
   private async handleCustomerSubscriptionUpdated(eventData: any): Promise<void> {
-    const stripeSubscription = eventData.object;
+    const stripeSubscription = eventData.object || {};
     const subscriptionId = stripeSubscription.id;
 
     try {
       // Hämta prenumerationen från vår databas
-      const subscription = await this.subscriptionRepository.getSubscriptionByStripeId(subscriptionId);
+      const subscription = await this.props.subscriptionRepository.getSubscriptionByStripeId(subscriptionId);
       
       if (!subscription) {
         this.logger.warn(`Kunde inte hitta prenumeration för Stripe ID: ${subscriptionId}`);
@@ -260,10 +277,10 @@ export class StripeWebhookHandler {
         updated.planId = planId;
       }
       
-      await this.subscriptionRepository.updateSubscription(subscription.id, updated);
+      await this.props.subscriptionRepository.updateSubscription(subscription.id, updated);
       
       // Publicera händelse
-      this.eventBus.publish('subscription.updated', {
+      this.props.eventBus.publish('subscription.updated', {
         organizationId: subscription.organizationId,
         subscriptionId: subscription.id,
         status: updated.status,
@@ -286,7 +303,7 @@ export class StripeWebhookHandler {
 
     try {
       // Hämta prenumerationen från vår databas
-      const subscription = await this.subscriptionRepository.getSubscriptionByStripeId(subscriptionId);
+      const subscription = await this.props.subscriptionRepository.getSubscriptionByStripeId(subscriptionId);
       
       if (!subscription) {
         this.logger.warn(`Kunde inte hitta prenumeration för Stripe ID: ${subscriptionId}`);
@@ -299,10 +316,10 @@ export class StripeWebhookHandler {
         updatedAt: new Date(),
       };
       
-      await this.subscriptionRepository.updateSubscription(subscription.id, updated);
+      await this.props.subscriptionRepository.updateSubscription(subscription.id, updated);
       
       // Publicera händelse
-      this.eventBus.publish('subscription.canceled', {
+      this.props.eventBus.publish('subscription.canceled', {
         organizationId: subscription.organizationId,
         subscriptionId: subscription.id,
       });

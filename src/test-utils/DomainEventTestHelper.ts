@@ -107,12 +107,55 @@ export class DomainEventTestHelper {
   }
 
   /**
-   * Skapar en riktig EventBus för tester
-   * 
-   * @returns En instans av EventBus
+   * Skapar en riktig EventBus (inte en mock) för integrationstest
    */
   static createRealEventBus(): EventBus {
-    return new EventBus();
+    const subscribers = new Map<string, Set<(payload: any) => void>>();
+    
+    // Skapa en komplett implementation av EventBus
+    return {
+      // Publicera ett event till alla prenumeranter
+      publish: async (eventType: string, payload?: any) => {
+        console.log(`Publishing event: ${eventType}`, payload);
+        const eventSubscribers = subscribers.get(eventType);
+        if (eventSubscribers) {
+          for (const callback of Array.from(eventSubscribers)) {
+            await callback(payload);
+          }
+        }
+      },
+      
+      // Lägg till en prenumeration och returnera en unsubscribe-funktion
+      subscribe: (eventType: string, callback: (payload: any) => void) => {
+        if (!subscribers.has(eventType)) {
+          subscribers.set(eventType, new Set());
+        }
+        
+        subscribers.get(eventType)?.add(callback);
+        
+        return {
+          unsubscribe: () => {
+            const eventSubscribers = subscribers.get(eventType);
+            if (eventSubscribers) {
+              eventSubscribers.delete(callback);
+            }
+          }
+        };
+      },
+      
+      // Ta bort en specifik prenumeration
+      unsubscribe: (eventType: string, callback: (payload: any) => void) => {
+        const eventSubscribers = subscribers.get(eventType);
+        if (eventSubscribers) {
+          eventSubscribers.delete(callback);
+        }
+      },
+      
+      // Rensa alla prenumerationer
+      clearListeners: () => {
+        subscribers.clear();
+      }
+    };
   }
 
   /**

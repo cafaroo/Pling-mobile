@@ -1,5 +1,5 @@
 import { UserCreatedHandler } from '../UserCreatedHandler';
-import { UserCreated } from '@/domain/user/events/UserEvent';
+import { MockUserCreatedEvent } from '@/test-utils/mocks/mockUserEvents';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 import { OrganizationRepository } from '@/domain/organization/repositories/OrganizationRepository';
@@ -73,9 +73,9 @@ describe('UserCreatedHandler', () => {
     mockUserRepository.findById.mockResolvedValue(Result.ok(mockUser));
     mockUserRepository.save.mockResolvedValue(Result.ok());
     
-    // Skapa ett UserCreated-event
-    const event = new UserCreated(
-      userId,
+    // Skapa ett MockUserCreatedEvent istället för UserCreated
+    const event = new MockUserCreatedEvent(
+      { id: userId },
       'test@example.com',
       'Test User'
     );
@@ -119,9 +119,9 @@ describe('UserCreatedHandler', () => {
     // Skapa spion för console.error
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
     
-    // Skapa ett UserCreated-event
-    const event = new UserCreated(
-      userId,
+    // Skapa ett MockUserCreatedEvent istället för UserCreated
+    const event = new MockUserCreatedEvent(
+      { id: userId },
       'test@example.com',
       'Test User'
     );

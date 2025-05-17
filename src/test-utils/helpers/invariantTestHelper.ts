@@ -118,4 +118,115 @@ export class InvariantTestHelper {
       }
     }
   }
+
+  /**
+   * Kontrollerar att ett fält inte är tomt
+   * 
+   * @param value Värdet som ska kontrolleras
+   * @param fieldName Namnet på fältet för felmeddelandet
+   * @throws Error om värdet är tomt
+   */
+  static assertNotEmpty(value: any, fieldName: string): void {
+    if (value === null || value === undefined || value === '') {
+      throw new Error(`${fieldName} får inte vara tomt`);
+    }
+  }
+
+  /**
+   * Kontrollerar att ett värde inte överskrider en maximal längd
+   * 
+   * @param value Värdet som ska kontrolleras
+   * @param maxLength Maximal tillåten längd
+   * @param fieldName Namnet på fältet för felmeddelandet
+   * @throws Error om värdet överskrider maxlängden
+   */
+  static assertMaxLength(value: string, maxLength: number, fieldName: string): void {
+    if (value && value.length > maxLength) {
+      throw new Error(`${fieldName} får inte vara längre än ${maxLength} tecken`);
+    }
+  }
+
+  /**
+   * Kontrollerar att ett värde uppnår en minimilängd
+   * 
+   * @param value Värdet som ska kontrolleras
+   * @param minLength Minimal tillåten längd
+   * @param fieldName Namnet på fältet för felmeddelandet
+   * @throws Error om värdet understiger minlängden
+   */
+  static assertMinLength(value: string, minLength: number, fieldName: string): void {
+    if (value && value.length < minLength) {
+      throw new Error(`${fieldName} måste vara minst ${minLength} tecken`);
+    }
+  }
+
+  /**
+   * Kontrollerar att ett värde är ett giltigt format (t.ex. email, URL)
+   * 
+   * @param value Värdet som ska kontrolleras
+   * @param pattern Regex-mönster att validera mot
+   * @param fieldName Namnet på fältet för felmeddelandet
+   * @throws Error om värdet inte matchar mönstret
+   */
+  static assertPattern(value: string, pattern: RegExp, fieldName: string): void {
+    if (value && !pattern.test(value)) {
+      throw new Error(`${fieldName} har ett ogiltigt format`);
+    }
+  }
+
+  /**
+   * Kontrollerar att ett numeriskt värde ligger inom ett giltigt intervall
+   * 
+   * @param value Värdet som ska kontrolleras
+   * @param min Minsta tillåtna värde
+   * @param max Största tillåtna värde
+   * @param fieldName Namnet på fältet för felmeddelandet
+   * @throws Error om värdet ligger utanför intervallet
+   */
+  static assertRange(value: number, min: number, max: number, fieldName: string): void {
+    if (value < min || value > max) {
+      throw new Error(`${fieldName} måste vara mellan ${min} och ${max}`);
+    }
+  }
+
+  /**
+   * Kontrollerar att ett värde är en giltig epost-adress
+   * 
+   * @param value Epost-adressen att validera
+   * @param fieldName Namnet på fältet för felmeddelandet
+   * @throws Error om värdet inte är en giltig epost-adress
+   */
+  static assertValidEmail(value: string, fieldName: string = 'Email'): void {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    this.assertPattern(value, emailPattern, fieldName);
+  }
+
+  /**
+   * Kontrollerar att ett värde är en giltig URL
+   * 
+   * @param value URL:en att validera
+   * @param fieldName Namnet på fältet för felmeddelandet
+   * @throws Error om värdet inte är en giltig URL
+   */
+  static assertValidUrl(value: string, fieldName: string = 'URL'): void {
+    try {
+      new URL(value);
+    } catch {
+      throw new Error(`${fieldName} är inte en giltig URL`);
+    }
+  }
+
+  /**
+   * Kontrollerar att ett värde är ett av de tillåtna alternativen
+   * 
+   * @param value Värdet att validera
+   * @param allowedValues Array med tillåtna värden
+   * @param fieldName Namnet på fältet för felmeddelandet
+   * @throws Error om värdet inte är ett av de tillåtna alternativen
+   */
+  static assertOneOf<T>(value: T, allowedValues: T[], fieldName: string): void {
+    if (!allowedValues.includes(value)) {
+      throw new Error(`${fieldName} måste vara ett av följande värden: ${allowedValues.join(', ')}`);
+    }
+  }
 } 

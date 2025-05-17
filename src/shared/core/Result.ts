@@ -1,135 +1,150 @@
-export type Result<T, E = string> = Ok<T, E> | Err<T, E>;
+/**
+ * Result är en klass som används för att representera resultatet av en operation
+ * som kan misslyckas. Den innehåller antingen ett värde (vid framgång) eller ett
+ * felvärde (vid misslyckande).
+ * 
+ * Den är inspirerad av Result-mönstret från funktionella språk och används för att
+ * undvika att kasta exceptions och istället hantera fel på ett typsäkert sätt.
+ */
 
-export class Ok<T, E> implements IResult<T, E> {
-  readonly value: T;
-  readonly error: null = null;
+// Huvudklass för Result
+export class Result<T, E = Error> {
+  // Privata fält: _value innehåller värdet vid framgång, _error innehåller felet vid misslyckande
+  private readonly _value: T;
+  private readonly _error: E;
+  private readonly _isOk: boolean;
 
-  constructor(value: T) {
-    this.value = value;
+  // Konstruktor (privat, använd de statiska fabriksmetoderna ok/err)
+  private constructor(isOk: boolean, value?: T, error?: E) {
+    this._isOk = isOk;
+    this._value = value as T;
+    this._error = error as E;
+
+    // Frys objektet för att förhindra modifiering
+    Object.freeze(this);
   }
 
-  isOk(): this is Ok<T, E> {
-    return true;
+  // Kontrollera om resultatet är ok (framgångsrikt)
+  public isOk(): this is Result<T, E> & { value: T } {
+    return this._isOk;
   }
 
-  isErr(): this is Err<T, E> {
-    return false;
+  // Kontrollera om resultatet är ett fel
+  public isErr(): this is Result<T, E> & { error: E } {
+    return !this._isOk;
   }
 
-  /** @deprecated Använd .value istället för bättre kodstandard */
-  getValue(): T {
-    return this.value;
+  // För bakåtkompatibilitet med gamla tester
+  public isSuccess(): boolean {
+    return this._isOk;
   }
 
-  /** @deprecated Använd .error istället för bättre kodstandard */
-  getError(): E {
-    throw new Error('Cannot get error from OK result');
+  // För bakåtkompatibilitet med gamla tester
+  public isFailure(): boolean {
+    return !this._isOk;
   }
 
-  /** @deprecated Kontrollera result.isOk() och använd result.value istället */
-  unwrap(): T {
-    return this.value;
+  // Hämta värdet om resultatet är ok, annars null
+  public get value(): T {
+    return this._value;
   }
 
-  /** @deprecated Använd result.isOk() ? result.value : defaultValue istället */
-  unwrapOr(defaultValue: T): T {
-    return this.value;
+  // Hämta felet om resultatet är ett fel, annars null
+  public get error(): E {
+    return this._error;
   }
 
-  map<U>(fn: (value: T) => U): Result<U, E> {
-    return ok(fn(this.value));
+  // För bakåtkompatibilitet med gamla tester
+  public getValue(): T {
+    return this._value;
   }
 
-  mapErr<U>(fn: (err: E) => U): Result<T, U> {
-    return ok(this.value);
+  // För bakåtkompatibilitet med gamla tester
+  public getErrorValue(): E {
+    return this._error;
   }
 
-  andThen<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
-    return fn(this.value);
+  // Map-funktion för att transformera värdet i ett ok-resultat
+  public map<U>(fn: (value: T) => U): Result<U, E> {
+    if (this.isOk()) {
+      return ok(fn(this._value));
+    } else {
+      return err(this._error);
+    }
   }
 
-  orElse<U>(fn: (err: E) => Result<T, U>): Result<T, U> {
-    return ok(this.value);
+  // FlatMap/bind-funktion för att transformera ett ok-resultat till ett nytt Result
+  public flatMap<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
+    if (this.isOk()) {
+      return fn(this._value);
+    } else {
+      return err(this._error);
+    }
+  }
+
+  // Utför en callback-funktion på värdet och returnera samma Result
+  public tap(fn: (value: T) => void): Result<T, E> {
+    if (this.isOk()) {
+      fn(this._value);
+    }
+    return this;
+  }
+
+  // Utför en callback-funktion på felet och returnera samma Result
+  public tapError(fn: (error: E) => void): Result<T, E> {
+    if (this.isErr()) {
+      fn(this._error);
+    }
+    return this;
+  }
+
+  // Hantera både framgång och fel i en operation
+  public match<U>({
+    ok: okFn,
+    err: errFn,
+  }: {
+    ok: (value: T) => U;
+    err: (error: E) => U;
+  }): U {
+    if (this.isOk()) {
+      return okFn(this._value);
+    } else {
+      return errFn(this._error);
+    }
+  }
+  
+  // Statiska kompatibilitetsmetoder för att stödja gamla tester
+  static ok<T, E = Error>(value: T): Result<T, E> {
+    return ok(value);
+  }
+  
+  static err<T, E = Error>(error: E): Result<T, E> {
+    return err(error);
+  }
+  
+  static fail<T, E = Error>(error: E): Result<T, E> {
+    return err(error);
   }
 }
 
-export class Err<T, E> implements IResult<T, E> {
-  readonly error: E;
-  readonly value: null = null;
-
-  constructor(error: E) {
-    this.error = error;
-  }
-
-  isOk(): this is Ok<T, E> {
-    return false;
-  }
-
-  isErr(): this is Err<T, E> {
-    return true;
-  }
-
-  /** @deprecated Använd .value istället för bättre kodstandard */
-  getValue(): T {
-    throw new Error('Cannot get value from Error result');
-  }
-
-  /** @deprecated Använd .error istället för bättre kodstandard */
-  getError(): E {
-    return this.error;
-  }
-
-  /** @deprecated Kontrollera result.isOk() och använd result.value istället */
-  unwrap(): T {
-    throw new Error('Cannot unwrap Error result');
-  }
-
-  /** @deprecated Använd result.isOk() ? result.value : defaultValue istället */
-  unwrapOr(defaultValue: T): T {
-    return defaultValue;
-  }
-
-  map<U>(fn: (value: T) => U): Result<U, E> {
-    return err(this.error);
-  }
-
-  mapErr<U>(fn: (err: E) => U): Result<T, U> {
-    return err(fn(this.error));
-  }
-
-  andThen<U>(fn: (value: T) => Result<U, E>): Result<U, E> {
-    return err(this.error);
-  }
-
-  orElse<U>(fn: (err: E) => Result<T, U>): Result<T, U> {
-    return fn(this.error);
-  }
+// Fabriksmetod för att skapa ett OK-resultat
+export function ok<T, E = Error>(value: T): Result<T, E> {
+  return new Result<T, E>(true, value, undefined);
 }
 
-export const ok = <T, E = string>(value: T): Result<T, E> => new Ok(value);
-export const err = <T, E = string>(error: E): Result<T, E> => new Err(error);
+// Fabriksmetod för att skapa ett ERR-resultat
+export function err<T, E = Error>(error: E): Result<T, E> {
+  return new Result<T, E>(false, undefined, error);
+}
 
-interface IResult<T, E> {
-  isOk(): boolean;
-  isErr(): boolean;
-  
-  // Moderna metoder - rekommenderas
-  readonly value: T | null;
-  readonly error: E | null;
-  
-  // Äldre metoder - undvik dessa
-  /** @deprecated Använd .value istället för bättre kodstandard */
-  getValue(): T;
-  /** @deprecated Använd .error istället för bättre kodstandard */
-  getError(): E;
-  /** @deprecated Kontrollera result.isOk() och använd result.value istället */
-  unwrap(): T;
-  /** @deprecated Använd result.isOk() ? result.value : defaultValue istället */
-  unwrapOr(defaultValue: T): T;
-  
-  // Transformation
-  map<U>(fn: (val: T) => U): IResult<U, E>;
-  mapErr<U>(fn: (err: E) => U): IResult<T, U>;
-  andThen<U>(fn: (val: T) => IResult<U, E>): IResult<U, E>;
-  orElse<U>(fn: (err: E) => IResult<T, U>): IResult<T, U>;
-} 
+// Kompatibilitetsexport för att stödja gamla tester
+export const fail = err;
+
+// Exportera typer för enklare användning
+export type Ok<T> = Result<T, never>;
+export type Err<E> = Result<never, E>;
+
+// Standardtyp för Result med Error som feltyp
+export type ResultError<T> = Result<T, Error>;
+
+export default Result; 

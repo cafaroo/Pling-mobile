@@ -1,15 +1,18 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, createElement } from 'react';
 import { OrganizationRepository } from '@/domain/organization/repositories/OrganizationRepository';
 import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
-import { SupabaseOrganizationRepository } from '@/infrastructure/supabase/repositories/OrganizationRepository';
+import { SupabaseOrganizationRepository } from '@/infrastructure/supabase/repositories/organization/SupabaseOrganizationRepository';
 import { DomainEventPublisher } from '@/infrastructure/events/DomainEventPublisher';
+import { OrganizationService } from '@/domain/organization/services/OrganizationService';
+import { DefaultOrganizationService } from '@/domain/organization/services/DefaultOrganizationService';
 import { supabase } from '@/infrastructure/supabase';
 
 /**
- * Kontext för att hantera organisations-relaterade beroenden
+ * Kontext för hantering av organisations-relaterade beroenden
  */
 interface OrganizationContextType {
   organizationRepository: OrganizationRepository;
+  organizationService: OrganizationService;
   eventPublisher: IDomainEventPublisher;
 }
 
@@ -23,6 +26,7 @@ const OrganizationContext = createContext<OrganizationContextType | null>(null);
  */
 interface OrganizationContextProviderProps {
   organizationRepository: OrganizationRepository;
+  organizationService?: OrganizationService;
   eventPublisher: IDomainEventPublisher;
   children: React.ReactNode;
 }
@@ -32,18 +36,24 @@ interface OrganizationContextProviderProps {
  */
 export function OrganizationContextProvider({
   organizationRepository,
+  organizationService,
   eventPublisher,
   children,
 }: OrganizationContextProviderProps) {
+  // Skapa OrganizationService om den inte tillhandahålls
+  const organizationServiceInstance = organizationService || 
+    new DefaultOrganizationService(organizationRepository, eventPublisher);
+
   const value = {
     organizationRepository,
+    organizationService: organizationServiceInstance,
     eventPublisher,
   };
 
-  return (
-    <OrganizationContext.Provider value={value}>
-      {children}
-    </OrganizationContext.Provider>
+  return createElement(
+    OrganizationContext.Provider,
+    { value },
+    children
   );
 }
 
@@ -55,10 +65,15 @@ export function useOrganizationDependencies(): OrganizationContextType {
   
   if (!context) {
     // Fallback till default implementationer om ingen provider finns
-    // I produktion bör detta ersättas med en felmeddelande
+    const supabaseClient = supabase;
+    const organizationRepository = new SupabaseOrganizationRepository(supabaseClient);
+    const eventPublisher = new DomainEventPublisher();
+    const organizationService = new DefaultOrganizationService(organizationRepository, eventPublisher);
+    
     return {
-      organizationRepository: new SupabaseOrganizationRepository(supabase),
-      eventPublisher: new DomainEventPublisher()
+      organizationRepository,
+      organizationService,
+      eventPublisher
     };
   }
   
@@ -67,11 +82,7 @@ export function useOrganizationDependencies(): OrganizationContextType {
 
 /**
  * Hook för att hämta standardiserade organisations-relaterade beroenden
- * Detta är en simplifierad version som direkt returnerar instanser
- * I en mer robust implementation skulle detta använda en factory eller DI-container
  */
 export function useOrganizationContext(): OrganizationContextType {
-  // Detta kan senare ersättas med Context-baserad implementation
-  // För nu returnerar vi direkta instanser som fallback
   return useOrganizationDependencies();
 } 

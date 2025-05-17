@@ -192,9 +192,9 @@ export class DefaultFeatureFlagService implements FeatureFlagService {
       };
 
       // Uppdatera användningsinformation i prenumerationen
-      await this.subscriptionRepository.updateSubscription(
-        subscription.id,
-        { usage: updatedUsage }
+      await this.subscriptionRepository.updateSubscriptionUsage(
+        new UniqueId(subscription.id),
+        updatedUsage
       );
 
       // Logga användningsstatistik för framtida rapporter

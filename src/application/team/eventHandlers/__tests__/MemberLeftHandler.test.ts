@@ -3,7 +3,7 @@ import { MemberLeft } from '@/domain/team/events/TeamEvents';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { UniqueId } from '@/shared/core/UniqueId';
-import { Result } from '@/shared/core/Result';
+import { Result, ok, err } from '@/shared/core/Result';
 import { User } from '@/domain/user/entities/User';
 import { Team } from '@/domain/team/entities/Team';
 import { TeamStatistics } from '@/domain/team/value-objects/TeamStatistics';
@@ -54,10 +54,10 @@ describe('MemberLeftHandler', () => {
     handler = new MemberLeftHandler(mockTeamRepository, mockUserRepository);
     
     // Konfigurera standardbeteende för repositories
-    mockUserRepository.findById.mockResolvedValue(Result.ok(mockUser));
-    mockTeamRepository.findById.mockResolvedValue(Result.ok(mockTeam));
-    mockUserRepository.save.mockResolvedValue(Result.ok());
-    mockTeamRepository.save.mockResolvedValue(Result.ok());
+    mockUserRepository.findById.mockResolvedValue(ok(mockUser));
+    mockTeamRepository.findById.mockResolvedValue(ok(mockTeam));
+    mockUserRepository.save.mockResolvedValue(ok(undefined));
+    mockTeamRepository.save.mockResolvedValue(ok(undefined));
   });
   
   it('should update user and team statistics when a member leaves', async () => {
@@ -71,7 +71,7 @@ describe('MemberLeftHandler', () => {
     const result = await handler['processEvent'](event);
     
     // Assert
-    expect(result.isSuccess).toBe(true);
+    expect(result.isOk()).toBe(true);
     expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
     expect(mockUser.removeTeamMembership).toHaveBeenCalledWith(teamId);
     expect(mockUserRepository.save).toHaveBeenCalledWith(mockUser);
@@ -91,13 +91,13 @@ describe('MemberLeftHandler', () => {
     const event = new MemberLeft(teamId, userId);
     
     // Konfigurera mockUserRepository att returnera fel
-    mockUserRepository.findById.mockResolvedValue(Result.fail('Användaren hittades inte'));
+    mockUserRepository.findById.mockResolvedValue(err('Användaren hittades inte'));
     
     // Act
     const result = await handler['processEvent'](event);
     
     // Assert
-    expect(result.isFailure).toBe(true);
+    expect(result.isErr()).toBe(true);
     expect(result.error).toContain('Kunde inte hitta användaren');
     expect(mockUser.removeTeamMembership).not.toHaveBeenCalled();
     expect(mockUserRepository.save).not.toHaveBeenCalled();
@@ -112,13 +112,13 @@ describe('MemberLeftHandler', () => {
     const event = new MemberLeft(teamId, userId);
     
     // Konfigurera mockTeamRepository att returnera fel
-    mockTeamRepository.findById.mockResolvedValue(Result.fail('Teamet hittades inte'));
+    mockTeamRepository.findById.mockResolvedValue(err('Teamet hittades inte'));
     
     // Act
     const result = await handler['processEvent'](event);
     
     // Assert
-    expect(result.isFailure).toBe(true);
+    expect(result.isErr()).toBe(true);
     expect(result.error).toContain('Kunde inte hitta teamet');
     expect(mockStatistics.decrementMemberCount).not.toHaveBeenCalled();
     expect(mockTeam.updateStatistics).not.toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe('MemberLeftHandler', () => {
     const result = await handler['processEvent'](event);
     
     // Assert
-    expect(result.isSuccess).toBe(true);
+    expect(result.isOk()).toBe(true);
     expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
     expect(mockUser.removeTeamMembership).toHaveBeenCalledWith(teamId);
     expect(mockUserRepository.save).toHaveBeenCalledWith(mockUser);

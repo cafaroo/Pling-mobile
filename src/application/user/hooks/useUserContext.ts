@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, createElement } from 'react';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
 import { SupabaseUserRepository } from '@/infrastructure/supabase/repositories/UserRepository';
@@ -40,11 +40,7 @@ export function UserContextProvider({
     eventPublisher,
   };
 
-  return (
-    <UserContext.Provider value={value}>
-      {children}
-    </UserContext.Provider>
-  );
+  return createElement(UserContext.Provider, { value }, children);
 }
 
 /**

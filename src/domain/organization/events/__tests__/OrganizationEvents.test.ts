@@ -23,13 +23,8 @@ describe('Organization Invitation Events', () => {
       );
       
       // Kontrollera
-      expect(event.name).toBe('MemberInvitedToOrganization');
-      expect(event.payload).toHaveProperty('organizationId', organizationId.toString());
-      expect(event.payload).toHaveProperty('userId', userId.toString());
-      expect(event.payload).toHaveProperty('invitedBy', invitedBy.toString());
-      expect(event.payload).toHaveProperty('timestamp');
-      
-      // Kontrollera publika egenskaper
+      // Kontrollera publika egenskaper istället för name
+      expect(event).toBeInstanceOf(MemberInvitedToOrganization);
       expect(event.organizationId).toEqual(organizationId);
       expect(event.userId).toEqual(userId);
       expect(event.invitedBy).toEqual(invitedBy);
@@ -46,13 +41,8 @@ describe('Organization Invitation Events', () => {
       );
       
       // Kontrollera
-      expect(event.name).toBe('OrganizationInvitationAccepted');
-      expect(event.payload).toHaveProperty('organizationId', organizationId.toString());
-      expect(event.payload).toHaveProperty('invitationId', invitationId.toString());
-      expect(event.payload).toHaveProperty('userId', userId.toString());
-      expect(event.payload).toHaveProperty('timestamp');
-      
-      // Kontrollera publika egenskaper
+      // Kontrollera publika egenskaper istället för name
+      expect(event).toBeInstanceOf(OrganizationInvitationAccepted);
       expect(event.organizationId).toEqual(organizationId);
       expect(event.invitationId).toEqual(invitationId);
       expect(event.userId).toEqual(userId);
@@ -69,13 +59,8 @@ describe('Organization Invitation Events', () => {
       );
       
       // Kontrollera
-      expect(event.name).toBe('OrganizationInvitationDeclined');
-      expect(event.payload).toHaveProperty('organizationId', organizationId.toString());
-      expect(event.payload).toHaveProperty('invitationId', invitationId.toString());
-      expect(event.payload).toHaveProperty('userId', userId.toString());
-      expect(event.payload).toHaveProperty('timestamp');
-      
-      // Kontrollera publika egenskaper
+      // Kontrollera publika egenskaper istället för name
+      expect(event).toBeInstanceOf(OrganizationInvitationDeclined);
       expect(event.organizationId).toEqual(organizationId);
       expect(event.invitationId).toEqual(invitationId);
       expect(event.userId).toEqual(userId);

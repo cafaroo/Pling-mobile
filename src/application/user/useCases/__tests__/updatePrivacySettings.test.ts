@@ -4,7 +4,7 @@ import { EventBus } from '@/shared/core/EventBus';
 import { User } from '@/domain/user/entities/User';
 import { UniqueId } from '@/shared/domain/UniqueId';
 import { UserPrivacySettingsChanged } from '@/domain/user/events/UserEvent';
-import { mockResult } from '@/test-utils/mocks/ResultMock';
+import { ok, err } from '@/shared/core/Result';
 
 // Mocka resultatfunktioner direkt
 const mockedUpdatePrivacySettings = jest.fn();
@@ -53,7 +53,7 @@ describe('updatePrivacySettings', () => {
   
   it('ska uppdatera användarens integritetsinställningar och publicera UserPrivacySettingsChanged-händelse', async () => {
     // Arrange
-    mockedUpdatePrivacySettings.mockResolvedValue(mockResult.ok(undefined));
+    mockedUpdatePrivacySettings.mockResolvedValue(ok(undefined));
     
     const input: UpdatePrivacySettingsInput = {
       userId,
@@ -78,13 +78,13 @@ describe('updatePrivacySettings', () => {
     
     // Verifiera händelsedata
     const publishedEvent = mockEventBus.publish.mock.calls[0][0] as UserPrivacySettingsChanged;
-    expect(publishedEvent.eventName).toBe('user.privacy_settings.changed');
+    expect(publishedEvent.eventType).toBe('UserPrivacySettingsChanged');
     expect(publishedEvent.privacy).toEqual(updatedSettings);
   });
   
   it('ska returnera USER_NOT_FOUND om användaren inte hittas', async () => {
     // Arrange
-    mockedUpdatePrivacySettings.mockResolvedValue(mockResult.err('USER_NOT_FOUND'));
+    mockedUpdatePrivacySettings.mockResolvedValue(err('USER_NOT_FOUND'));
     
     const input: UpdatePrivacySettingsInput = { 
       userId, 
@@ -104,7 +104,7 @@ describe('updatePrivacySettings', () => {
   
   it('ska returnera INVALID_SETTINGS vid ogiltig profileVisibility', async () => {
     // Arrange
-    mockedUpdatePrivacySettings.mockResolvedValue(mockResult.err('INVALID_SETTINGS'));
+    mockedUpdatePrivacySettings.mockResolvedValue(err('INVALID_SETTINGS'));
     
     const input: UpdatePrivacySettingsInput = { 
       userId, 
@@ -127,7 +127,7 @@ describe('updatePrivacySettings', () => {
   
   it('ska returnera OPERATION_FAILED om uppdatering av användare misslyckas', async () => {
     // Arrange
-    mockedUpdatePrivacySettings.mockResolvedValue(mockResult.err('OPERATION_FAILED'));
+    mockedUpdatePrivacySettings.mockResolvedValue(err('OPERATION_FAILED'));
     
     const input: UpdatePrivacySettingsInput = { 
       userId, 
@@ -148,7 +148,7 @@ describe('updatePrivacySettings', () => {
   
   it('ska hantera fel vid spara och returnera OPERATION_FAILED', async () => {
     // Arrange
-    mockedUpdatePrivacySettings.mockResolvedValue(mockResult.err('OPERATION_FAILED'));
+    mockedUpdatePrivacySettings.mockResolvedValue(err('OPERATION_FAILED'));
     
     // Input
     const input: UpdatePrivacySettingsInput = { 
@@ -178,7 +178,7 @@ describe('updatePrivacySettings', () => {
   
   it('ska stödja partiella uppdateringar av inställningar', async () => {
     // Arrange
-    mockedUpdatePrivacySettings.mockResolvedValue(mockResult.ok(undefined));
+    mockedUpdatePrivacySettings.mockResolvedValue(ok(undefined));
     
     const partialUpdate: Partial<PrivacySettings> = {
       showPhone: false

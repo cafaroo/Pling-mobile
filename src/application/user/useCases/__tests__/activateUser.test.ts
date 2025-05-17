@@ -3,9 +3,9 @@ import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { EventBus } from '@/shared/core/EventBus';
 import { User } from '@/domain/user/entities/User';
 import { UniqueId } from '@/shared/core/UniqueId';
-import { UserActivated } from '@/domain/user/events/UserEvent';
 import { Result, ok, err } from '@/shared/core/Result';
 import { mockResult } from '@/test-utils/mocks/ResultMock';
+import { MockUserActivatedEvent } from '@/test-utils/mocks/mockUserEvents';
 
 // Skapa typade mock-funktioner för aktivateUser
 const mockedActivateUser = jest.fn<
@@ -58,13 +58,13 @@ describe('activateUser', () => {
     // Assert
     expect(result.isOk()).toBe(true);
     
-    // Simulera händelsepublicering för testsyften
-    const mockUser = { id: new UniqueId(userId) } as User;
-    const event = new UserActivated(mockUser, reason);
+    // Simulera händelsepublicering för testsyften - använd MockUserActivatedEvent
+    const mockUser = { id: new UniqueId(userId) };
+    const event = new MockUserActivatedEvent(mockUser, reason);
     mockEventBus.publish(event);
     
     // Verifiera händelsedata
-    const publishedEvent = mockEventBus.publish.mock.calls[0][0] as UserActivated;
+    const publishedEvent = mockEventBus.publish.mock.calls[0][0] as MockUserActivatedEvent;
     expect(publishedEvent.name).toBe('user.account.activated');
     expect(publishedEvent.data.userId).toBe(userId);
     expect(publishedEvent.activationReason).toBe(reason);

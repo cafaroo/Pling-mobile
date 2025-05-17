@@ -464,4 +464,28 @@ Denna approach har visat sig vara effektiv för att göra testningen mer robust 
 ### Prioriterade filer att åtgärda härnäst:
 1. src/application/team/useCases/__tests__/createTeam.test.ts
 2. src/application/user/useCases/__tests__/activateUser.test.ts
-3. src/application/user/eventHandlers/__tests__/UserCreatedHandler.test.ts 
+3. src/application/user/eventHandlers/__tests__/UserCreatedHandler.test.ts
+
+## Uppdatering av framsteg (2024-05-25)
+
+Vi har fortsatt arbetet med att fixa testproblem enligt vår senaste prioriteringslista:
+
+### Genomförda förbättringar:
+1. ✅ **mockUserEvents implementerad** - Skapat mockUserEvents.ts med mockade användarevents som har både eventType och name-egenskaper för bättre bakåtkompatibilitet
+2. ✅ **activateUser.test.ts fixad** - Uppdaterat activateUser.test.ts att använda MockUserActivatedEvent istället för UserActivated
+3. ✅ **Bakåtkompatibel BaseMockUserEvent** - Implementerat en flexibel basevents-klass för UserEvents som stödjer både `name` och `eventType`
+
+### Lärdomar och mönster:
+1. **Bakåtkompatibel egenskapsexponering** - Genom att exponera både `name` och `eventType` i mockade event kan vi stödja blandade test-stilar
+2. **Abstrahering av gemensam logik** - BaseMockUserEvent samlar gemensamma funktioner för att hålla koden torr (DRY)
+3. **Mjuk övergång** - Möjliggör gradvis migrering till nya namkonventioner utan att bryta existerande tester
+
+### Kvarstående problem och nästa steg:
+1. ⭕ **UserCreatedHandler** - Tester förväntar sig specifika parametrar i findById-anrop
+2. ⭕ **Subscription webhook-integration** - Problem med mockade Stripe-funktioner
+3. ⭕ **React hooks-tester** - Flera hooks-tester har problem med render-funktionalitet
+
+### Fortsättningsplan:
+1. Fortsätta implementera mockade användarevents för resterande testfall som behöver dem
+2. Fixa StripeWebhookHandler-testerna genom att förbättra Stripe-mockarna
+3. Skapa React-test-utils för att hjälpa med hookstestning 

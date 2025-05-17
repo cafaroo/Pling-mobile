@@ -21,6 +21,7 @@ export * from './mockOrganizationRepository';
 export * from './mockEventPublisher';
 export * from './mockTeamEntities';
 export * from './mockTeamEvents';
+export * from './mockUserEvents';
 export * from './mockLogger';
 
 // Exportera också de vanligaste mockarna som default-exporter för enklare användning

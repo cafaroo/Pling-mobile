@@ -14,14 +14,29 @@ describe('Team Invariants och Event-publicering', () => {
   let testHelper: ReturnType<typeof createAggregateTestHelper<Team>>;
   
   beforeEach(() => {
+    // Skapa en unik ID för ägaren
     ownerId = new UniqueId('test-owner-id');
+    
+    // Lägg till ägaren som medlem med OWNER-roll
     const teamResult = Team.create({
       name: 'Test Team',
       description: 'Test Description',
-      ownerId: ownerId.toString()
+      ownerId: ownerId
     });
+    
+    // Om teamet inte kunde skapas korrekt, logga felet för att underlätta debugging
+    if (teamResult.isErr()) {
+      console.error('Kunde inte skapa team:', teamResult.error);
+    }
+    
+    // Förvänta oss att teamet skapades korrekt
     expect(teamResult.isOk()).toBe(true);
     team = teamResult.value;
+    
+    // Kontrollera att ägaren faktiskt har lagts till som medlem
+    const ownerMember = team.members.find(m => m.userId.equals(ownerId));
+    expect(ownerMember).toBeDefined();
+    expect(ownerMember?.role).toBe(TeamRole.OWNER);
     
     // Skapa testHelper med teamet
     testHelper = createAggregateTestHelper(team);
@@ -48,7 +63,7 @@ describe('Team Invariants och Event-publicering', () => {
     });
     
     it('ska validera att varje användare bara har en roll i teamet', () => {
-      const memberId = new UniqueId();
+      const memberId = new UniqueId('test-duplicate-member');
       
       // Skapa två medlemsobjekt med samma användar-ID men olika roller
       const member1 = new TeamMember({
@@ -78,8 +93,8 @@ describe('Team Invariants och Event-publicering', () => {
       // Sätt en max medlemsgräns
       (team as any).props.settings.props.maxMembers = 3;
       
-      // Lägg till fler medlemmar än tillåtet
-      for (let i = 0; i < 4; i++) {
+      // Lägg till fler medlemmar än tillåtet (notera att ägaren redan är medlem)
+      for (let i = 0; i < 3; i++) {
         const memberId = new UniqueId(`test-member-${i}`);
         const member = new TeamMember({
           userId: memberId,
@@ -117,7 +132,7 @@ describe('Team Invariants och Event-publicering', () => {
     
     it('ska publicera MemberJoinedEvent när en medlem läggs till', () => {
       // Skapa en ny medlem
-      const memberId = new UniqueId();
+      const memberId = new UniqueId('test-new-member');
       const member = new TeamMember({
         userId: memberId,
         role: TeamRole.MEMBER,
@@ -140,7 +155,7 @@ describe('Team Invariants och Event-publicering', () => {
     
     it('ska publicera MemberLeftEvent när en medlem tas bort', () => {
       // Lägg först till en medlem
-      const memberId = new UniqueId();
+      const memberId = new UniqueId('test-remove-member');
       const member = new TeamMember({
         userId: memberId,
         role: TeamRole.MEMBER,
@@ -165,7 +180,7 @@ describe('Team Invariants och Event-publicering', () => {
     
     it('ska publicera TeamMemberRoleChangedEvent när en medlems roll ändras', () => {
       // Lägg först till en medlem
-      const memberId = new UniqueId();
+      const memberId = new UniqueId('test-role-change-member');
       const member = new TeamMember({
         userId: memberId,
         role: TeamRole.MEMBER,

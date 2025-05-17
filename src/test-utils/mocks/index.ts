@@ -21,11 +21,13 @@ export * from './mockOrganizationRepository';
 export * from './mockEventPublisher';
 export * from './mockTeamEntities';
 export * from './mockTeamEvents';
-export * from './mockSupabase';
 export * from './mockLogger';
 
 // Exportera också de vanligaste mockarna som default-exporter för enklare användning
 export { default as mockEventPublisher } from './mockEventPublisher';
 export { default as MockEventBus } from './mockEventBus';
 export { default as mockDomainEvents } from './mockDomainEvents';
-export { default as mockLogger } from './mockLogger'; 
+export { default as mockLogger } from './mockLogger';
+
+// OBS: mockSupabase exporteras redan av test-utils/index.ts, så vi exporterar det inte här
+// för att undvika dubbla exporter. 

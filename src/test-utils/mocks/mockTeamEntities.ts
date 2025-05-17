@@ -146,6 +146,7 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
     name: props.name,
     description: props.description,
     members: [ownerMember],
+    invitations: [],
     settings: props.settings || {},
     createdAt: now,
     updatedAt: now,
@@ -233,15 +234,153 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
       }
       
       const oldRole = this.members[memberIndex].role;
-      this.members[memberIndex].role = newRole;
+      
+      // Istället för att sätta rollen direkt, ta bort den gamla medlemmen och lägg till en ny
+      // med den nya rollen
+      const userIdToRemove = this.members[memberIndex].userId;
+      
+      // Ta bort medlemmen från listan
+      this.members.splice(memberIndex, 1);
+      
+      // Skapa en ny medlem med samma ID men med den nya rollen
+      const newMember = MockTeamMember.create({
+        userId: userIdToRemove,
+        role: newRole,
+        joinedAt: new Date()
+      }).value;
+      
+      // Lägg till den nya medlemmen
+      this.members.push(newMember);
       
       // Simulera ett domänevent för rollförändring med rätt event-klass
       this.addDomainEvent(new TeamMemberRoleChangedEvent(
         this,
-        this.members[memberIndex].userId,
+        userIdToRemove,
         oldRole,
         newRole
       ));
+      
+      return ok(undefined);
+    },
+    
+    // Utility-metod för att kontrollera om en användare har en viss roll
+    getMemberRole: function(userId: UniqueId | string): MockTeamRole | null {
+      const userIdStr = userId instanceof UniqueId ? userId.toString() : userId;
+      const member = this.members.find(m => m.userId.toString() === userIdStr);
+      return member ? member.role : null;
+    },
+    
+    // Metod för att kontrollera behörigheter
+    hasMemberPermission: function(userId: UniqueId | string, permission: string): boolean {
+      const userIdStr = userId instanceof UniqueId ? userId.toString() : userId;
+      
+      // Ägaren har alltid alla behörigheter
+      if (this.ownerId.toString() === userIdStr) {
+        return true;
+      }
+      
+      const memberRole = this.getMemberRole(userId);
+      if (!memberRole) {
+        return false;
+      }
+      
+      // Definiera behörigheter per roll
+      const rolePermissions = {
+        [MockTeamRole.ADMIN]: [
+          'view_team', 
+          'edit_team', 
+          'invite_members', 
+          'manage_members', 
+          'join_activities', 
+          'create_activities'
+        ],
+        [MockTeamRole.MEMBER]: [
+          'view_team', 
+          'join_activities'
+        ],
+        [MockTeamRole.GUEST]: [
+          'view_team' 
+        ]
+      };
+      
+      // Kontrollera om rollen har behörigheten
+      return rolePermissions[memberRole].includes(permission);
+    },
+    
+    // Metod för att lägga till en inbjudan
+    addInvitation: function(invitation: any): Result<void, string> {
+      // Om teamet inte kan skicka fler inbjudningar
+      if (this.invitations.length >= 10) {
+        return err('Teamet kan inte skicka fler inbjudningar');
+      }
+      
+      // Kontrollera om användaren redan är inbjuden
+      const alreadyInvited = this.invitations.some(
+        inv => inv.email === invitation.email || 
+              (inv.userId && invitation.userId && inv.userId.toString() === invitation.userId.toString())
+      );
+      
+      if (alreadyInvited) {
+        return err('Användaren är redan inbjuden');
+      }
+      
+      // Lägg till inbjudan
+      this.invitations.push(invitation);
+      
+      // Skapa och lägg till en händelse
+      this.addDomainEvent({
+        eventType: 'InvitationSentEvent',
+        teamId: this.id,
+        email: invitation.email,
+        invitationId: invitation.id,
+        invitedBy: invitation.invitedBy,
+        role: invitation.role,
+        expiresAt: invitation.expiresAt
+      });
+      
+      return ok(undefined);
+    },
+    
+    // Metod för att acceptera en inbjudan
+    acceptInvitation: function(invitationId: string, userId: UniqueId): Result<void, string> {
+      const invitation = this.invitations.find(inv => inv.id.toString() === invitationId);
+      
+      if (!invitation) {
+        return err('Inbjudan hittades inte');
+      }
+      
+      // Ta bort inbjudan
+      this.invitations = this.invitations.filter(inv => inv.id.toString() !== invitationId);
+      
+      // Skapa en händelse
+      this.addDomainEvent({
+        eventType: 'InvitationAcceptedEvent',
+        teamId: this.id,
+        invitationId: invitationId,
+        userId: userId
+      });
+      
+      // Lägg till användaren som medlem
+      return this.addMember(userId, invitation.role);
+    },
+    
+    // Metod för att avböja en inbjudan
+    declineInvitation: function(invitationId: string): Result<void, string> {
+      const invitation = this.invitations.find(inv => inv.id.toString() === invitationId);
+      
+      if (!invitation) {
+        return err('Inbjudan hittades inte');
+      }
+      
+      // Ta bort inbjudan
+      this.invitations = this.invitations.filter(inv => inv.id.toString() !== invitationId);
+      
+      // Skapa en händelse
+      this.addDomainEvent({
+        eventType: 'InvitationDeclinedEvent',
+        teamId: this.id,
+        invitationId: invitationId
+      });
       
       return ok(undefined);
     }

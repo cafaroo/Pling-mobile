@@ -6,37 +6,79 @@
  */
 
 /**
- * Extraherar värde från ett event-objekt, oavsett om det finns direkt på event-objektet eller i payload
- * @param event Event-objektet att extrahera data från
- * @param fieldName Fältnamnet att hämta
- * @param defaultValue Standardvärde att returnera om fältet inte finns
- * @returns Värdet från event-objektet eller defaultValue om det inte finns
+ * Hjälpfunktioner för att hantera eventobjekt i tester
+ * 
+ * Dessa funktioner används för att extrahera data från event på ett standardiserat
+ * sätt, oavsett om eventet använder den nya eller gamla eventdatastrukturen.
  */
-export function getEventData<T, K extends string>(
-  event: any,
-  fieldName: K,
-  defaultValue?: T
-): T {
-  // Försök hämta värdet i följande ordning:
-  // 1. Direkt från event.payload.fieldName
-  // 2. Direkt från event.fieldName
-  // 3. Returnera defaultValue om inget av ovanstående fanns
 
-  // Om event är null eller undefined, returnera defaultValue
-  if (!event) return defaultValue as T;
-
-  // Kontrollera om event.payload.fieldName finns
-  if (event.payload && fieldName in event.payload) {
-    return event.payload[fieldName] as T;
+/**
+ * Hämtar data från eventobjekt oberoende av struktur
+ * 
+ * Hanterar både nya events med data.fieldName och äldre med payload.fieldName
+ * Stödjer även events med direkta egenskaper
+ */
+export function getEventData(event: any, fieldName: string): any {
+  if (!event) {
+    return undefined;
   }
-
-  // Kontrollera om event.fieldName finns
-  if (fieldName in event) {
-    return event[fieldName] as T;
+  
+  // Specialhantering för ID-objekt
+  if (fieldName.includes('Id') && event[fieldName] && typeof event[fieldName] === 'object' && event[fieldName].id) {
+    return event[fieldName].id;
   }
+  
+  // Kontrollera direkta egenskaper först
+  if (event[fieldName] !== undefined) {
+    return event[fieldName];
+  }
+  
+  // Kontrollera data-objektet (nyare struktur)
+  if (event.data && event.data[fieldName] !== undefined) {
+    // Specialhantering för ID-objekt inom data
+    if (fieldName.includes('Id') && typeof event.data[fieldName] === 'object' && event.data[fieldName].id) {
+      return event.data[fieldName].id;
+    }
+    return event.data[fieldName];
+  }
+  
+  // Kontrollera payload-objektet (äldre struktur)
+  if (event.payload && event.payload[fieldName] !== undefined) {
+    // Specialhantering för ID-objekt inom payload
+    if (fieldName.includes('Id') && typeof event.payload[fieldName] === 'object' && event.payload[fieldName].id) {
+      return event.payload[fieldName].id;
+    }
+    return event.payload[fieldName];
+  }
+  
+  return undefined;
+}
 
-  // Om vi inte hittade fältet, returnera defaultValue
-  return defaultValue as T;
+/**
+ * Omvandlar ett eventobjekt till ett standardiserat format
+ * 
+ * Används för att konvertera eventobjekt till ett konsekvent format som kan användas i tester
+ */
+export function normalizeEvent(event: any): any {
+  if (!event) {
+    return null;
+  }
+  
+  const normalized = {
+    eventType: event.eventType || event.name || 'unknown',
+    data: {},
+    id: event.eventId || event.id || 'unknown-id',
+    timestamp: event.occurredAt || event.timestamp || new Date()
+  };
+  
+  // Kopiera data från antingen data eller payload
+  if (event.data) {
+    normalized.data = { ...event.data };
+  } else if (event.payload) {
+    normalized.data = { ...event.payload };
+  }
+  
+  return normalized;
 }
 
 /**

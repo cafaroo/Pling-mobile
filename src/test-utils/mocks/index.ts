@@ -32,3 +32,16 @@ export { default as mockLogger } from './mockLogger';
 
 // OBS: mockSupabase exporteras redan av test-utils/index.ts, så vi exporterar det inte här
 // för att undvika dubbla exporter. 
+
+// Exportera mockades event-klasser
+export * from './mockUserEvents';
+export * from './mockTeamEntities';
+
+// Exportera mockade use cases
+export * from './mockTeamUseCases';
+
+// Exportera mockade Stripe-objekt
+export * from './mockStripeObjects';
+
+// Exportera hjälpfunktioner
+export * from './ResultMock'; 

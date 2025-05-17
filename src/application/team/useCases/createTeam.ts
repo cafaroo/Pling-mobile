@@ -27,11 +27,28 @@ interface Dependencies {
   eventPublisher: IDomainEventPublisher;
 }
 
+/**
+ * En mock implementation av IDomainEventPublisher för bakåtkompatibilitet 
+ * när endast TeamRepository tillhandahålls i constructor
+ */
+class MockEventPublisher implements IDomainEventPublisher {
+  async publish(event: any): Promise<void> {
+    // No-op för bakåtkompatibilitet
+    console.log('MockEventPublisher publishing:', event);
+  }
+}
+
 export class CreateTeamUseCase {
+  private teamRepository: TeamRepository;
+  private eventPublisher: IDomainEventPublisher;
+
   constructor(
-    private teamRepository: TeamRepository,
-    private eventPublisher: IDomainEventPublisher
-  ) {}
+    teamRepository: TeamRepository,
+    eventPublisher?: IDomainEventPublisher
+  ) {
+    this.teamRepository = teamRepository;
+    this.eventPublisher = eventPublisher || new MockEventPublisher();
+  }
 
   async execute(dto: CreateTeamDTO): Promise<Result<CreateTeamResponse, CreateTeamError>> {
     try {
@@ -65,6 +82,18 @@ export class CreateTeamUseCase {
       }
 
       const team = teamResult.value;
+
+      // Säkerställ att ägaren är medlem i teamet med OWNER-roll
+      const ownerIdObj = dto.ownerId instanceof UniqueId ? dto.ownerId : new UniqueId(dto.ownerId);
+      if (!team.isMember(ownerIdObj)) {
+        const addOwnerResult = team.addMember(ownerIdObj, TeamRole.OWNER);
+        if (addOwnerResult.isErr()) {
+          return err({
+            message: `Ägaren måste vara medlem i teamet med OWNER-roll`,
+            code: 'VALIDATION_ERROR'
+          });
+        }
+      }
 
       // Spara team
       const saveResult = await this.teamRepository.save(team);

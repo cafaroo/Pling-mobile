@@ -39,8 +39,8 @@ export interface UpdateTeamDeps {
   eventBus: EventBus;
 }
 
-// Typ för use caset
-export type UpdateTeamUseCase = (input: UpdateTeamInput) => Promise<Result<Team, Error>>;
+// Typ för use caset - byt namn från UpdateTeamUseCase till UpdateTeamUseCaseFunc
+export type UpdateTeamUseCaseFunc = (input: UpdateTeamInput) => Promise<Result<Team, Error>>;
 
 /**
  * Klassdefinition för UpdateTeamUseCase för bakåtkompatibilitet med tester
@@ -68,7 +68,7 @@ export class UpdateTeamUseCase {
 /**
  * Skapar en UpdateTeamUseCase för att uppdatera ett teams egenskaper
  */
-export const createUpdateTeamUseCase = (deps: UpdateTeamDeps): UpdateTeamUseCase => {
+export const createUpdateTeamUseCase = (deps: UpdateTeamDeps): UpdateTeamUseCaseFunc => {
   const { teamRepo, eventBus } = deps;
   
   return async (input: UpdateTeamInput): Promise<Result<Team, Error>> => {

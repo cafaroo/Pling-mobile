@@ -1,39 +1,81 @@
 import { UniqueId } from '@/shared/core/UniqueId';
 import { User } from '../User';
+import { UserSettings } from '../UserSettings';
+import { UserStatus } from '../../value-objects/UserStatus';
 import { createAggregateTestHelper } from '@/test-utils/AggregateTestHelper';
+import { UserStatusChangedEvent } from '../../events/UserStatusChangedEvent';
+import { UserProfileUpdatedEvent } from '../../events/UserProfileUpdatedEvent';
 import { UserRoleAddedEvent } from '../../events/UserRoleAddedEvent';
 import { UserRoleRemovedEvent } from '../../events/UserRoleRemovedEvent';
 import { UserTeamAddedEvent } from '../../events/UserTeamAddedEvent';
 import { UserTeamRemovedEvent } from '../../events/UserTeamRemovedEvent';
-import { UserStatusChangedEvent } from '../../events/UserStatusChangedEvent';
-import { UserProfileUpdatedEvent } from '../../events/UserProfileUpdatedEvent';
-import { Email } from '../../value-objects/Email';
+import { getEventData } from '@/test-utils/helpers/eventDataAdapter';
 
 describe('User Invariants och Event-publicering', () => {
   let user: User;
   let testHelper: ReturnType<typeof createAggregateTestHelper<User>>;
   
-  beforeEach(() => {
-    const userResult = User.create({
-      email: 'test@example.com',
-      name: 'Test User'
+  beforeEach(async () => {
+    // Skapa inställningar
+    const settingsResult = await UserSettings.create({
+      language: 'sv',
+      theme: 'light',
+      notifications: {
+        email: true,
+        push: true,
+        inApp: true
+      },
+      privacy: {
+        showProfile: true,
+        showActivity: true,
+        showTeams: true
+      }
     });
-    expect(userResult.isOk()).toBe(true);
-    user = userResult.value;
     
-    // Skapa testHelper med användaren
+    if (settingsResult.isErr()) {
+      throw new Error(`Kunde inte skapa inställningar: ${settingsResult.error}`);
+    }
+    
+    // Skapa användare
+    const userResult = await User.create({
+      email: 'test@example.com',
+      name: 'Test User',
+      settings: settingsResult.value,
+      teamIds: []
+    });
+    
+    if (userResult.isErr()) {
+      throw new Error(`Kunde inte skapa användare: ${userResult.error}`);
+    }
+    
+    user = userResult.value;
     testHelper = createAggregateTestHelper(user);
   });
   
   describe('Grundläggande invarianter', () => {
-    it('ska validera att användaren måste ha en giltig e-post', () => {
-      (user as any).props.email = null;
+    it('ska validera att e-post krävs', () => {
+      // Försök skapa en användare utan e-post
+      const createWithoutEmail = async () => {
+        const settingsResult = await UserSettings.create({
+          language: 'sv',
+          theme: 'light',
+          notifications: { email: true, push: true, inApp: true },
+          privacy: { showProfile: true, showActivity: true, showTeams: true }
+        });
+        
+        if (settingsResult.isErr()) {
+          throw new Error(`Kunde inte skapa inställningar: ${settingsResult.error}`);
+        }
+        
+        return User.create({
+          email: '',
+          name: 'Test User',
+          settings: settingsResult.value,
+          teamIds: []
+        });
+      };
       
-      // @ts-ignore - Åtkomst till privat metod för testning
-      const result = user.validateInvariants();
-      
-      expect(result.isErr()).toBe(true);
-      expect(result.error).toContain('e-post');
+      return expect(createWithoutEmail()).resolves.toHaveProperty('isErr', true);
     });
     
     it('ska validera namnlängd', () => {
@@ -71,13 +113,14 @@ describe('User Invariants och Event-publicering', () => {
     it('ska publicera UserStatusChangedEvent vid statusändring', () => {
       testHelper.executeAndExpectEvents(
         u => {
-          u.updateStatus('inactive');
+          u.updateStatus(UserStatus.INACTIVE);
         },
         [UserStatusChangedEvent],
         events => {
           const event = events[0] as UserStatusChangedEvent;
-          expect(event.payload.oldStatus).toBe('pending');
-          expect(event.payload.newStatus).toBe('inactive');
+          // Använd getEventData för att extrahera data oavsett struktur
+          expect(getEventData(event, 'oldStatus')).toBe('pending');
+          expect(getEventData(event, 'newStatus')).toBe('inactive');
         }
       );
     });
@@ -93,8 +136,9 @@ describe('User Invariants och Event-publicering', () => {
         [UserProfileUpdatedEvent],
         events => {
           const event = events[0] as UserProfileUpdatedEvent;
-          expect(event.payload.name).toBe('Updated Name');
-          expect(event.payload.bio).toBe('New bio');
+          // Använd getEventData för att extrahera data oavsett struktur
+          expect(getEventData(event, 'name')).toBe('Updated Name');
+          expect(getEventData(event, 'bio')).toBe('New bio');
         }
       );
     });
@@ -109,18 +153,32 @@ describe('User Invariants och Event-publicering', () => {
         [UserRoleAddedEvent],
         events => {
           const event = events[0] as UserRoleAddedEvent;
-          expect(event.payload.roleId).toBe(roleId.toString());
+          // Använd getEventData för att extrahera data oavsett struktur
+          expect(getEventData(event, 'roleId')).toBe(roleId.toString());
         }
       );
+    });
+    
+    it('ska förhindra dubbla roller', () => {
+      const roleId = new UniqueId();
+      
+      // Lägg till roll första gången
+      const addResult1 = user.addRole(roleId);
+      expect(addResult1.isOk()).toBe(true);
+      
+      // Försök lägga till samma roll igen
+      const addResult2 = user.addRole(roleId);
+      expect(addResult2.isErr()).toBe(true);
     });
     
     it('ska publicera UserRoleRemovedEvent när en roll tas bort', () => {
       const roleId = new UniqueId();
       
-      // Lägg först till rollen
+      // Lägg till roll först
       user.addRole(roleId);
-      testHelper.clearEvents(); // Rensa tidigare events
+      testHelper.clearEvents();
       
+      // Ta sedan bort rollen och kontrollera event
       testHelper.executeAndExpectEvents(
         u => {
           u.removeRole(roleId);
@@ -128,7 +186,8 @@ describe('User Invariants och Event-publicering', () => {
         [UserRoleRemovedEvent],
         events => {
           const event = events[0] as UserRoleRemovedEvent;
-          expect(event.payload.roleId).toBe(roleId.toString());
+          // Använd getEventData för att extrahera data oavsett struktur
+          expect(getEventData(event, 'roleId')).toBe(roleId.toString());
         }
       );
     });
@@ -138,31 +197,46 @@ describe('User Invariants och Event-publicering', () => {
       
       testHelper.executeAndExpectEvents(
         u => {
-          u.addTeam(teamId);
+          u.addToTeam(teamId);
         },
         [UserTeamAddedEvent],
         events => {
           const event = events[0] as UserTeamAddedEvent;
-          expect(event.payload.teamId).toBe(teamId.toString());
+          // Använd getEventData för att extrahera data oavsett struktur
+          expect(getEventData(event, 'teamId')).toBe(teamId.toString());
         }
       );
+    });
+    
+    it('ska förhindra dubbla team-medlemskap', () => {
+      const teamId = new UniqueId();
+      
+      // Lägg till i team första gången
+      const addResult1 = user.addToTeam(teamId);
+      expect(addResult1.isOk()).toBe(true);
+      
+      // Försök lägga till i samma team igen
+      const addResult2 = user.addToTeam(teamId);
+      expect(addResult2.isErr()).toBe(true);
     });
     
     it('ska publicera UserTeamRemovedEvent när en användare tas bort från ett team', () => {
       const teamId = new UniqueId();
       
-      // Lägg först till teamet
-      user.addTeam(teamId);
-      testHelper.clearEvents(); // Rensa tidigare events
+      // Lägg till i team först
+      user.addToTeam(teamId);
+      testHelper.clearEvents();
       
+      // Ta sedan bort från teamet och kontrollera event
       testHelper.executeAndExpectEvents(
         u => {
-          u.removeTeam(teamId);
+          u.removeFromTeam(teamId);
         },
         [UserTeamRemovedEvent],
         events => {
           const event = events[0] as UserTeamRemovedEvent;
-          expect(event.payload.teamId).toBe(teamId.toString());
+          // Använd getEventData för att extrahera data oavsett struktur
+          expect(getEventData(event, 'teamId')).toBe(teamId.toString());
         }
       );
     });

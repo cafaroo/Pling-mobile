@@ -50,7 +50,7 @@ export class UserCreatedEvent extends BaseMockUserEvent {
   // Direkta properties för testning
   public readonly userId: UniqueId;
   public readonly email: string;
-  public readonly name: string;
+  public readonly displayName: string;
 
   constructor(props: {
     userId: string | UniqueId;
@@ -61,12 +61,12 @@ export class UserCreatedEvent extends BaseMockUserEvent {
     
     this.userId = props.userId instanceof UniqueId ? props.userId : new UniqueId(props.userId);
     this.email = props.email;
-    this.name = props.name;
+    this.displayName = props.name;
     
     this.data = {
       userId: this.userId.toString(),
       email: this.email,
-      name: this.name,
+      name: props.name,
       createdAt: new Date().toISOString()
     };
   }
@@ -78,6 +78,45 @@ export class UserCreatedEvent extends BaseMockUserEvent {
   // Getters för test-kompatibilitet
   get payload() {
     return this.data;
+  }
+  
+  get name() {
+    return this.data.name;
+  }
+}
+
+/**
+ * Bakåtkompatibel version av UserCreatedEvent för testers
+ * 
+ * Denna klass ger stöd för äldre testmetodik som tar userId, email och name som separata parametrar
+ * istället för som ett props-objekt.
+ */
+export class MockUserCreatedEvent extends UserCreatedEvent {
+  constructor(
+    userId: { id: string | UniqueId } | string | UniqueId,
+    email: string,
+    name: string
+  ) {
+    // Hantera olika former av userId (objekt med id-egenskap, UniqueId eller string)
+    let userIdValue: string | UniqueId;
+    
+    if (typeof userId === 'object' && 'id' in userId) {
+      userIdValue = userId.id;
+    } else {
+      userIdValue = userId;
+    }
+    
+    super({
+      userId: userIdValue,
+      email,
+      name
+    });
+  }
+
+  // Överrida name property från UserCreatedEvent med en konstant
+  // för test-kompatibilitet med äldre kod som använder 'name' som eventtyp
+  override get name(): string {
+    return 'UserCreated';
   }
 }
 
@@ -119,6 +158,35 @@ export class UserActivatedEvent extends BaseMockUserEvent {
   // Getters för test-kompatibilitet
   get payload() {
     return this.data;
+  }
+}
+
+/**
+ * Bakåtkompatibel version av UserActivatedEvent för tester
+ * 
+ * Denna klass ger stöd för äldre testmetodik som tar mockUser och reason som separata parametrar
+ * istället för userId och activationReason.
+ */
+export class MockUserActivatedEvent extends UserActivatedEvent {
+  constructor(
+    mockUser: { id: string | UniqueId } | string | UniqueId,
+    reason: string = ''
+  ) {
+    // Hantera olika former av userId (objekt med id-egenskap, UniqueId eller string)
+    let userIdValue: string | UniqueId;
+    
+    if (typeof mockUser === 'object' && 'id' in mockUser) {
+      userIdValue = mockUser.id;
+    } else {
+      userIdValue = mockUser;
+    }
+    
+    super(userIdValue, reason);
+  }
+  
+  // Tillägg för äldre testformat som kollar efter 'name' istället för 'eventType'
+  get name() {
+    return 'user.account.activated';
   }
 }
 
@@ -170,37 +238,54 @@ export class UserProfileUpdatedEvent extends BaseMockUserEvent {
   public readonly eventType = 'UserProfileUpdatedEvent';
   public readonly data: {
     userId: string;
-    profileData: Record<string, any>;
+    profile: any;
     updatedAt: string;
   };
-  
+
   // Direkta properties för testning
   public readonly userId: UniqueId;
-  public readonly profileData: Record<string, any>;
+  public readonly profile: any;
 
   constructor(
     userId: string | UniqueId,
-    profileData: Record<string, any>
+    profile: any
   ) {
     super(userId);
     
     this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
-    this.profileData = profileData;
+    this.profile = profile;
     
     this.data = {
       userId: this.userId.toString(),
-      profileData: this.profileData,
+      profile: this.profile,
       updatedAt: new Date().toISOString()
     };
   }
 
-  public getEventData() {
-    return this.data;
+  // Tillägg för äldre testformat som kollar efter 'name' istället för 'eventType'
+  get name() {
+    return 'user.profile.updated';
   }
-  
-  // Getters för test-kompatibilitet
-  get payload() {
-    return this.data;
+}
+
+/**
+ * Bakåtkompatibel version av UserProfileUpdatedEvent för tester
+ */
+export class MockUserProfileUpdatedEvent extends UserProfileUpdatedEvent {
+  constructor(
+    userId: { id: string | UniqueId } | string | UniqueId,
+    profile: any
+  ) {
+    // Hantera olika former av userId (objekt med id-egenskap, UniqueId eller string)
+    let userIdValue: string | UniqueId;
+    
+    if (typeof userId === 'object' && 'id' in userId) {
+      userIdValue = userId.id;
+    } else {
+      userIdValue = userId;
+    }
+    
+    super(userIdValue, profile);
   }
 }
 

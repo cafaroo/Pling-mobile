@@ -136,6 +136,14 @@ Efter senaste fixarna:
 
 ## Senaste uppdateringar
 
+### 2024-06-06
+- Förbättrat mockUserEvents.ts för att stödja fler teststandarder:
+  - Lagt till MockUserCreatedEvent för användarhantering i UserCreatedHandler-tester
+  - Lagt till MockUserActivatedEvent för användaraktivering i activateUser-tester med rätt name-property ('user.account.activated')
+  - Lagt till MockUserProfileUpdatedEvent för profiluppdateringar i updateProfile-tester
+  - Förbättrat bakåtkompatibilitet med äldre teststil som använder name istället för eventType
+  - Standardiserat datastrukturer för event med data-egenskapen som innehåller payload
+
 ### 2024-06-05
 - Förbättrat ValueObject-implementationer:
   - Konverterat `OrganizationRole` från en enkel enum till en ValueObject-baserad klass
@@ -148,37 +156,39 @@ Efter senaste fixarna:
 - Standardiserat mockEntityFactory:
   - Förbättrat createMockUser, createMockTeam och createMockOrganization 
   - Uppdaterat signaturer för att vara konsistenta (id som första parameter, props som andra)
-  - Optimerat create-metoder för att alltid returnera Result-objekt
-  - Implementerat bättre felhantering i factory-funktionerna
-  - Säkerställt att testdata genereras med längre namn som uppfyller valideringskrav
+  - Optimerat createTestTeam och createTestOrganization för integrerade tester
 
-- Uppdaterat tester:
-  - Anpassat UserProfile-tester för att testa de nya standardvärdena istället för felmeddelanden
+## Framsteg
+
+### Entiteter och Värde-objekt
+- ✅ TeamRole - Lagts till equalsValue()-metod
+- ✅ OrganizationRole - Konverterad från enum till ValueObject-klass
+- ✅ UserProfile - Förbättrad validering med standardvärden
+- ✅ Email - Bättre felhantering för null/undefined
+
+### Events och Mockdata
+- ✅ mockTeamEvents.ts - Standardiserad implementation
+- ✅ mockOrganizationEvents.ts - Standardiserad implementation
+- ✅ mockUserEvents.ts - Standardiserad implementation med bakåtkompatibilitet
+  - ✅ MockUserCreatedEvent
+  - ✅ MockUserActivatedEvent
+  - ✅ MockUserProfileUpdatedEvent
+
+### Services och Repositories
+- ✅ DefaultPermissionService - Förbättrad implementation för värde-objekt
+- ✅ mockUserRepository - Standardiserad implementation 
+- ✅ mockTeamRepository - Standardiserad implementation
+- ✅ mockOrganizationRepository - Standardiserad implementation
 
 ## Nästa steg
 
-1. **Fixa event-standardisering**:
-   - Åtgärda problemen med mockUserEvents för att fixa UserCreatedHandler.test.ts
-   - Säkerställ att event-properties är tillgängliga i testerna
+1. Fixa standardiserade tester för React Query-hooks
+   - Lägga till QueryClientProvider i tester som använder useQuery
 
-2. **Integration mellan domäner**:
-   - Arbeta med organization-team-integration.test.tsx-problemen
-   - Fixa integration-tester mellan user och team/organization
+2. Fixa integration-tester mellan domäner
+   - Organization-Team integration
+   - User-Team integration
 
-3. **React Query-relaterade tester**:
-   - Lägga till QueryClientProvider i alla tester som använder useQuery
-   - Fixa useTeamStandardized.test.tsx och useSubscriptionContext.test.tsx
-
-4. **Standardiserade domäntester**:
-   - Fixa Team.standardized.test.ts och organization.invariants.test.ts
-   - Säkerställ konsekvent hantering av invariants i alla domäner
-
-## Uppnådda förbättringar
-
-- [x] Standardiserad ValueObject-implementation av TeamRole och OrganizationRole
-- [x] Förbättrad UserProfile-klass med standardvärden istället för felmeddelanden
-- [x] Konsekvent standardmönster för mockEntityFactory
-- [x] Bättre felhantering i mockEntityFactory
-- [ ] Komplett standardisering av mockEvents för alla domäner
-- [ ] Korrekta implementationer av integration-tester mellan domäner
-- [ ] Standardiserad testmetodik med QueryClientProvider för hooks 
+3. Fixa invariant-tester för organization- och team-domänerna
+   - Förbättra Organization.invariants.test.ts 
+   - Förbättra Team.standardized.test.ts 

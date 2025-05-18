@@ -73,12 +73,15 @@ describe('UserCreatedHandler', () => {
     mockUserRepository.findById.mockResolvedValue(Result.ok(mockUser));
     mockUserRepository.save.mockResolvedValue(Result.ok());
     
-    // Skapa ett MockUserCreatedEvent istället för UserCreated
+    // Skapa ett MockUserCreatedEvent
     const event = new MockUserCreatedEvent(
-      { id: userId },
+      userId.toString(), // använd userId direkt som sträng istället för objekt
       'test@example.com',
       'Test User'
     );
+    
+    // Säkerställ att userId är korrekt i eventet
+    expect(event.userId.toString()).toBe(userId.toString());
     
     // Anropa handleEvent
     await handler.handleEvent(event);
@@ -119,12 +122,15 @@ describe('UserCreatedHandler', () => {
     // Skapa spion för console.error
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
     
-    // Skapa ett MockUserCreatedEvent istället för UserCreated
+    // Skapa ett MockUserCreatedEvent
     const event = new MockUserCreatedEvent(
-      { id: userId },
+      userId.toString(), // använd userId direkt som sträng istället för objekt
       'test@example.com',
       'Test User'
     );
+    
+    // Säkerställ att userId är korrekt i eventet
+    expect(event.userId.toString()).toBe(userId.toString());
     
     // Anropa handleEvent
     await handler.handleEvent(event);

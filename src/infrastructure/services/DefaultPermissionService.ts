@@ -1,15 +1,14 @@
 import { Result, ok, err } from '@/shared/core/Result';
 import { PermissionService } from '@/domain/core/services/PermissionService';
-import { UniqueEntityID } from '@/domain/core/UniqueEntityID';
-import { OrganizationPermission } from '@/domain/organization/value-objects/OrganizationPermission';
-import { TeamPermission } from '@/domain/team/value-objects/TeamPermission';
-import { ResourcePermission } from '@/domain/organization/value-objects/ResourcePermission';
+import { UniqueId } from '@/shared/core/UniqueId';
+import { OrganizationPermission, hasOrganizationPermission } from '@/domain/organization/value-objects/OrganizationPermission';
+import { TeamPermission, equalsTeamPermission } from '@/domain/team/value-objects/TeamPermission';
+import { ResourcePermission, equalsResourcePermission } from '@/domain/organization/value-objects/ResourcePermission';
 import { OrganizationRepository } from '@/domain/organization/repositories/OrganizationRepository';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 import { OrganizationResourceRepository } from '@/domain/organization/repositories/OrganizationResourceRepository';
-import { TeamRole } from '@/domain/team/value-objects/TeamRole';
-import { OrganizationRole } from '@/domain/organization/value-objects/OrganizationRole';
-import { hasOrganizationPermission } from '@/domain/organization/value-objects/OrganizationPermission';
+import { TeamRole, TeamRoleEnum } from '@/domain/team/value-objects/TeamRole';
+import { OrganizationRole, OrganizationRoleEnum } from '@/domain/organization/value-objects/OrganizationRole';
 
 /**
  * StandardimplementeringAv PermissionService som använder repositories
@@ -26,8 +25,8 @@ export class DefaultPermissionService implements PermissionService {
    * Kontrollerar om en användare har en specifik behörighet i en organisation
    */
   async hasOrganizationPermission(
-    userId: UniqueEntityID | string,
-    organizationId: UniqueEntityID | string,
+    userId: UniqueId | string,
+    organizationId: UniqueId | string,
     permission: OrganizationPermission
   ): Promise<Result<boolean>> {
     try {
@@ -42,11 +41,26 @@ export class DefaultPermissionService implements PermissionService {
       
       const organization = organizationResult.value;
       
-      // Använd Organization-entitetens metod för att kontrollera behörighet
-      const hasPermission = organization.hasMemberPermission(
-        new UniqueEntityID(userIdStr),
-        permission
-      );
+      // Använd Organisation-entitetens metod för att kontrollera behörighet
+      // Vi använder hasPermission eller hasMemberPermission beroende på vad som finns tillgängligt
+      let hasPermission = false;
+      if (typeof organization.hasPermission === 'function') {
+        hasPermission = organization.hasPermission(userIdStr, permission);
+      } else if (typeof organization.hasMemberPermission === 'function') {
+        hasPermission = organization.hasMemberPermission(userIdStr, permission);
+      } else {
+        console.warn('Organization entity har inte en standardiserad hasPermission-metod');
+        // Fallback: Kontrollera medlemsrollen manuellt
+        const member = organization.getMember?.(userIdStr) || 
+                      organization.props?.members?.find(m => 
+                        (m.userId?.toString() === userIdStr) || (m.userId === userIdStr)
+                      );
+        
+        if (!member) return ok(false);
+        
+        // Hantera medlemsrollen och kontrollera behörighet
+        return ok(hasOrganizationPermission(member.role, permission));
+      }
       
       return ok(hasPermission);
     } catch (error) {
@@ -58,8 +72,8 @@ export class DefaultPermissionService implements PermissionService {
    * Kontrollerar om en användare har en specifik behörighet i ett team
    */
   async hasTeamPermission(
-    userId: UniqueEntityID | string,
-    teamId: UniqueEntityID | string,
+    userId: UniqueId | string,
+    teamId: UniqueId | string,
     permission: TeamPermission
   ): Promise<Result<boolean>> {
     try {
@@ -74,24 +88,75 @@ export class DefaultPermissionService implements PermissionService {
       
       const team = teamResult.value;
       
+      // Använd team-entitetens hasPermission-metod om den finns
+      if (typeof team.hasPermission === 'function') {
+        const hasPermission = team.hasPermission(userIdStr, permission);
+        return ok(hasPermission);
+      }
+      
+      // Fallback-implementering om hasPermission inte finns
+      // Först kolla om användaren är ägare
+      if (team.isOwner && team.isOwner(userIdStr)) {
+        return ok(true);
+      }
+      
       // Hitta medlemmen i teamet
-      const member = team.members.find(m => m.userId === userIdStr);
+      const member = team.getMember?.(userIdStr) || 
+                    team.props?.members?.find(m => 
+                      (m.userId?.toString() === userIdStr) || (m.userId === userIdStr)
+                    );
+      
       if (!member) {
         return ok(false); // Användaren är inte medlem i teamet
       }
       
-      // Kontrollera behörighet baserat på roll
-      if (member.role === TeamRole.OWNER) {
-        // Ägare har alltid alla behörigheter
-        return ok(true);
+      // Kontrollera behörighet baserat på roll med equalsValue
+      if (member.role instanceof TeamRole) {
+        if (member.role.equalsValue(TeamRoleEnum.OWNER)) {
+          return ok(true); // Ägare har alltid alla behörigheter
+        }
+        
+        if (member.role.equalsValue(TeamRoleEnum.ADMIN)) {
+          return ok(!equalsTeamPermission(permission, TeamPermission.DELETE_TEAM)); // Alla utom DELETE_TEAM
+        }
+        
+        if (member.role.equalsValue(TeamRoleEnum.MEMBER)) {
+          const memberPermissions = [
+            TeamPermission.VIEW_TEAM,
+            TeamPermission.VIEW_MEMBERS
+          ];
+          return ok(memberPermissions.some(p => equalsTeamPermission(p, permission)));
+        }
+        
+        if (member.role.equalsValue(TeamRoleEnum.GUEST)) {
+          return ok(equalsTeamPermission(permission, TeamPermission.VIEW_TEAM));
+        }
+      } else {
+        // Stöd för äldre rollformat som strängar
+        const roleStr = member.role?.toString();
+        
+        if (roleStr === TeamRoleEnum.OWNER) {
+          return ok(true);
+        }
+        
+        if (roleStr === TeamRoleEnum.ADMIN) {
+          return ok(permission !== TeamPermission.DELETE_TEAM);
+        }
+        
+        if (roleStr === TeamRoleEnum.MEMBER) {
+          const memberPermissions = [
+            TeamPermission.VIEW_TEAM,
+            TeamPermission.VIEW_MEMBERS
+          ];
+          return ok(memberPermissions.includes(permission));
+        }
+        
+        if (roleStr === TeamRoleEnum.GUEST) {
+          return ok(permission === TeamPermission.VIEW_TEAM);
+        }
       }
       
-      // För andra roller, kontrollera om rollen har behörigheten
-      const permissions = TeamRole[member.role] 
-        ? (TeamRole[member.role] as unknown as TeamPermission[]) 
-        : [];
-        
-      return ok(permissions.includes(permission));
+      return ok(false);
     } catch (error) {
       return err(`Ett fel uppstod vid kontroll av teambehörighet: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -101,8 +166,8 @@ export class DefaultPermissionService implements PermissionService {
    * Kontrollerar om en användare har en specifik behörighet för en resurs
    */
   async hasResourcePermission(
-    userId: UniqueEntityID | string,
-    resourceId: UniqueEntityID | string,
+    userId: UniqueId | string,
+    resourceId: UniqueId | string,
     permission: ResourcePermission
   ): Promise<Result<boolean>> {
     try {
@@ -118,12 +183,33 @@ export class DefaultPermissionService implements PermissionService {
       const resource = resourceResult.value;
       
       // Använd resursens metod för att kontrollera behörighet
-      const hasPermission = resource.hasPermission(
-        new UniqueEntityID(userIdStr),
-        permission
+      if (typeof resource.hasPermission === 'function') {
+        const hasPermission = resource.hasPermission(userIdStr, permission);
+        return ok(hasPermission);
+      }
+      
+      // Fallback: Kolla om användaren är ägare
+      const resourceOwnerId = resource.props?.ownerId?.toString();
+      if (resourceOwnerId === userIdStr) {
+        return ok(true);
+      }
+      
+      // Kolla användarens tilldelade behörigheter
+      const permissionAssignment = resource.props?.permissionAssignments?.find(
+        a => {
+          const assignmentUserId = a.userId instanceof UniqueId 
+            ? a.userId.toString() 
+            : a.userId;
+            
+          return assignmentUserId === userIdStr;
+        }
       );
       
-      return ok(hasPermission);
+      if (permissionAssignment?.permissions?.some(p => equalsResourcePermission(p, permission))) {
+        return ok(true);
+      }
+      
+      return ok(false);
     } catch (error) {
       return err(`Ett fel uppstod vid kontroll av resursbehörighet: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -133,9 +219,9 @@ export class DefaultPermissionService implements PermissionService {
    * Kontrollerar om en användare har en specifik roll i en organisation
    */
   async hasOrganizationRole(
-    userId: UniqueEntityID | string,
-    organizationId: UniqueEntityID | string,
-    role: string
+    userId: UniqueId | string,
+    organizationId: UniqueId | string,
+    role: OrganizationRole | OrganizationRoleEnum | string
   ): Promise<Result<boolean>> {
     try {
       const userIdStr = typeof userId === 'string' ? userId : userId.toString();
@@ -149,26 +235,47 @@ export class DefaultPermissionService implements PermissionService {
       
       const organization = organizationResult.value;
       
+      // Använd hasRole-metoden om den finns
+      if (typeof organization.hasRole === 'function') {
+        return ok(organization.hasRole(userIdStr, role));
+      }
+      
       // Hitta medlemmen
-      const member = organization.props.members.find(m => m.userId.toString() === userIdStr);
+      const member = organization.getMember?.(userIdStr) || 
+                    organization.props?.members?.find(m => 
+                      (m.userId?.toString() === userIdStr) || 
+                      (m.userId === userIdStr)
+                    );
+      
       if (!member) {
-        return ok(false); // Användaren är inte medlem i organisationen
+        return ok(false);
       }
       
       // Kontrollera rollen
-      return ok(member.role === role);
+      const memberRole = member.role;
+      
+      // Jämför med equalsValue om det är ett värde-objekt
+      if (memberRole instanceof OrganizationRole) {
+        return ok(memberRole.equalsValue(role));
+      }
+      
+      // För bakåtkompatibilitet
+      const roleToCheck = role instanceof OrganizationRole ? role.toString() : role;
+      const memberRoleStr = memberRole?.toString();
+      
+      return ok(memberRoleStr === roleToCheck);
     } catch (error) {
       return err(`Ett fel uppstod vid kontroll av organisationsroll: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-
+  
   /**
    * Kontrollerar om en användare har en specifik roll i ett team
    */
   async hasTeamRole(
-    userId: UniqueEntityID | string,
-    teamId: UniqueEntityID | string,
-    role: string
+    userId: UniqueId | string,
+    teamId: UniqueId | string,
+    role: TeamRole | TeamRoleEnum | string
   ): Promise<Result<boolean>> {
     try {
       const userIdStr = typeof userId === 'string' ? userId : userId.toString();
@@ -182,14 +289,35 @@ export class DefaultPermissionService implements PermissionService {
       
       const team = teamResult.value;
       
-      // Hitta medlemmen
-      const member = team.members.find(m => m.userId === userIdStr);
+      // Hitta medlemmen i teamet
+      const member = team.getMember?.(userIdStr) || 
+                    team.props?.members?.find(m => 
+                      (m.userId?.toString() === userIdStr) || 
+                      (m.userId === userIdStr)
+                    );
+      
       if (!member) {
-        return ok(false); // Användaren är inte medlem i teamet
+        return ok(false);
+      }
+      
+      // Om team har en hasRole-metod, använd den
+      if (typeof team.hasRole === 'function') {
+        return ok(team.hasRole(userIdStr, role));
       }
       
       // Kontrollera rollen
-      return ok(member.role === role);
+      const memberRole = member.role;
+      
+      // Använd equalsValue om det är ett värde-objekt
+      if (memberRole instanceof TeamRole) {
+        return ok(memberRole.equalsValue(role));
+      }
+      
+      // För bakåtkompatibilitet
+      const roleToCheck = role instanceof TeamRole ? role.toString() : role;
+      const memberRoleStr = memberRole?.toString();
+      
+      return ok(memberRoleStr === roleToCheck);
     } catch (error) {
       return err(`Ett fel uppstod vid kontroll av teamroll: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -199,8 +327,8 @@ export class DefaultPermissionService implements PermissionService {
    * Hämtar alla behörigheter en användare har i en organisation
    */
   async getOrganizationPermissions(
-    userId: UniqueEntityID | string,
-    organizationId: UniqueEntityID | string
+    userId: UniqueId | string,
+    organizationId: UniqueId | string
   ): Promise<Result<OrganizationPermission[]>> {
     try {
       const userIdStr = typeof userId === 'string' ? userId : userId.toString();
@@ -215,18 +343,34 @@ export class DefaultPermissionService implements PermissionService {
       const organization = organizationResult.value;
       
       // Hitta medlemmen
-      const member = organization.props.members.find(m => m.userId.toString() === userIdStr);
+      const member = organization.getMember?.(userIdStr) || 
+                    organization.props?.members?.find(m => 
+                      (m.userId?.toString() === userIdStr) || (m.userId === userIdStr)
+                    );
+      
       if (!member) {
         return ok([]); // Användaren är inte medlem i organisationen
       }
       
       // Returnera behörigheter baserat på medlemmens roll
       const allPermissions = Object.values(OrganizationPermission);
-      const permissions = allPermissions.filter(permission => 
-        hasOrganizationPermission(member.role, permission)
-      );
       
-      return ok(permissions);
+      // För admin, alla behörigheter
+      if (member.role === OrganizationRole.ADMIN || 
+          member.role?.toString() === OrganizationRole.ADMIN) {
+        return ok(allPermissions);
+      }
+      
+      // För medlemmar, begränsade behörigheter
+      if (member.role === OrganizationRole.MEMBER || 
+          member.role?.toString() === OrganizationRole.MEMBER) {
+        return ok([
+          OrganizationPermission.VIEW_TEAMS,
+          OrganizationPermission.JOIN_TEAM
+        ]);
+      }
+      
+      return ok([]);
     } catch (error) {
       return err(`Ett fel uppstod vid hämtning av organisationsbehörigheter: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -236,8 +380,8 @@ export class DefaultPermissionService implements PermissionService {
    * Hämtar alla behörigheter en användare har i ett team
    */
   async getTeamPermissions(
-    userId: UniqueEntityID | string,
-    teamId: UniqueEntityID | string
+    userId: UniqueId | string,
+    teamId: UniqueId | string
   ): Promise<Result<TeamPermission[]>> {
     try {
       const userIdStr = typeof userId === 'string' ? userId : userId.toString();
@@ -251,19 +395,53 @@ export class DefaultPermissionService implements PermissionService {
       
       const team = teamResult.value;
       
+      // Kolla om ägare
+      if (team.isOwner && team.isOwner(userIdStr)) {
+        return ok(Object.values(TeamPermission));
+      }
+      
       // Hitta medlemmen
-      const member = team.members.find(m => m.userId === userIdStr);
+      const member = team.getMember?.(userIdStr) || 
+                    team.props?.members?.find(m => 
+                      (m.userId?.toString() === userIdStr) || (m.userId === userIdStr)
+                    );
+      
       if (!member) {
         return ok([]); // Användaren är inte medlem i teamet
       }
       
       // Om användaren är ägare, returnera alla behörigheter
-      if (member.role === TeamRole.OWNER) {
+      if (member.role === TeamRole.OWNER || 
+          member.role?.toString() === TeamRole.OWNER) {
         return ok(Object.values(TeamPermission));
       }
       
-      // För andra roller, hämta behörigheter från TeamRole-definitionen
-      return ok([]);  // TODO: Implementera när behörighetsmodellen är fullständig
+      // För admin, alla utom DELETE_TEAM
+      if (member.role === TeamRole.ADMIN || 
+          member.role?.toString() === TeamRole.ADMIN) {
+        return ok(
+          Object.values(TeamPermission).filter(
+            p => p !== TeamPermission.DELETE_TEAM
+          )
+        );
+      }
+      
+      // För medlemmar, begränsade behörigheter
+      if (member.role === TeamRole.MEMBER || 
+          member.role?.toString() === TeamRole.MEMBER) {
+        return ok([
+          TeamPermission.VIEW_TEAM,
+          TeamPermission.VIEW_MEMBERS
+        ]);
+      }
+      
+      // För gäster, minimal behörighet
+      if (member.role === TeamRole.GUEST || 
+          member.role?.toString() === TeamRole.GUEST) {
+        return ok([TeamPermission.VIEW_TEAM]);
+      }
+      
+      return ok([]);
     } catch (error) {
       return err(`Ett fel uppstod vid hämtning av teambehörigheter: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -273,8 +451,8 @@ export class DefaultPermissionService implements PermissionService {
    * Hämtar alla behörigheter en användare har för en resurs
    */
   async getResourcePermissions(
-    userId: UniqueEntityID | string,
-    resourceId: UniqueEntityID | string
+    userId: UniqueId | string,
+    resourceId: UniqueId | string
   ): Promise<Result<ResourcePermission[]>> {
     try {
       const userIdStr = typeof userId === 'string' ? userId : userId.toString();
@@ -288,23 +466,27 @@ export class DefaultPermissionService implements PermissionService {
       
       const resource = resourceResult.value;
       
-      // Hitta användarens tilldelade behörigheter
-      const userAssignment = resource.props.permissionAssignments.find(
-        a => a.userId && a.userId.toString() === userIdStr
-      );
-      
       // Om användaren är ägare, returnera alla behörigheter
-      if (resource.props.ownerId.toString() === userIdStr) {
+      const resourceOwnerId = resource.props?.ownerId?.toString();
+      if (resourceOwnerId === userIdStr) {
         return ok(Object.values(ResourcePermission));
       }
       
+      // Hitta användarens tilldelade behörigheter
+      const userAssignment = resource.props?.permissionAssignments?.find(
+        a => {
+          const assignmentUserId = a.userId instanceof UniqueId 
+            ? a.userId.toString() 
+            : a.userId;
+            
+          return assignmentUserId === userIdStr;
+        }
+      );
+      
       // Returnera användarens tilldelade behörigheter
-      if (userAssignment) {
+      if (userAssignment?.permissions) {
         return ok(userAssignment.permissions);
       }
-      
-      // Kontrollera om användaren har behörigheter via team eller roll
-      // Detta skulle kräva mer komplexa kontroller med tillgång till team-information
       
       return ok([]);
     } catch (error) {

@@ -1,4 +1,4 @@
-import { OrganizationRole } from './OrganizationRole';
+import { OrganizationRole, OrganizationRoleEnum } from './OrganizationRole';
 
 /**
  * Definierar behörigheter för resurser i en organisation
@@ -40,8 +40,8 @@ export const ResourcePermissionLabels: Record<ResourcePermission, string> = {
  * Definierar vilka resursbehörigheter olika roller har som standard
  * när en ny resurs skapas. Dessa behörigheter kan justeras för individuella resurser.
  */
-export const DefaultRoleResourcePermissions: Record<OrganizationRole, ResourcePermission[]> = {
-  [OrganizationRole.OWNER]: [
+export const DefaultRoleResourcePermissions: Record<OrganizationRoleEnum, ResourcePermission[]> = {
+  [OrganizationRoleEnum.OWNER]: [
     ResourcePermission.VIEW,
     ResourcePermission.EDIT,
     ResourcePermission.DELETE,
@@ -49,15 +49,36 @@ export const DefaultRoleResourcePermissions: Record<OrganizationRole, ResourcePe
     ResourcePermission.MANAGE_PERMISSIONS,
     ResourcePermission.CHANGE_OWNER
   ],
-  [OrganizationRole.ADMIN]: [
+  [OrganizationRoleEnum.ADMIN]: [
     ResourcePermission.VIEW,
     ResourcePermission.EDIT,
     ResourcePermission.DELETE,
     ResourcePermission.SHARE,
     ResourcePermission.MANAGE_PERMISSIONS
   ],
-  [OrganizationRole.MEMBER]: [
+  [OrganizationRoleEnum.MEMBER]: [
     ResourcePermission.VIEW
   ],
-  [OrganizationRole.INVITED]: []
-}; 
+  [OrganizationRoleEnum.INVITED]: []
+};
+
+/**
+ * Kontrollerar om ett ResourcePermission-värde är lika med ett annat värde
+ * Användbart för att jämföra enums med strängar i tester och applikation
+ */
+export function equalsResourcePermission(
+  permission: ResourcePermission,
+  otherPermission: ResourcePermission | string
+): boolean {
+  if (typeof otherPermission === 'string') {
+    return permission === otherPermission;
+  }
+  return permission === otherPermission;
+}
+
+/**
+ * Hämtar namnet på en resursbehörighet på svenska
+ */
+export function getResourcePermissionName(permission: ResourcePermission): string {
+  return ResourcePermissionLabels[permission] || 'Okänd behörighet';
+} 

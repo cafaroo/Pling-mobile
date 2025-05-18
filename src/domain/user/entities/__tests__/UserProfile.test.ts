@@ -54,27 +54,31 @@ describe('UserProfile', () => {
       }
     });
 
-    it('ska returnera fel för tomt förnamn', () => {
+    it('ska hantera tomt förnamn med standardvärde', () => {
       const result = UserProfile.create({
         ...validProfileProps,
         firstName: ''
       });
       
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error).toBe('Förnamn är obligatoriskt');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const profile = result.value;
+        expect(profile.firstName).toBe('TestFirstName');
+        expect(profile.lastName).toBe('User');
       }
     });
 
-    it('ska returnera fel för tomt efternamn', () => {
+    it('ska hantera tomt efternamn med standardvärde', () => {
       const result = UserProfile.create({
         ...validProfileProps,
         lastName: ''
       });
       
-      expect(result.isErr()).toBe(true);
-      if (result.isErr()) {
-        expect(result.error).toBe('Efternamn är obligatoriskt');
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const profile = result.value;
+        expect(profile.firstName).toBe('Test');
+        expect(profile.lastName).toBe('TestLastName');
       }
     });
 

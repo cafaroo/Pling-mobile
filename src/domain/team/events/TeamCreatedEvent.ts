@@ -5,31 +5,46 @@
  */
 
 import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
+import { UniqueId } from '@/shared/domain/UniqueId';
 
-export interface TeamCreatedEventData {
-  teamId: string;
+export interface TeamCreatedEventProps {
+  teamId: UniqueId;
   name: string;
-  ownerId: string;
-  organizationId: string;
-  metadata?: Record<string, any>;
+  ownerId: UniqueId;
+  createdAt: Date;
 }
 
 export class TeamCreatedEvent implements IDomainEvent {
-  public readonly eventName: string = 'TeamCreatedEvent';
-  public readonly name: string = 'TeamCreatedEvent';
+  public readonly eventType: string = 'TeamCreatedEvent';
+  public readonly aggregateId: string;
+  public readonly data: {
+    teamId: string;
+    name: string;
+    ownerId: string;
+    createdAt: string;
+  };
   public readonly dateTimeOccurred: Date;
-  public readonly teamId: string;
-  public readonly name: string;
-  public readonly ownerId: string;
-  public readonly organizationId: string;
-  public readonly metadata?: Record<string, any>;
 
-  constructor(data: TeamCreatedEventData) {
+  constructor(props: TeamCreatedEventProps) {
     this.dateTimeOccurred = new Date();
-    this.teamId = data.teamId;
-    this.name = data.name;
-    this.ownerId = data.ownerId;
-    this.organizationId = data.organizationId;
-    this.metadata = data.metadata;
+    this.aggregateId = props.teamId.toString();
+    this.data = {
+      teamId: props.teamId.toString(),
+      name: props.name,
+      ownerId: props.ownerId.toString(),
+      createdAt: props.createdAt.toISOString()
+    };
+  }
+  
+  /**
+   * Returnerar event-data
+   */
+  public getEventData(): {
+    teamId: string;
+    name: string;
+    ownerId: string;
+    createdAt: string;
+  } {
+    return this.data;
   }
 } 

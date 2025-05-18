@@ -160,7 +160,8 @@ export const testUseCaseErrors = async <T, E = string>(
       const result = await executeUseCase(baseInput);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain(expectedUseCaseError);
+        const errorMessage = result.error instanceof Error ? result.error.message : result.error;
+        expect(errorMessage).toContain(expectedUseCaseError);
       }
       
       // Återställ mock
@@ -178,7 +179,8 @@ export const testUseCaseErrors = async <T, E = string>(
       const result = await executeUseCase(input);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain(expectedUseCaseError);
+        const errorMessage = result.error instanceof Error ? result.error.message : result.error;
+        expect(errorMessage).toContain(expectedUseCaseError);
       }
     }
     
@@ -199,7 +201,8 @@ export const testUseCaseErrors = async <T, E = string>(
       });
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain(expectedUseCaseError);
+        const errorMessage = result.error instanceof Error ? result.error.message : result.error;
+        expect(errorMessage).toContain(expectedUseCaseError);
       }
       
       // Återställ mock
@@ -220,7 +223,8 @@ export const testUseCaseErrors = async <T, E = string>(
       const result = await executeUseCase(baseInput);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain(expectedUseCaseError);
+        const errorMessage = result.error instanceof Error ? result.error.message : result.error;
+        expect(errorMessage).toContain(expectedUseCaseError);
       }
       
       // Återställ mock
@@ -244,7 +248,8 @@ export const testUseCaseErrors = async <T, E = string>(
       });
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain(expectedUseCaseError);
+        const errorMessage = result.error instanceof Error ? result.error.message : result.error;
+        expect(errorMessage).toContain(expectedUseCaseError);
       }
       
       // Återställ mock
@@ -267,7 +272,8 @@ export const testUseCaseErrors = async <T, E = string>(
       const result = await executeUseCase(baseInput);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error).toContain(expectedUseCaseError);
+        const errorMessage = result.error instanceof Error ? result.error.message : result.error;
+        expect(errorMessage).toContain(expectedUseCaseError);
       }
       
       // Återställ mock

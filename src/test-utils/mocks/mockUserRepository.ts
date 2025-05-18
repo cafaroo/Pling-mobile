@@ -8,11 +8,13 @@ import { User } from '@/domain/user/entities/User';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { Result, ok, err } from '@/shared/core/Result';
 import { Email } from '@/domain/user/value-objects/Email';
+import { UniqueId } from '@/shared/core/UniqueId';
 
 export class MockUserRepository implements UserRepository {
   private users: Map<string, User> = new Map();
   private usersByEmail: Map<string, User> = new Map();
   private savedUsers: User[] = [];
+  private userCount: number = 0;
 
   /**
    * Återställer mocken till ursprungligt tillstånd
@@ -46,29 +48,25 @@ export class MockUserRepository implements UserRepository {
   }
 
   /**
-   * Mock-implementation av findById
+   * Hittar en användare baserat på ID
    */
   async findById(id: string): Promise<Result<User, Error>> {
     const user = this.users.get(id);
-    
     if (!user) {
       return err(new Error(`Användare med ID ${id} hittades inte`));
     }
-    
     return ok(user);
   }
 
   /**
-   * Mock-implementation av findByEmail
+   * Hittar en användare baserat på email
    */
-  async findByEmail(email: Email | string): Promise<Result<User, Error>> {
-    const emailStr = email instanceof Email ? email.value : email;
-    const user = this.usersByEmail.get(emailStr);
-    
+  async findByEmail(email: string | Email): Promise<Result<User, Error>> {
+    const emailValue = email instanceof Email ? email.value : email;
+    const user = this.usersByEmail.get(emailValue);
     if (!user) {
-      return err(new Error(`Användare med e-post ${emailStr} hittades inte`));
+      return err(new Error(`Användare med email ${emailValue} hittades inte`));
     }
-    
     return ok(user);
   }
 
@@ -87,28 +85,77 @@ export class MockUserRepository implements UserRepository {
   }
 
   /**
-   * Mock-implementation av save
+   * Söker användare baserat på sökterm
+   */
+  async search(term: string): Promise<Result<User[], Error>> {
+    if (!term) {
+      return ok([]);
+    }
+
+    // Enkel sökning som matchar namn eller email
+    const lowercaseTerm = term.toLowerCase();
+    const results = Array.from(this.users.values()).filter(user => {
+      const nameMatch = user.fullName?.toLowerCase().includes(lowercaseTerm);
+      const emailMatch = user.email?.value.toLowerCase().includes(lowercaseTerm);
+      return nameMatch || emailMatch;
+    });
+
+    return ok(results);
+  }
+
+  /**
+   * Finns användare med id?
+   */
+  async exists(userId: string): Promise<Result<boolean, Error>> {
+    return ok(this.users.has(userId));
+  }
+
+  /**
+   * Spara en användare (skapa eller uppdatera)
    */
   async save(user: User): Promise<Result<User, Error>> {
-    this.users.set(user.id.toString(), user);
-    this.usersByEmail.set(user.email.value, user);
+    if (!user || !user.id) {
+      return err(new Error('Kan inte spara användare: Ogiltigt User-objekt eller saknat ID'));
+    }
+    
+    const userIdStr = user.id instanceof UniqueId 
+      ? user.id.toString() 
+      : String(user.id);
+      
+    this.users.set(userIdStr, user);
+    
+    if (user.email && user.email.value) {
+      this.usersByEmail.set(user.email.value, user);
+    }
+    
     this.savedUsers.push(user);
     return ok(user);
   }
 
   /**
-   * Mock-implementation av delete
+   * Radera en användare
    */
-  async delete(id: string): Promise<Result<void, Error>> {
-    const user = this.users.get(id);
+  async delete(userId: string | UniqueId): Promise<Result<void, Error>> {
+    const userIdStr = userId instanceof UniqueId ? userId.toString() : userId;
+    const user = this.users.get(userIdStr);
     
     if (!user) {
-      return err(new Error(`Användare med ID ${id} hittades inte`));
+      return err(new Error(`Användare med ID ${userIdStr} hittades inte`));
     }
-
-    this.usersByEmail.delete(user.email.value);
-    this.users.delete(id);
+    
+    if (user.email && user.email.value) {
+      this.usersByEmail.delete(user.email.value);
+    }
+    
+    this.users.delete(userIdStr);
     return ok(undefined);
+  }
+
+  /**
+   * Få antalet användare
+   */
+  async count(): Promise<Result<number, Error>> {
+    return ok(this.users.size);
   }
 
   /**
@@ -116,6 +163,25 @@ export class MockUserRepository implements UserRepository {
    */
   async getAll(): Promise<Result<User[], Error>> {
     return ok(Array.from(this.users.values()));
+  }
+
+  /**
+   * Metod som gör mockingen möjlig
+   */
+  mockAddUser(user: User): void {
+    if (!user || !user.id) {
+      throw new Error('Kan inte lägga till användare: Ogiltigt User-objekt eller saknat ID');
+    }
+    
+    const userIdStr = user.id instanceof UniqueId 
+      ? user.id.toString() 
+      : String(user.id);
+      
+    this.users.set(userIdStr, user);
+    
+    if (user.email && user.email.value) {
+      this.usersByEmail.set(user.email.value, user);
+    }
   }
 
   /**

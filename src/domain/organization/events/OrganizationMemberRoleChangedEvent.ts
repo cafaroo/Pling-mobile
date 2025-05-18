@@ -1,33 +1,46 @@
-import { BaseOrganizationEvent } from './BaseOrganizationEvent';
-import { Organization } from '../entities/Organization';
+import { DomainEvent } from '@/shared/core/DomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { OrganizationRole } from '../value-objects/OrganizationRole';
 
 /**
  * OrganizationMemberRoleChangedEvent
  * 
- * Domänhändelse som publiceras när en medlems roll i en organisation har ändrats.
- * Innehåller information om organisationen, medlemmen, och rollförändringen.
+ * Domänhändelse som publiceras när en medlems roll ändras i en organisation.
  */
-export class OrganizationMemberRoleChangedEvent extends BaseOrganizationEvent {
+export class OrganizationMemberRoleChangedEvent extends DomainEvent {
+  public readonly organizationId: UniqueId;
+  public readonly userId: UniqueId;
+  public readonly oldRole: OrganizationRole;
+  public readonly newRole: OrganizationRole;
+
   /**
    * Skapar en ny OrganizationMemberRoleChangedEvent
    * 
-   * @param organization - Organization-objekt eller ID för organisationen
+   * @param organizationId - ID för organisationen
    * @param userId - ID för användaren vars roll ändrats
-   * @param oldRole - Användarens tidigare roll
-   * @param newRole - Användarens nya roll
+   * @param oldRole - Tidigare roll
+   * @param newRole - Ny roll
    */
   constructor(
-    organization: Organization | UniqueId,
+    organizationId: UniqueId,
     userId: UniqueId,
     oldRole: OrganizationRole,
     newRole: OrganizationRole
   ) {
-    super('OrganizationMemberRoleChangedEvent', organization, {
-      userId: userId.toString(),
-      oldRole,
-      newRole
+    super({
+      name: 'OrganizationMemberRoleChangedEvent',
+      payload: {
+        organizationId: organizationId.toString(),
+        userId: userId.toString(),
+        oldRole,
+        newRole
+      }
     });
+    
+    // Spara properties direkt på event-objektet för enklare åtkomst
+    this.organizationId = organizationId;
+    this.userId = userId;
+    this.oldRole = oldRole;
+    this.newRole = newRole;
   }
 } 

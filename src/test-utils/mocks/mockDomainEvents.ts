@@ -7,7 +7,7 @@ import { EventNameHelper } from '../EventNameHelper';
  */
 class MockDomainEvents {
   private static events: IDomainEvent[] = [];
-  private static isCapturing: boolean = false;
+  private static isCapturing: boolean = true; // Alltid fånga events i testmiljö
 
   /**
    * Startar inspelning av events
@@ -152,10 +152,62 @@ class MockDomainEvents {
       return EventNameHelper.eventNameMatches(MockDomainEvents.events[index], name);
     });
   }
+
+  /**
+   * Kontrollerar att en viss eventtyp inte har publicerats
+   */
+  static expectEventNotDispatched<T extends IDomainEvent>(eventType: new (...args: any[]) => T): boolean {
+    return !MockDomainEvents.hasEvent(eventType);
+  }
+
+  /**
+   * Förväntar sig att ett visst antal händelser av en viss typ har publicerats
+   */
+  static expectEventCount<T extends IDomainEvent>(eventType: new (...args: any[]) => T, count: number): boolean {
+    return MockDomainEvents.countEvents(eventType) === count;
+  }
+
+  /**
+   * Förväntar sig att en händelse med vissa egenskaper har publicerats
+   * @param eventType Typ av händelse
+   * @param properties Egenskaper att kontrollera
+   * @returns True om händelsen hittades, false annars
+   */
+  static expectEventDispatched<T extends IDomainEvent>(
+    eventType: new (...args: any[]) => T,
+    properties?: Record<string, any>
+  ): boolean {
+    const events = MockDomainEvents.findEvents(eventType);
+    
+    if (events.length === 0) {
+      return false;
+    }
+    
+    if (!properties) {
+      return true;
+    }
+    
+    // Om properties angavs, kontrollera att åtminstone en händelse har alla egenskaper
+    return events.some(event => {
+      return Object.entries(properties).every(([key, value]) => {
+        // Hantera UniqueId-jämförelser
+        if (value && typeof value === 'object' && typeof value.equals === 'function' && 
+            event[key] && typeof event[key] === 'object' && typeof event[key].equals === 'function') {
+          return event[key].equals(value);
+        }
+        
+        // Vanlig jämförelse
+        return event[key] === value;
+      });
+    });
+  }
 }
 
-// Exportera klassen
+// Exportera klassen för att kunna importera den som 'MockDomainEvents'
 export { MockDomainEvents };
 
-// Exportera en instans för att stödja importering via 'mockDomainEvents'
-export const mockDomainEvents = MockDomainEvents; 
+// Exportera en instans som singleton för att stödja importering via 'mockDomainEvents'
+export const mockDomainEvents = MockDomainEvents;
+
+// Default export för enklare importering
+export default MockDomainEvents; 

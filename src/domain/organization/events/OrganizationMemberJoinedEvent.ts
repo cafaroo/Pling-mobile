@@ -1,30 +1,37 @@
-import { BaseOrganizationEvent } from './BaseOrganizationEvent';
-import { Organization } from '../entities/Organization';
+import { DomainEvent } from '@/shared/core/DomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { OrganizationRole } from '../value-objects/OrganizationRole';
 
 /**
  * OrganizationMemberJoinedEvent
  * 
- * Domänhändelse som publiceras när en medlem har gått med i en organisation.
- * Innehåller information om organisationen, användaren och dennes roll.
+ * Domänhändelse som publiceras när en medlem går med i en organisation.
  */
-export class OrganizationMemberJoinedEvent extends BaseOrganizationEvent {
+export class OrganizationMemberJoinedEvent extends DomainEvent {
+  public readonly organizationId: UniqueId;
+  public readonly userId: UniqueId;
+  public readonly role: OrganizationRole;
+
   /**
    * Skapar en ny OrganizationMemberJoinedEvent
    * 
-   * @param organization - Organization-objekt eller ID för organisationen
-   * @param userId - ID för användaren som gått med
+   * @param organizationId - ID för organisationen
+   * @param userId - ID för användaren som gick med
    * @param role - Användarens roll i organisationen
    */
-  constructor(
-    organization: Organization | UniqueId,
-    userId: UniqueId,
-    role: OrganizationRole
-  ) {
-    super('OrganizationMemberJoinedEvent', organization, {
-      userId: userId.toString(),
-      role
+  constructor(organizationId: UniqueId, userId: UniqueId, role: OrganizationRole) {
+    super({
+      name: 'OrganizationMemberJoinedEvent',
+      payload: {
+        organizationId: organizationId.toString(),
+        userId: userId.toString(),
+        role
+      }
     });
+    
+    // Spara properties direkt på event-objektet för enklare åtkomst
+    this.organizationId = organizationId;
+    this.userId = userId;
+    this.role = role;
   }
 } 

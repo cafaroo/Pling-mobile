@@ -1,7 +1,7 @@
 import { ValueObject } from '@/shared/core/ValueObject';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { Result, ok, err } from '@/shared/core/Result';
-import { OrganizationRole } from './OrganizationRole';
+import { OrganizationRole, OrganizationRoleEnum } from './OrganizationRole';
 import { OrganizationPermission } from './OrganizationPermission';
 
 interface OrganizationMemberProps {
@@ -29,21 +29,35 @@ export class OrganizationMember extends ValueObject<OrganizationMemberProps> {
 
   public static create(props: {
     userId: string | UniqueId;
-    role: OrganizationRole;
-    joinedAt: Date;
+    role: OrganizationRole | OrganizationRoleEnum | string;
+    joinedAt?: Date;
   }): Result<OrganizationMember, string> {
     try {
       const userId = props.userId instanceof UniqueId
         ? props.userId
         : new UniqueId(props.userId);
 
+      // Hantera rollen baserat på olika indata-typer
+      let role: OrganizationRole;
+      if (props.role instanceof OrganizationRole) {
+        // Om role redan är ett OrganizationRole-objekt
+        role = props.role;
+      } else {
+        // Konvertera till OrganizationRole om det är ett enum-värde eller sträng
+        const roleResult = OrganizationRole.create(props.role);
+        if (roleResult.isErr()) {
+          return err(`Ogiltig roll: ${roleResult.error}`);
+        }
+        role = roleResult.value;
+      }
+
       return ok(new OrganizationMember({
         userId,
-        role: props.role,
-        joinedAt: props.joinedAt
+        role,
+        joinedAt: props.joinedAt || new Date()
       }));
     } catch (error) {
-      return err(`Kunde inte skapa organisationsmedlem: ${error.message}`);
+      return err(`Kunde inte skapa organisationsmedlem: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -52,41 +66,53 @@ export class OrganizationMember extends ValueObject<OrganizationMemberProps> {
   }
 
   public canInviteMembers(): boolean {
-    return [OrganizationRole.OWNER, OrganizationRole.ADMIN].includes(this.props.role);
+    return this.props.role.equalsValue(OrganizationRoleEnum.OWNER) || 
+           this.props.role.equalsValue(OrganizationRoleEnum.ADMIN);
   }
 
   public canRemoveMembers(): boolean {
-    return [OrganizationRole.OWNER, OrganizationRole.ADMIN].includes(this.props.role);
+    return this.props.role.equalsValue(OrganizationRoleEnum.OWNER) || 
+           this.props.role.equalsValue(OrganizationRoleEnum.ADMIN);
   }
 
   public canEditOrganization(): boolean {
-    return [OrganizationRole.OWNER, OrganizationRole.ADMIN].includes(this.props.role);
+    return this.props.role.equalsValue(OrganizationRoleEnum.OWNER) || 
+           this.props.role.equalsValue(OrganizationRoleEnum.ADMIN);
   }
 
   public canManageRoles(): boolean {
-    return this.props.role === OrganizationRole.OWNER;
+    return this.props.role.equalsValue(OrganizationRoleEnum.OWNER);
   }
 
   public canManageTeams(): boolean {
-    return [OrganizationRole.OWNER, OrganizationRole.ADMIN].includes(this.props.role);
+    return this.props.role.equalsValue(OrganizationRoleEnum.OWNER) || 
+           this.props.role.equalsValue(OrganizationRoleEnum.ADMIN);
   }
 
   public hasPermission(permission: OrganizationPermission): boolean {
     switch (permission) {
       case OrganizationPermission.MANAGE_ORGANIZATION:
-        return this.props.role === OrganizationRole.OWNER;
+        return this.props.role.equalsValue(OrganizationRoleEnum.OWNER);
+        
       case OrganizationPermission.MANAGE_MEMBERS:
       case OrganizationPermission.INVITE_MEMBERS:
       case OrganizationPermission.REMOVE_MEMBERS:
       case OrganizationPermission.EDIT_ORGANIZATION:
       case OrganizationPermission.MANAGE_TEAMS:
-        return [OrganizationRole.OWNER, OrganizationRole.ADMIN].includes(this.props.role);
+        return this.props.role.equalsValue(OrganizationRoleEnum.OWNER) || 
+               this.props.role.equalsValue(OrganizationRoleEnum.ADMIN);
+               
       case OrganizationPermission.MANAGE_ROLES:
-        return this.props.role === OrganizationRole.OWNER;
+        return this.props.role.equalsValue(OrganizationRoleEnum.OWNER);
+        
       case OrganizationPermission.VIEW_ORGANIZATION:
-        return [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.MEMBER].includes(this.props.role);
+        return this.props.role.equalsValue(OrganizationRoleEnum.OWNER) || 
+               this.props.role.equalsValue(OrganizationRoleEnum.ADMIN) || 
+               this.props.role.equalsValue(OrganizationRoleEnum.MEMBER);
+               
       case OrganizationPermission.JOIN_ORGANIZATION:
-        return this.props.role === OrganizationRole.INVITED;
+        return this.props.role.equalsValue(OrganizationRoleEnum.INVITED);
+        
       default:
         return false;
     }
@@ -95,7 +121,7 @@ export class OrganizationMember extends ValueObject<OrganizationMemberProps> {
   public toJSON() {
     return {
       userId: this.props.userId.toString(),
-      role: this.props.role,
+      role: this.props.role.toString(),
       joinedAt: this.props.joinedAt.toISOString()
     };
   }

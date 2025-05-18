@@ -61,57 +61,375 @@ export interface TeamUpdateDTO {
  * Hanterar medlemsskap, roller, inbjudningar och teamrelaterade operationer.
  */
 export class Team extends AggregateRoot<TeamProps> {
-  private constructor(props: TeamProps, id?: UniqueId) {
+  /**
+   * Privat konstruktor, använd static create för att skapa nya team-instanser
+   * Eller utmane från test-utils för att skapa mock-instanser
+   */
+  constructor(props: TeamProps, id?: UniqueId) {
     super(props, id);
+    
+    // Lägg automatiskt till TeamCreatedEvent för nya instanser
+    // Men bara om det inte görs från en mock
+    if (!id) {
+      const teamCreatedEvent = new TeamCreatedEvent({
+        teamId: this.id,
+        name: this.props.name.value,
+        ownerId: this.props.ownerId,
+        createdAt: this.props.createdAt
+      });
+      
+      this.addDomainEvent(teamCreatedEvent);
+    }
   }
 
   /**
-   * Validerar invarianter för teamaggregatet.
-   * 
-   * @returns Result som indikerar om alla invarianter är uppfyllda
+   * Bekräftar alla invarianter för ett team
    */
-  private validateInvariants(): Result<void, string> {
+  public validateInvariants(): Result<void, string> {
     try {
-      // Invariant: Ett team måste ha ett namn
-      if (!this.props.name) {
-        return Result.err('Team måste ha ett namn');
-      }
-
-      // Invariant: Ett team måste ha en ägare
-      if (!this.props.ownerId) {
-        return Result.err('Team måste ha en ägare');
-      }
-
       // Invariant: Ägaren måste vara medlem i teamet med OWNER-roll
       const ownerIsMember = this.props.members.some(
         member => member.userId.equals(this.props.ownerId) && 
-                 member.role === TeamRole.OWNER
+                 member.role.equalsValue(TeamRole.OWNER)
       );
       
       if (!ownerIsMember) {
-        return Result.err('Ägaren måste vara medlem i teamet med OWNER-roll');
+        return err('Ägaren måste vara medlem i teamet med OWNER-roll');
       }
-
-      // Invariant: Varje medlem kan bara ha en roll i teamet
-      const uniqueMembers = new Set();
-      for (const member of this.props.members) {
-        const memberId = member.userId.toString();
-        if (uniqueMembers.has(memberId)) {
-          return Result.err('En användare kan bara ha en roll i teamet');
-        }
-        uniqueMembers.add(memberId);
+      
+      // Invariant: Max antal medlemmar
+      if (this.props.members.length > this.props.settings.props.maxMembers) {
+        return err(`Teamet kan inte ha fler än ${this.props.settings.props.maxMembers} medlemmar`);
       }
-
-      // Invariant: Antalet medlemmar får inte överstiga maxMembers från inställningarna
-      const maxMembers = this.props.settings.props.maxMembers;
-      if (maxMembers && this.props.members.length > maxMembers) {
-        return Result.err(`Teamet har överskridit sin medlemsgräns på ${maxMembers} medlemmar`);
+      
+      // Invariant: Inga duplicerade medlemmar
+      const memberIds = this.props.members.map(member => member.userId.toString());
+      if (new Set(memberIds).size !== memberIds.length) {
+        return err('Teamet kan inte ha duplicerade medlemmar');
       }
-
-      // Alla invarianter uppfyllda
-      return Result.ok(undefined);
+      
+      // Alla invarianter godkändes
+      return ok(undefined);
     } catch (error) {
-      return Result.err(`Fel vid validering av invarianter: ${error instanceof Error ? error.message : String(error)}`);
+      return err(`Invariantfel: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Hjälpmetod för att validera invarianter och kasta fel om de inte är uppfyllda
+   */
+  private validateAndThrowOnFailure(): void {
+    const validation = this.validateInvariants();
+    if (validation.isErr()) {
+      throw new Error(validation.error);
+    }
+  }
+  
+  /**
+   * Skapar ett nytt team
+   */
+  public static create(props: TeamCreateDTO): Result<Team, string> {
+    try {
+      // Skapa namn och beskrivning
+      const nameResult = TeamName.create(props.name);
+      if (nameResult.isErr()) {
+        return err(nameResult.error);
+      }
+      
+      // Skapa beskrivning om den finns
+      let description = undefined;
+      if (props.description) {
+        const descriptionResult = TeamDescription.create(props.description);
+        if (descriptionResult.isErr()) {
+          return err(descriptionResult.error);
+        }
+        description = descriptionResult.value;
+      }
+      
+      // Skapa inställningar (med standardvärden eller anpassade)
+      const settingsResult = props.settings 
+        ? TeamSettings.create(props.settings) 
+        : TeamSettings.createDefault();
+      
+      if (settingsResult.isErr()) {
+        return err(settingsResult.error);
+      }
+      
+      // Konvertera ownerId till UniqueId
+      const ownerId = props.ownerId instanceof UniqueId 
+        ? props.ownerId 
+        : new UniqueId(props.ownerId);
+      
+      const now = new Date();
+      
+      // Skapa och lägg till ägaren som en TeamMember med OWNER-roll
+      const ownerMemberResult = TeamMember.create({
+        userId: ownerId,
+        role: TeamRole.OWNER,
+        joinedAt: now
+      });
+      
+      if (ownerMemberResult.isErr()) {
+        return err(ownerMemberResult.error);
+      }
+      
+      // Skapa Team
+      const id = new UniqueId();
+      const team = new Team({
+        name: nameResult.value,
+        description,
+        ownerId,
+        createdAt: now,
+        updatedAt: now,
+        members: [ownerMemberResult.value],
+        invitations: [],
+        settings: settingsResult.value
+      }, id);
+      
+      // Validera invarianter
+      const validation = team.validateInvariants();
+      if (validation.isErr()) {
+        return err(validation.error);
+      }
+      
+      return ok(team);
+    } catch (error) {
+      return err(`Kunde inte skapa team: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Lägger till en medlem i teamet
+   */
+  public addMember(props: {
+    userId: string | UniqueId;
+    role: TeamRole | string;
+    joinedAt?: Date;
+  }): Result<void, string> {
+    try {
+      // Verifiera att användaren inte redan är medlem
+      const userId = props.userId instanceof UniqueId 
+        ? props.userId 
+        : new UniqueId(props.userId);
+        
+      const existingMemberIndex = this.props.members.findIndex(
+        member => member.userId.equals(userId)
+      );
+      
+      if (existingMemberIndex >= 0) {
+        return err('Användaren är redan medlem i teamet');
+      }
+      
+      // Verifiera att det finns plats för fler medlemmar
+      if (this.props.members.length >= this.props.settings.props.maxMembers) {
+        return err(`Teamet kan inte ha fler än ${this.props.settings.props.maxMembers} medlemmar`);
+      }
+      
+      // Skapa TeamMember
+      const memberResult = TeamMember.create({
+        userId,
+        role: props.role,
+        joinedAt: props.joinedAt || new Date()
+      });
+      
+      if (memberResult.isErr()) {
+        return err(memberResult.error);
+      }
+      
+      // Lägg till medlem och uppdatera
+      this.props.members.push(memberResult.value);
+      this.props.updatedAt = new Date();
+      
+      // Skapa och publicera MemberJoinedEvent
+      const memberJoinedEvent = new TeamMemberJoinedEvent({
+        teamId: this.id,
+        userId: userId,
+        role: memberResult.value.role.toString(),
+        joinedAt: memberResult.value.joinedAt
+      });
+      
+      this.addDomainEvent(memberJoinedEvent);
+      
+      // Validera invarianter
+      const validation = this.validateInvariants();
+      if (validation.isErr()) {
+        // Återställ ändringen om invarianterna inte uppfylls
+        this.props.members.pop();
+        return err(validation.error);
+      }
+      
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte lägga till medlem: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Tar bort en medlem från teamet
+   */
+  public removeMember(userId: string | UniqueId): Result<void, string> {
+    try {
+      const userIdObj = userId instanceof UniqueId ? userId : new UniqueId(userId);
+      
+      // Ägaren kan inte tas bort
+      if (userIdObj.equals(this.props.ownerId)) {
+        return err('Ägaren kan inte tas bort från teamet');
+      }
+      
+      const memberIndex = this.props.members.findIndex(
+        member => member.userId.equals(userIdObj)
+      );
+      
+      if (memberIndex === -1) {
+        return err('Användaren är inte medlem i teamet');
+      }
+      
+      // Spara medlemmen innan den tas bort för att skapa ett event
+      const removedMember = this.props.members[memberIndex];
+      
+      // Ta bort medlemmen och uppdatera
+      this.props.members.splice(memberIndex, 1);
+      this.props.updatedAt = new Date();
+      
+      // Skapa och publicera MemberLeftEvent
+      const memberLeftEvent = new TeamMemberLeftEvent({
+        teamId: this.id,
+        userId: userIdObj,
+        removedAt: new Date()
+      });
+      
+      this.addDomainEvent(memberLeftEvent);
+      
+      // Validera invarianter
+      const validation = this.validateInvariants();
+      if (validation.isErr()) {
+        // Återställ ändringen om invarianterna inte uppfylls
+        this.props.members.splice(memberIndex, 0, removedMember);
+        return err(validation.error);
+      }
+      
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte ta bort medlem: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Ändrar rollen för en medlem
+   */
+  public changeMemberRole(userId: string | UniqueId, newRole: TeamRole | string): Result<void, string> {
+    try {
+      const userIdObj = userId instanceof UniqueId ? userId : new UniqueId(userId);
+      
+      // Förhindra att ägaren byter roll
+      if (userIdObj.equals(this.props.ownerId) && !newRole.equalsValue || !newRole.equalsValue(TeamRole.OWNER)) {
+        return err('Ägarens roll kan inte ändras');
+      }
+      
+      const memberIndex = this.props.members.findIndex(
+        member => member.userId.equals(userIdObj)
+      );
+      
+      if (memberIndex === -1) {
+        return err('Användaren är inte medlem i teamet');
+      }
+      
+      // Hämta medlemmen och spara den gamla rollen
+      const member = this.props.members[memberIndex];
+      const oldRole = member.role;
+      
+      // Försök att skapa en ny TeamMember med den nya rollen
+      const newMemberResult = TeamMember.create({
+        userId: userIdObj,
+        role: newRole,
+        joinedAt: member.joinedAt
+      });
+      
+      if (newMemberResult.isErr()) {
+        return err(newMemberResult.error);
+      }
+      
+      // Uppdatera medlemmen
+      this.props.members[memberIndex] = newMemberResult.value;
+      this.props.updatedAt = new Date();
+      
+      // Skapa och publicera RoleChangedEvent
+      const roleChangedEvent = new TeamMemberRoleChangedEvent({
+        teamId: this.id,
+        userId: userIdObj,
+        oldRole: oldRole.toString(),
+        newRole: newMemberResult.value.role.toString(),
+        changedAt: new Date()
+      });
+      
+      this.addDomainEvent(roleChangedEvent);
+      
+      // Validera invarianter
+      const validation = this.validateInvariants();
+      if (validation.isErr()) {
+        // Återställ ändringen om invarianterna inte uppfylls
+        this.props.members[memberIndex] = member;
+        return err(validation.error);
+      }
+      
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte ändra medlemsroll: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Uppdaterar teamets information
+   */
+  public update(props: {
+    name?: string;
+    description?: string | null;
+  }): Result<void, string> {
+    try {
+      // Uppdatera namn om det angetts
+      if (props.name) {
+        const nameResult = TeamName.create(props.name);
+        if (nameResult.isErr()) {
+          return err(nameResult.error);
+        }
+        this.props.name = nameResult.value;
+      }
+      
+      // Uppdatera beskrivning om det angetts
+      if (props.description !== undefined) {
+        if (props.description === null) {
+          this.props.description = undefined;
+        } else {
+          const descriptionResult = TeamDescription.create(props.description);
+          if (descriptionResult.isErr()) {
+            return err(descriptionResult.error);
+          }
+          this.props.description = descriptionResult.value;
+        }
+      }
+      
+      // Uppdatera timestamp
+      this.props.updatedAt = new Date();
+      
+      // Skapa och publicera TeamUpdatedEvent
+      const updatedEvent = new TeamUpdated({
+        teamId: this.id,
+        name: this.props.name.value,
+        description: this.props.description?.value,
+        updatedAt: this.props.updatedAt
+      });
+      
+      this.addDomainEvent(updatedEvent);
+      
+      // Validera invarianter
+      const validation = this.validateInvariants();
+      if (validation.isErr()) {
+        return err(validation.error);
+      }
+      
+      return ok(undefined);
+    } catch (error) {
+      return err(`Kunde inte uppdatera team: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -169,297 +487,6 @@ export class Team extends AggregateRoot<TeamProps> {
    */
   get updatedAt(): Date {
     return new Date(this.props.updatedAt);
-  }
-
-  /**
-   * Skapa ett nytt team med validering och domänevents
-   * 
-   * @param props Egenskaper för det nya teamet
-   * @returns Result med Team eller felmeddelande
-   */
-  public static create(props: TeamCreateDTO): Result<Team, string> {
-    try {
-      // Skapa och validera UniqueId
-      const ownerId = props.ownerId instanceof UniqueId 
-        ? props.ownerId 
-        : new UniqueId(props.ownerId);
-
-      // Validera och skapa TeamName värde-objekt
-      const nameResult = TeamName.create(props.name);
-      if (nameResult.isErr()) {
-        return err(nameResult.error);
-      }
-      
-      // Validera och skapa TeamDescription värde-objekt om det finns
-      let descriptionValueObject: TeamDescription | undefined;
-      if (props.description !== undefined) {
-        const descriptionResult = TeamDescription.create(props.description);
-        if (descriptionResult.isErr()) {
-          return err(descriptionResult.error);
-        }
-        descriptionValueObject = descriptionResult.value;
-      }
-
-      // Skapa standardinställningar eller använd anpassade inställningar med bättre felhantering
-      const settingsResult = props.settings 
-        ? TeamSettings.create(props.settings)
-        : TeamSettings.createDefault();
-      
-      if (settingsResult.isErr()) {
-        return err(`Kunde inte skapa teaminställningar: ${settingsResult.error}`);
-      }
-
-      // Skapa ägarens medlemskap med owner-roll
-      const ownerMemberResult = TeamMember.create({
-        userId: ownerId,
-        role: TeamRole.OWNER,
-        joinedAt: new Date()
-      });
-
-      if (ownerMemberResult.isErr()) {
-        return err(`Kunde inte skapa ägarmedlemskap: ${ownerMemberResult.error}`);
-      }
-
-      const now = new Date();
-      const id = new UniqueId();
-
-      // Skapa nytt team med den nya strukturen
-      const team = new Team({
-        name: nameResult.value,
-        description: descriptionValueObject,
-        ownerId,
-        members: [ownerMemberResult.value],
-        invitations: [],
-        settings: settingsResult.value,
-        createdAt: now,
-        updatedAt: now
-      }, id);
-      
-      // Validera invarianter
-      const validationResult = team.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-
-      // Lägg till domänhändelse för teamskapande med ny standardiserad händelseklass
-      team.addDomainEvent(new TeamCreatedEvent(
-        team,
-        ownerId,
-        nameResult.value.value
-      ));
-
-      return ok(team);
-    } catch (error) {
-      return err(`Kunde inte skapa team: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Uppdatera team med validering och domänevents
-   * 
-   * @param updateDTO DTO med uppdateringsinformation
-   * @returns Result med success eller felmeddelande
-   */
-  public update(updateDTO: TeamUpdateDTO): Result<void, string> {
-    try {
-      // Hantera uppdatering av namn
-      if (updateDTO.name) {
-        const nameResult = TeamName.create(updateDTO.name);
-        if (nameResult.isErr()) {
-          return err(nameResult.error);
-        }
-        this.props.name = nameResult.value;
-      }
-
-      // Hantera uppdatering av beskrivning
-      if (updateDTO.description !== undefined) {
-        const descriptionResult = TeamDescription.create(updateDTO.description);
-        if (descriptionResult.isErr()) {
-          return err(descriptionResult.error);
-        }
-        this.props.description = descriptionResult.value;
-      }
-
-      // Hantera uppdatering av inställningar med korrekt typning
-      if (updateDTO.settings) {
-        const settingsResult = this.props.settings.update(updateDTO.settings);
-        if (settingsResult.isErr()) {
-          return err(`Kunde inte uppdatera teaminställningar: ${settingsResult.error}`);
-        }
-        
-        this.props.settings = settingsResult.value;
-        
-        // Publicera inställningsuppdateringshändelse
-        this.addDomainEvent(new TeamSettingsUpdated(
-          this.id,
-          settingsResult.value.toDTO()
-        ));
-      }
-
-      this.props.updatedAt = new Date();
-
-      // Publicera teamuppdateringshändelse
-      this.addDomainEvent(new TeamUpdated(
-        this.id,
-        this.props.name.value
-      ));
-
-      return ok(undefined);
-    } catch (error) {
-      return err(`Kunde inte uppdatera team: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Lägger till en ny medlem till teamet
-   * 
-   * @param member Medlemmen att lägga till
-   * @returns Result med success eller felmeddelande
-   */
-  public addMember(member: TeamMember): Result<void, string> {
-    try {
-      // Kontrollera om användaren redan är medlem
-      const existingMember = this.props.members.find(m => 
-        m.userId.toString() === member.userId.toString()
-      );
-
-      if (existingMember) {
-        return err('Användaren är redan medlem i teamet');
-      }
-
-      // Förbättrad kontroll av medlemsgräns med TeamSettings
-      const maxMembers = this.props.settings.props.maxMembers;
-      if (maxMembers && this.props.members.length >= maxMembers) {
-        return err(`Teamet har nått sin medlemsgräns på ${maxMembers} medlemmar`);
-      }
-
-      // Kontrollera om teamet kräver godkännande men användaren inte har det
-      if (this.props.settings.props.requiresApproval && !member.isApproved) {
-        return err('Användaren måste godkännas för att gå med i teamet');
-      }
-
-      // Lägg till medlemmen och uppdatera tidsstämpel
-      this.props.members.push(member);
-      this.props.updatedAt = new Date();
-      
-      // Validera invarianter efter ändring
-      const validationResult = this.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new TeamMemberJoinedEvent(
-        this,
-        member.userId,
-        member.role
-      ));
-
-      return ok(undefined);
-    } catch (error) {
-      return err(`Kunde inte lägga till medlem: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Tar bort en medlem från teamet
-   * 
-   * @param userId ID för medlemmen att ta bort
-   * @returns Result med success eller felmeddelande
-   */
-  public removeMember(userId: UniqueId): Result<void, string> {
-    try {
-      // Kontrollera om användaren är ägare
-      if (this.props.ownerId.equals(userId)) {
-        return err('Ägaren kan inte tas bort från teamet');
-      }
-
-      // Kontrollera om användaren är medlem
-      const memberIndex = this.props.members.findIndex(m => m.userId.equals(userId));
-      if (memberIndex === -1) {
-        return err('Användaren är inte medlem i teamet');
-      }
-
-      // Ta bort medlemmen och uppdatera tidsstämpel
-      this.props.members.splice(memberIndex, 1);
-      this.props.updatedAt = new Date();
-      
-      // Validera invarianter efter ändring
-      const validationResult = this.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new TeamMemberLeftEvent(
-        this,
-        userId
-      ));
-
-      return ok(undefined);
-    } catch (error) {
-      return err(`Kunde inte ta bort medlem: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Uppdaterar en medlems roll i teamet
-   * 
-   * @param userId ID för medlemmen
-   * @param newRole Ny roll för medlemmen
-   * @returns Result med success eller felmeddelande
-   */
-  public updateMemberRole(userId: UniqueId, newRole: TeamRole): Result<void, string> {
-    try {
-      // Hitta medlemmen
-      const memberIndex = this.props.members.findIndex(m => m.userId.equals(userId));
-      if (memberIndex === -1) {
-        return err('Användaren är inte medlem i teamet');
-      }
-
-      const member = this.props.members[memberIndex];
-
-      // Kontrollera om användaren är ägare (kan inte ändra ägarens roll)
-      if (this.props.ownerId.equals(userId) && newRole !== TeamRole.OWNER) {
-        return err('Ägarens roll kan inte ändras från OWNER');
-      }
-
-      // Spara gamla rollen för eventet
-      const oldRole = member.role;
-      
-      // Skapa en uppdaterad TeamMember med den nya rollen
-      const updatedMemberResult = TeamMember.create({
-        userId: member.userId,
-        role: newRole,
-        joinedAt: member.joinedAt
-      });
-      
-      if (updatedMemberResult.isErr()) {
-        return err(updatedMemberResult.error);
-      }
-
-      // Ersätt den gamla medlemmen med den uppdaterade
-      this.props.members[memberIndex] = updatedMemberResult.value;
-      this.props.updatedAt = new Date();
-      
-      // Validera invarianter efter ändring
-      const validationResult = this.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new TeamMemberRoleChangedEvent(
-        this,
-        userId,
-        oldRole,
-        newRole
-      ));
-
-      return ok(undefined);
-    } catch (error) {
-      return err(`Kunde inte uppdatera medlemsroll: ${error instanceof Error ? error.message : String(error)}`);
-    }
   }
 
   /**
@@ -578,7 +605,7 @@ export class Team extends AggregateRoot<TeamProps> {
    * @param permission Behörighet att kontrollera
    * @returns True om medlemmen har behörigheten, annars false
    */
-  public hasMemberPermission(userId: UniqueId, permission: TeamPermission): boolean {
+  public hasMemberPermission(userId: UniqueId, permission: TeamPermission | string): boolean {
     // Hitta medlemmen
     const member = this.props.members.find(m => m.userId.equals(userId));
 
@@ -586,17 +613,22 @@ export class Team extends AggregateRoot<TeamProps> {
       return false;
     }
 
+    // Konvertera sträng till enum om det är en sträng
+    const permissionEnum = typeof permission === 'string' 
+      ? permission as TeamPermission 
+      : permission;
+
     // Kontrollera behörighet baserat på medlemmens roll
-    switch (member.role) {
-      case TeamRole.OWNER:
+    switch (true) {
+      case member.role.equalsValue(TeamRole.OWNER):
         // Ägare har alla behörigheter
         return true;
         
-      case TeamRole.ADMIN:
+      case member.role.equalsValue(TeamRole.ADMIN):
         // Administratör har alla behörigheter förutom att ta bort teamet
-        return permission !== TeamPermission.DELETE_TEAM;
+        return permissionEnum !== TeamPermission.DELETE_TEAM;
         
-      case TeamRole.MEMBER:
+      case member.role.equalsValue(TeamRole.MEMBER):
         // Vanlig medlem har grundläggande behörigheter
         return [
           TeamPermission.VIEW_TEAM,
@@ -604,14 +636,14 @@ export class Team extends AggregateRoot<TeamProps> {
           TeamPermission.UPLOAD_FILES,
           TeamPermission.JOIN_ACTIVITIES,
           TeamPermission.CREATE_POSTS,
-        ].includes(permission);
+        ].includes(permissionEnum);
         
-      case TeamRole.GUEST:
+      case member.role.equalsValue(TeamRole.GUEST):
         // Gäst har begränsade behörigheter
         return [
           TeamPermission.VIEW_TEAM,
           TeamPermission.JOIN_ACTIVITIES
-        ].includes(permission);
+        ].includes(permissionEnum);
         
       default:
         return false;

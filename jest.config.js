@@ -60,6 +60,27 @@ module.exports = {
       ],
     },
     {
+      displayName: 'hooks',
+      testEnvironment: 'jsdom',
+      testMatch: [
+        '<rootDir>/src/application/**/hooks/**/*.test.{ts,tsx,js,jsx}'
+      ],
+      setupFilesAfterEnv: [
+        '<rootDir>/jest.hooks.setup.js'
+      ],
+      transform: {
+        '^.+\\.[jt]sx?$': [
+          'babel-jest',
+          {
+            configFile: './babel.config.js'
+          }
+        ]
+      },
+      transformIgnorePatterns: [
+        'node_modules/(?!(jest-)?react-native|@react-native|@react-native-community|@react-navigation|@testing-library|react-native-paper|react-native-gesture-handler|react-native-toast-message|@react-native-async-storage|expo|expo-.*|@expo.*|sentry-expo|native-base|@tanstack)/'
+      ]
+    },
+    {
       displayName: 'subscription',
       testEnvironment: 'jsdom',
       testMatch: [

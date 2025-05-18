@@ -2,23 +2,22 @@
  * Exempeltestfil för domänlager
  */
 
-// Deklarera typer för de globala mockfunktionerna
-declare global {
-  var mockResultOk: <T>(value: T) => { 
-    isOk: () => true; 
-    isErr: () => false; 
-    value: T; 
-    error: null; 
-    unwrap: () => T;
-  };
-  var mockResultErr: <E>(error: E) => {
-    isOk: () => false; 
-    isErr: () => true; 
-    value: null; 
-    error: E; 
-    unwrap: () => never;
-  };
-}
+// Hjälpfunktioner för att ersätta globala mockfunktioner
+const mockResultOk = <T>(value: T) => ({ 
+  isOk: () => true, 
+  isErr: () => false, 
+  value, 
+  error: null, 
+  unwrap: () => value
+});
+
+const mockResultErr = <E>(error: E) => ({
+  isOk: () => false, 
+  isErr: () => true, 
+  value: null, 
+  error, 
+  unwrap: () => { throw new Error(`Cannot unwrap error result: ${error}`); }
+});
 
 // Enkel exempeldomänentitet
 class User {
@@ -35,9 +34,9 @@ class User {
   static create(data: { id: string; name: string; email: string }) {
     const user = new User(data.id, data.name, data.email);
     if (!user.isValid()) {
-      return global.mockResultErr('Invalid user data');
+      return mockResultErr('Invalid user data');
     }
-    return global.mockResultOk(user);
+    return mockResultOk(user);
   }
 }
 
@@ -54,21 +53,21 @@ class RegisterUserUseCase {
   async execute(userData: { id: string; name: string; email: string }) {
     const userResult = User.create(userData);
     if (userResult.isErr()) {
-      return global.mockResultErr(`Failed to create user: ${userResult.error}`);
+      return mockResultErr(`Failed to create user: ${userResult.error}`);
     }
 
     const user = userResult.value;
     const existingUser = await this.userRepository.findById(user.id);
     if (existingUser) {
-      return global.mockResultErr('User already exists');
+      return mockResultErr('User already exists');
     }
 
     const saved = await this.userRepository.save(user);
     if (!saved) {
-      return global.mockResultErr('Failed to save user');
+      return mockResultErr('Failed to save user');
     }
 
-    return global.mockResultOk(user);
+    return mockResultOk(user);
   }
 }
 

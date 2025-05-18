@@ -44,10 +44,10 @@ export class TeamRole extends ValueObject<TeamRoleProps> {
   /**
    * Färdigdefinierade roller
    */
-  public static Owner = new TeamRole({ value: TeamRoleEnum.OWNER });
-  public static Admin = new TeamRole({ value: TeamRoleEnum.ADMIN });
-  public static Member = new TeamRole({ value: TeamRoleEnum.MEMBER });
-  public static Guest = new TeamRole({ value: TeamRoleEnum.GUEST });
+  public static readonly OWNER: TeamRole = new TeamRole({ value: TeamRoleEnum.OWNER });
+  public static readonly ADMIN: TeamRole = new TeamRole({ value: TeamRoleEnum.ADMIN });
+  public static readonly MEMBER: TeamRole = new TeamRole({ value: TeamRoleEnum.MEMBER });
+  public static readonly GUEST: TeamRole = new TeamRole({ value: TeamRoleEnum.GUEST });
   
   /**
    * Hämtar rollvärdet
@@ -58,10 +58,30 @@ export class TeamRole extends ValueObject<TeamRoleProps> {
   
   /**
    * Jämför om detta TeamRole-objekt är samma som en annan roll
+   * Implementerar ValueObject.equals
    */
-  public equals(role?: TeamRole): boolean {
+  public equals(vo?: ValueObject<TeamRoleProps>): boolean {
+    if (vo === null || vo === undefined) {
+      return false;
+    }
+    
+    if (!(vo instanceof TeamRole)) {
+      return false;
+    }
+    
+    return this.props.value === vo.props.value;
+  }
+  
+  /**
+   * Jämför om detta TeamRole-objekt är samma som ett rollvärde (string eller TeamRole)
+   */
+  public equalsValue(role?: TeamRole | string): boolean {
     if (role === null || role === undefined) {
       return false;
+    }
+    
+    if (typeof role === 'string') {
+      return this.props.value === role.toLowerCase();
     }
     
     return this.props.value === role.props.value;
@@ -179,13 +199,13 @@ export function parseTeamRole(role: string | TeamRole): Result<TeamRole, string>
     // Översätt strängen till motsvarande TeamRole-instans
     switch (normalizedRole) {
       case 'owner':
-        return ok(TeamRole.Owner);
+        return ok(TeamRole.OWNER);
       case 'admin':
-        return ok(TeamRole.Admin);
+        return ok(TeamRole.ADMIN);
       case 'member':
-        return ok(TeamRole.Member);
+        return ok(TeamRole.MEMBER);
       case 'guest':
-        return ok(TeamRole.Guest);
+        return ok(TeamRole.GUEST);
       default:
         return err(`Ogiltig teamroll: ${role}`);
     }

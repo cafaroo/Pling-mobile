@@ -2,6 +2,20 @@
  * Jest setup file för att konfigurera testmiljön
  */
 
+// Konfigurera globala objekt för JSDOM
+if (typeof document === 'undefined') {
+  global.document = {
+    createElement: jest.fn(() => ({})),
+    createTextNode: jest.fn(() => ({})),
+    querySelector: jest.fn(() => ({})),
+  };
+  global.window = {
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    document: global.document,
+  };
+}
+
 import '@testing-library/jest-native/extend-expect';
 import { configure } from '@testing-library/react-native';
 
@@ -250,33 +264,54 @@ jest.mock('react-native/Libraries/EventEmitter/NativeEventEmitter', () => {
 });
 
 // Mock för react-native komponenter
-jest.mock('react-native', () => {
-  const RN = jest.requireActual('react-native');
-  RN.NativeModules.SettingsManager = {
-    settings: {
-      AppleLocale: 'en_US',
-      AppleLanguages: ['en'],
-    },
-  };
-  
-  // Mocka specifika moduler som kan orsaka problem
-  RN.Alert = {
-    alert: jest.fn()
-  };
-  
-  RN.Animated = {
-    ...RN.Animated,
+jest.mock('react-native', () => ({
+  Platform: {
+    OS: 'android',
+    select: jest.fn(obj => obj.android || obj.default),
+    Version: 28
+  },
+  Dimensions: {
+    get: jest.fn().mockReturnValue({ width: 360, height: 640 }),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn()
+  },
+  NativeModules: {
+    SettingsManager: {
+      settings: {
+        AppleLocale: 'sv_SE',
+        AppleLanguages: ['sv-SE']
+      }
+    }
+  },
+  StyleSheet: {
+    create: styles => styles,
+    compose: (style1, style2) => ({ ...style1, ...style2 }),
+    flatten: jest.fn(style => style)
+  },
+  View: 'View',
+  Text: 'Text',
+  Image: 'Image',
+  ScrollView: 'ScrollView',
+  TextInput: 'TextInput',
+  TouchableOpacity: 'TouchableOpacity',
+  TouchableWithoutFeedback: 'TouchableWithoutFeedback',
+  FlatList: 'FlatList',
+  Animated: {
+    View: 'Animated.View',
+    Text: 'Animated.Text',
+    Image: 'Animated.Image',
+    createAnimatedComponent: jest.fn((component) => component),
     timing: jest.fn(() => ({
-      start: jest.fn()
+      start: jest.fn((callback) => callback && callback()),
     })),
-    Value: jest.fn(() => ({
-      interpolate: jest.fn(),
-      setValue: jest.fn()
-    }))
-  };
-  
-  return RN;
-});
+    Value: jest.fn((val) => ({
+      setValue: jest.fn(),
+      interpolate: jest.fn(() => ({
+        interpolate: jest.fn(),
+      })),
+    })),
+  },
+}));
 
 // Mock för react-native-toast-message
 jest.mock('react-native-toast-message', () => ({
@@ -458,209 +493,51 @@ jest.mock('@/context/ThemeContext', () => ({
 }), { virtual: true });
 
 // Mock för Supabase
-const mockSupabaseClient = {
-  auth: {
-    getUser: jest.fn().mockResolvedValue({ 
-      data: { user: { id: 'test-user-id', email: 'test@example.com' } }, 
-      error: null 
-    }),
-    signInWithPassword: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
-    signUp: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+jest.mock('@/lib/supabase', () => {
+  const mockAuth = {
+    signIn: jest.fn().mockResolvedValue({ data: null, error: null }),
+    signUp: jest.fn().mockResolvedValue({ data: null, error: null }),
     signOut: jest.fn().mockResolvedValue({ error: null }),
-    onAuthStateChange: jest.fn().mockImplementation(() => {
-      return { data: { subscription: { unsubscribe: jest.fn() } } };
+    onAuthStateChange: jest.fn().mockReturnValue({ unsubscribe: jest.fn() }),
+    getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+    getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null })
+  };
+
+  const mockFrom = jest.fn().mockReturnValue({
+    select: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+        data: [],
+        error: null
+      }),
+      match: jest.fn().mockReturnValue({
+        data: [],
+        error: null
+      }),
+      data: [],
+      error: null
+    }),
+    insert: jest.fn().mockReturnValue({
+      select: jest.fn().mockResolvedValue({ data: null, error: null })
+    }),
+    update: jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ data: null, error: null }),
+      match: jest.fn().mockResolvedValue({ data: null, error: null })
+    }),
+    delete: jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ data: null, error: null })
     })
-  },
-  from: jest.fn().mockImplementation((table) => {
-    return {
-      select: jest.fn().mockImplementation((columns) => {
-        return {
-          eq: jest.fn().mockImplementation((column, value) => {
-            return {
-              single: jest.fn().mockResolvedValue({ 
-                data: { id: value, name: 'Mock Item' }, 
-                error: null 
-              }),
-              maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
-              order: jest.fn().mockReturnThis(),
-              limit: jest.fn().mockReturnThis(),
-              match: jest.fn().mockReturnThis(),
-              in: jest.fn().mockReturnValue({
-                order: jest.fn().mockReturnThis(),
-                limit: jest.fn().mockReturnThis(),
-              }),
-              gt: jest.fn().mockReturnThis(),
-              lt: jest.fn().mockReturnThis(),
-              gte: jest.fn().mockReturnThis(),
-              lte: jest.fn().mockReturnThis(),
-              is: jest.fn().mockReturnThis(),
-            };
-          }),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ 
-            data: { id: 'mock-id', name: 'Mock Item' }, 
-            error: null 
-          }),
-          match: jest.fn().mockReturnThis(),
-          in: jest.fn().mockReturnThis(),
-          order: jest.fn().mockReturnThis(),
-          limit: jest.fn().mockReturnThis(),
-          gt: jest.fn().mockReturnThis(),
-          lt: jest.fn().mockReturnThis(),
-          gte: jest.fn().mockReturnThis(),
-          lte: jest.fn().mockReturnThis(),
-          is: jest.fn().mockReturnThis(),
-        };
-      }),
-      insert: jest.fn().mockImplementation((data) => {
-        return {
-          select: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({ 
-              data: { id: 'new-item-id', ...data }, 
-              error: null 
-            })
-          })
-        };
-      }),
-      update: jest.fn().mockImplementation((data) => {
-        return {
-          eq: jest.fn().mockImplementation((column, value) => {
-            return {
-              select: jest.fn().mockReturnValue({
-                single: jest.fn().mockResolvedValue({ 
-                  data: { id: value, ...data }, 
-                  error: null 
-                })
-              }),
-              single: jest.fn().mockResolvedValue({ 
-                data: { id: value, ...data }, 
-                error: null 
-              })
-            };
-          }),
-          match: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis()
-        };
-      }),
-      delete: jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ data: null, error: null }),
-        match: jest.fn().mockResolvedValue({ data: null, error: null }),
-        in: jest.fn().mockResolvedValue({ data: null, error: null })
-      }),
-      upsert: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({ data: { id: 'upsert-id' }, error: null })
-        })
-      })
-    };
-  }),
-  rpc: jest.fn().mockImplementation((funcName, params) => {
-    if (funcName === 'create_team_secure') {
-      return Promise.resolve({
-        data: 'test-team-id',
-        error: null
-      });
-    }
-    if (funcName === 'get_team_members_with_profiles') {
-      return Promise.resolve({
-        data: [
-          { 
-            id: 'member1', 
-            team_id: params?.team_id_param || 'team1', 
-            user_id: 'user1', 
-            role: 'owner',
-            status: 'active',
-            joined_at: new Date().toISOString(),
-            name: 'Test User',
-            email: 'test@example.com',
-            avatar_url: null,
-            profile_id: 'profile1'
-          }
-        ],
-        error: null
-      });
-    }
-    if (funcName === 'get_user_team_role') {
-      return Promise.resolve({
-        data: 'admin',
-        error: null
-      });
-    }
-    if (funcName === 'update_team_member_role') {
-      return Promise.resolve({
-        data: {
-          id: params?.p_member_id || 'member1',
-          role: params?.p_new_role || 'member'
-        },
-        error: null
-      });
-    }
-    if (funcName === 'join_team_with_code') {
-      return Promise.resolve({
-        data: {
-          success: true,
-          message: 'Gick med i teamet',
-          team_id: 'team1',
-          team_name: 'Testteam'
-        },
-        error: null
-      });
-    }
-    if (funcName === 'leave_team') {
-      return Promise.resolve({
-        data: true,
-        error: null
-      });
-    }
-    return Promise.resolve({ data: null, error: null });
-  }),
-  storage: {
-    from: jest.fn().mockReturnValue({
-      upload: jest.fn().mockResolvedValue({ error: null }),
-      getPublicUrl: jest.fn().mockReturnValue({ data: { publicUrl: 'https://test.com/image.png' } }),
-      remove: jest.fn().mockResolvedValue({ error: null })
-    })
-  }
-};
+  });
 
-// Mocka supabase för alla möjliga sökvägar
-const mockSupabase = {
-  supabase: mockSupabaseClient,
-  createClient: jest.fn().mockReturnValue(mockSupabaseClient)
-};
-
-// Fortsätt att använda olika varianter av sökvägar för att säkerställa att alla mockas korrekt
-jest.mock('src/infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
-jest.mock('src/infrastructure/supabase/index', () => mockSupabase, { virtual: true });
-jest.mock('@/infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
-jest.mock('@/infrastructure/supabase/index', () => mockSupabase, { virtual: true });
-jest.mock('../infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
-jest.mock('../infrastructure/supabase/index', () => mockSupabase, { virtual: true });
-jest.mock('../../infrastructure/supabase/index.ts', () => mockSupabase, { virtual: true });
-jest.mock('../../infrastructure/supabase/index', () => mockSupabase, { virtual: true });
-
-// Mocka även lib/supabase och @/lib/supabase för att täcka alla tänkbara importsökvägar
-jest.mock('lib/supabase', () => mockSupabase, { virtual: true });
-jest.mock('@/lib/supabase', () => mockSupabase, { virtual: true });
-jest.mock('../lib/supabase', () => mockSupabase, { virtual: true });
-jest.mock('../../lib/supabase', () => mockSupabase, { virtual: true });
-
-// Lägg även till en mock för src/infrastructure/supabase/hooks/useSupabase.ts
-jest.mock('src/infrastructure/supabase/hooks/useSupabase.ts', () => ({
-  useSupabase: jest.fn().mockReturnValue({
-    supabase: mockSupabaseClient
-  })
-}), { virtual: true });
-jest.mock('src/infrastructure/supabase/hooks/useSupabase', () => ({
-  useSupabase: jest.fn().mockReturnValue({
-    supabase: mockSupabaseClient
-  })
-}), { virtual: true });
-jest.mock('@/infrastructure/supabase/hooks/useSupabase', () => ({
-  useSupabase: jest.fn().mockReturnValue({
-    supabase: mockSupabaseClient
-  })
-}), { virtual: true });
+  return {
+    supabase: {
+      from: mockFrom,
+      auth: mockAuth,
+      rpc: jest.fn().mockResolvedValue({ data: null, error: null })
+    }
+  };
+});
 
 // Mock för expo-image
 jest.mock('expo-image', () => ({
@@ -954,10 +831,10 @@ jest.mock('../components/team/TeamForm', () => {
 
 // Undvik varningar från React
 jest.spyOn(console, 'error').mockImplementation((...args) => {
-  if (args[0].includes('Warning:')) {
+  if (typeof args[0] === 'string' && args[0].includes('Warning:')) {
     return;
   }
-  console.error(...args);
+  originalConsoleError(...args);
 });
 
 // Tillägg för mock av SubscriptionService-metoder
@@ -966,4 +843,39 @@ jest.mock('./src/domain/subscription/services/DefaultSubscriptionService', () =>
   return {
     ...original,
   };
-}); 
+});
+
+// Konfigurera Testing Library manuellt
+global.expect.extend({
+  toBeVisible(received) {
+    const pass = received !== null && received !== undefined;
+    return {
+      message: () => `expected ${received} to be visible`,
+      pass,
+    };
+  },
+  toBeDisabled(received) {
+    const pass = received !== null && received !== undefined && received.props && received.props.disabled === true;
+    return {
+      message: () => `expected ${received} to be disabled`,
+      pass,
+    };
+  },
+  toHaveTextContent(received, text) {
+    const pass = received !== null && received !== undefined && 
+      ((received.props && received.props.children === text) ||
+       (received.props && typeof received.props.children === 'string' && received.props.children.includes(text)));
+    return {
+      message: () => `expected ${received} to have text content "${text}"`,
+      pass,
+    };
+  }
+});
+
+// Mock för eventBus
+jest.mock('@/infrastructure/events/eventBus', () => ({
+  eventBus: {
+    publish: jest.fn(),
+    subscribe: jest.fn(() => ({ unsubscribe: jest.fn() }))
+  }
+})); 

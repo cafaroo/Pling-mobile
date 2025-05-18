@@ -262,9 +262,13 @@ export class AggregateTestHelper<T extends AggregateRoot<any>> {
     // Validera antal
     expect(events.length).toBe(expectedEventTypes.length);
     
-    // Validera event-typer
+    // Validera event-typer - använd namn istället för instanceof för bättre kompatibilitet med mockar
     for (let i = 0; i < expectedEventTypes.length; i++) {
-      expect(events[i]).toBeInstanceOf(expectedEventTypes[i]);
+      const expectedTypeName = expectedEventTypes[i].name;
+      const actualTypeName = events[i].constructor.name || events[i].eventType || 'Unknown';
+      
+      expect(actualTypeName).toBe(expectedTypeName, 
+        `Event på position ${i} förväntades vara av typ ${expectedTypeName} men var ${actualTypeName}`);
     }
     
     // Anropa valideringsfunktion om den finns

@@ -1,4 +1,4 @@
-import { OrganizationRole } from './OrganizationRole';
+import { OrganizationRole, OrganizationRoleEnum } from './OrganizationRole';
 
 /**
  * Definierar olika behörigheter inom en organisation
@@ -26,6 +26,10 @@ export enum OrganizationPermission {
   // Organisationsbehörigheter
   UPDATE_ORGANIZATION = 'update_organization',
   DELETE_ORGANIZATION = 'delete_organization',
+  MANAGE_MEMBERS = 'manage_members',
+  MANAGE_SETTINGS = 'manage_settings',
+  MANAGE_BILLING = 'manage_billing',
+  JOIN_TEAM = 'join_team'
 }
 
 /**
@@ -43,7 +47,11 @@ export const OrganizationPermissionLabels: Record<OrganizationPermission, string
   [OrganizationPermission.UPDATE_TEAMS]: 'Uppdatera team',
   [OrganizationPermission.DELETE_TEAMS]: 'Ta bort team',
   [OrganizationPermission.UPDATE_ORGANIZATION]: 'Redigera organisation',
-  [OrganizationPermission.DELETE_ORGANIZATION]: 'Ta bort organisation'
+  [OrganizationPermission.DELETE_ORGANIZATION]: 'Ta bort organisation',
+  [OrganizationPermission.MANAGE_MEMBERS]: 'Hantera medlemmar',
+  [OrganizationPermission.MANAGE_SETTINGS]: 'Hantera inställningar',
+  [OrganizationPermission.MANAGE_BILLING]: 'Hantera fakturering',
+  [OrganizationPermission.JOIN_TEAM]: 'Gå med i team'
 };
 
 /**
@@ -52,7 +60,8 @@ export const OrganizationPermissionLabels: Record<OrganizationPermission, string
 const MEMBER_PERMISSIONS = [
   OrganizationPermission.VIEW_ORGANIZATION,
   OrganizationPermission.VIEW_MEMBERS,
-  OrganizationPermission.VIEW_TEAMS
+  OrganizationPermission.VIEW_TEAMS,
+  OrganizationPermission.JOIN_TEAM
 ];
 
 /**
@@ -67,7 +76,9 @@ const ADMIN_PERMISSIONS = [
   OrganizationPermission.CREATE_TEAMS,
   OrganizationPermission.UPDATE_TEAMS,
   OrganizationPermission.DELETE_TEAMS,
-  OrganizationPermission.UPDATE_ORGANIZATION
+  OrganizationPermission.UPDATE_ORGANIZATION,
+  OrganizationPermission.MANAGE_MEMBERS,
+  OrganizationPermission.MANAGE_SETTINGS
 ];
 
 /**
@@ -78,22 +89,47 @@ const ADMIN_PERMISSIONS = [
  * @returns true om rollen har behörigheten, annars false
  */
 export function hasOrganizationPermission(
-  role: OrganizationRole,
+  role: OrganizationRole | OrganizationRoleEnum | string,
   permission: OrganizationPermission
 ): boolean {
-  // Ägare har alla behörigheter
-  if (role === OrganizationRole.OWNER) {
-    return true;
-  }
-  
-  // Administratörer har alla utom DELETE_ORGANIZATION
-  if (role === OrganizationRole.ADMIN) {
-    return permission !== OrganizationPermission.DELETE_ORGANIZATION;
-  }
-  
-  // Medlemmar har bara grundläggande läsbehörigheter
-  if (role === OrganizationRole.MEMBER) {
-    return MEMBER_PERMISSIONS.includes(permission);
+  // Om rollen är ett OrganizationRole-objekt, använd equalsValue
+  if (role instanceof OrganizationRole) {
+    // Ägare har alla behörigheter
+    if (role.equalsValue(OrganizationRoleEnum.OWNER)) {
+      return true;
+    }
+    
+    // Administratörer har alla utom DELETE_ORGANIZATION och MANAGE_BILLING
+    if (role.equalsValue(OrganizationRoleEnum.ADMIN)) {
+      return permission !== OrganizationPermission.DELETE_ORGANIZATION 
+          && permission !== OrganizationPermission.MANAGE_BILLING;
+    }
+    
+    // Medlemmar har bara grundläggande läsbehörigheter
+    if (role.equalsValue(OrganizationRoleEnum.MEMBER)) {
+      return MEMBER_PERMISSIONS.includes(permission);
+    }
+  } else {
+    // Bakåtkompatibilitet: Om rollen är en sträng eller enum
+    const roleValue = typeof role === 'string' 
+      ? role.toLowerCase() 
+      : role;
+    
+    // Ägare har alla behörigheter
+    if (roleValue === OrganizationRoleEnum.OWNER) {
+      return true;
+    }
+    
+    // Administratörer har alla utom DELETE_ORGANIZATION
+    if (roleValue === OrganizationRoleEnum.ADMIN) {
+      return permission !== OrganizationPermission.DELETE_ORGANIZATION 
+          && permission !== OrganizationPermission.MANAGE_BILLING;
+    }
+    
+    // Medlemmar har bara grundläggande läsbehörigheter
+    if (roleValue === OrganizationRoleEnum.MEMBER) {
+      return MEMBER_PERMISSIONS.includes(permission);
+    }
   }
   
   // Inbjudna har inga behörigheter i organisationen

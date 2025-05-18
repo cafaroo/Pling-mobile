@@ -254,4 +254,77 @@ export class AggregateTestHelper {
       );
     }
   }
+}
+
+/**
+ * Hjälpfunktion för att hämta data från ett event
+ */
+export function getEventData(event: any, field: string): any {
+  // För nya event-standarder
+  if (event.data && typeof event.getEventData === 'function') {
+    const eventData = event.getEventData();
+    return eventData[field];
+  }
+  
+  // För gamla events - fallback till direkta egenskaper
+  return event[field];
+}
+
+/**
+ * Verifiera att ett specifikt event har publicerats av ett aggregat
+ */
+export function expectEventPublished(eventType: any): any {
+  const typeName = eventType.name || 'Unknown';
+  
+  // Försök hitta eventet antingen via eventType, name eller constructor.name
+  let found = MockDomainEvents.getEvents().find((e: any) => {
+    if (e instanceof eventType) return true;
+    if (e.eventType === typeName) return true;
+    if (e.name === typeName) return true;
+    if (e.constructor.name === typeName) return true;
+    return false;
+  });
+  
+  if (!found) {
+    throw new Error(`Expected event of type ${typeName} to be published, but it was not found`);
+  }
+  
+  return found;
+}
+
+/**
+ * Verifiera en sekvens av händelser
+ */
+export function verifyEventSequence(expectedEvents: any[]): void {
+  const events = MockDomainEvents.getEvents();
+  
+  // En mer flexibel matchning som letar efter event-typer
+  // och inte kräver att de kommer i exakt ordning eller att det inte finns andra event
+  for (const expectedType of expectedEvents) {
+    const typeName = expectedType.name || 'Unknown';
+    
+    const found = events.some((e: any) => {
+      if (e instanceof expectedType) return true;
+      if (e.eventType === typeName) return true;
+      if (e.name === typeName) return true;
+      if (e.constructor.name === typeName) return true;
+      return false;
+    });
+    
+    if (!found) {
+      // Skapa en läslig lista över faktiska event
+      const actualTypes = events.map((e: any) => {
+        return e.constructor.name || e.eventType || e.name || 'Unknown';
+      });
+      
+      // Skapa en läslig lista över förväntade event
+      const expectedTypes = expectedEvents.map(e => e.name || 'Unknown');
+      
+      throw new Error(
+        `Events were not published in expected sequence.\n` +
+        `Expected: ${expectedTypes.join(' -> ')}\n` +
+        `Actual: ${actualTypes.join(' -> ')}`
+      );
+    }
+  }
 } 

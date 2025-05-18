@@ -1,26 +1,32 @@
-import { BaseOrganizationEvent } from './BaseOrganizationEvent';
-import { Organization } from '../entities/Organization';
+import { DomainEvent } from '@/shared/core/DomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 
 /**
  * OrganizationMemberLeftEvent
  * 
- * Domänhändelse som publiceras när en medlem har lämnat en organisation.
- * Innehåller information om organisationen och användaren.
+ * Domänhändelse som publiceras när en medlem lämnar en organisation.
  */
-export class OrganizationMemberLeftEvent extends BaseOrganizationEvent {
+export class OrganizationMemberLeftEvent extends DomainEvent {
+  public readonly organizationId: UniqueId;
+  public readonly userId: UniqueId;
+
   /**
    * Skapar en ny OrganizationMemberLeftEvent
    * 
-   * @param organization - Organization-objekt eller ID för organisationen
-   * @param userId - ID för användaren som lämnat organisationen
+   * @param organizationId - ID för organisationen
+   * @param userId - ID för användaren som lämnade
    */
-  constructor(
-    organization: Organization | UniqueId,
-    userId: UniqueId
-  ) {
-    super('OrganizationMemberLeftEvent', organization, {
-      userId: userId.toString()
+  constructor(organizationId: UniqueId, userId: UniqueId) {
+    super({
+      name: 'OrganizationMemberLeftEvent',
+      payload: {
+        organizationId: organizationId.toString(),
+        userId: userId.toString()
+      }
     });
+    
+    // Spara properties direkt på event-objektet för enklare åtkomst
+    this.organizationId = organizationId;
+    this.userId = userId;
   }
 } 

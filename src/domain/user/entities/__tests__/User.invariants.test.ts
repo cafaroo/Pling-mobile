@@ -10,6 +10,7 @@ import { UserRoleRemovedEvent } from '../../events/UserRoleRemovedEvent';
 import { UserTeamAddedEvent } from '../../events/UserTeamAddedEvent';
 import { UserTeamRemovedEvent } from '../../events/UserTeamRemovedEvent';
 import { getEventData } from '@/test-utils/helpers/eventDataAdapter';
+import { Email } from '../../value-objects/Email';
 
 describe('User Invariants och Event-publicering', () => {
   let user: User;
@@ -75,7 +76,10 @@ describe('User Invariants och Event-publicering', () => {
         });
       };
       
-      return expect(createWithoutEmail()).resolves.toHaveProperty('isErr', true);
+      return createWithoutEmail().then(result => {
+        expect(result.isErr()).toBe(true);
+        expect(result.error).toContain('E-postadressen får inte vara tom');
+      });
     });
     
     it('ska validera namnlängd', () => {
@@ -136,9 +140,13 @@ describe('User Invariants och Event-publicering', () => {
         [UserProfileUpdatedEvent],
         events => {
           const event = events[0] as UserProfileUpdatedEvent;
-          // Använd getEventData för att extrahera data oavsett struktur
-          expect(getEventData(event, 'name')).toBe('Updated Name');
-          expect(getEventData(event, 'bio')).toBe('New bio');
+          // Hitta profile-data i event-objektet
+          const profile = getEventData(event, 'profile');
+          
+          // Kontrollera att profildatat innehåller rätt värden
+          expect(profile).toBeDefined();
+          expect(profile.name).toBe('Updated Name');
+          expect(profile.bio).toBe('New bio');
         }
       );
     });
@@ -197,7 +205,7 @@ describe('User Invariants och Event-publicering', () => {
       
       testHelper.executeAndExpectEvents(
         u => {
-          u.addToTeam(teamId);
+          u.addTeam(teamId);
         },
         [UserTeamAddedEvent],
         events => {
@@ -212,11 +220,11 @@ describe('User Invariants och Event-publicering', () => {
       const teamId = new UniqueId();
       
       // Lägg till i team första gången
-      const addResult1 = user.addToTeam(teamId);
+      const addResult1 = user.addTeam(teamId);
       expect(addResult1.isOk()).toBe(true);
       
       // Försök lägga till i samma team igen
-      const addResult2 = user.addToTeam(teamId);
+      const addResult2 = user.addTeam(teamId);
       expect(addResult2.isErr()).toBe(true);
     });
     
@@ -224,13 +232,13 @@ describe('User Invariants och Event-publicering', () => {
       const teamId = new UniqueId();
       
       // Lägg till i team först
-      user.addToTeam(teamId);
+      user.addTeam(teamId);
       testHelper.clearEvents();
       
       // Ta sedan bort från teamet och kontrollera event
       testHelper.executeAndExpectEvents(
         u => {
-          u.removeFromTeam(teamId);
+          u.removeTeam(teamId);
         },
         [UserTeamRemovedEvent],
         events => {
@@ -256,12 +264,6 @@ describe('User Invariants och Event-publicering', () => {
     });
     
     it('ska förhindra operationer som skulle bryta invarianter', () => {
-      const invalidEmail = new Email('invalid-email');
-      
-      // Försök att uppdatera e-postadressen med ett ogiltigt värde
-      // Detta test är lite annorlunda eftersom Email-objektet själv validerar
-      // och updateEmail-metoden bör avvisa ogiltiga e-postadresser
-      
       // Vi behöver mocka Email.create för detta test
       jest.spyOn(Email, 'create').mockReturnValueOnce({
         isErr: () => true,

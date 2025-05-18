@@ -1,0 +1,3 @@
+@echo off
+echo Kör specifikt test med jsdom-miljö...
+npm test -- %1 --testEnvironment=jsdom 

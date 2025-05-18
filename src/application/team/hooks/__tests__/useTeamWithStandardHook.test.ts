@@ -20,6 +20,9 @@ jest.mock('../useTeamContext', () => ({
   useTeamContext: jest.fn(),
 }));
 
+// Hjälpfunktion för att vänta
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 describe('useTeamWithStandardHook', () => {
   // Skapa mockad team-data
   const mockTeam = { id: 'team-123', name: 'Test Team' } as Team;
@@ -72,24 +75,38 @@ describe('useTeamWithStandardHook', () => {
   
   describe('createTeam', () => {
     it('ska hantera lyckade skapandeoperationer korrekt', async () => {
-      // Arrangera
-      mockCreateTeamUseCase.execute.mockResolvedValue(Result.ok(mockTeam));
+      // Arrangera - använd simulerad fördröjning för att mer likna verkligt beteende
+      mockCreateTeamUseCase.execute.mockImplementation(async () => {
+        await sleep(50); // Låtsas att det tar lite tid
+        return Result.ok(mockTeam);
+      });
       
       // Agera
       const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
       
-      let operationResult;
+      // Kontrollera initial state
+      expect(result.current.createTeam.status).toBe('idle');
+      
+      let operationPromise;
       act(() => {
-        operationResult = result.current.createTeam.execute({ 
+        operationPromise = result.current.createTeam.execute({ 
           name: 'Test Team', 
           description: 'A test team' 
         });
       });
       
-      // Vänta på att operationen slutförs
+      // Kontrollera loading state innan första uppdateringen
+      expect(result.current.createTeam.status).toBe('loading');
+      
+      // Vänta på att den första asynkrona uppdateringen slutförs
       await waitForNextUpdate();
       
-      // Verifiera
+      // Extra väntan för att säkerställa att alla uppdateringar är klara
+      await act(async () => {
+        await sleep(100);
+      });
+      
+      // Nu bör status vara success
       expect(result.current.createTeam.status).toBe('success');
       expect(result.current.createTeam.data).toEqual(mockTeam);
       expect(result.current.createTeam.error).toBeNull();
@@ -99,18 +116,24 @@ describe('useTeamWithStandardHook', () => {
         'Skapar nytt team', 
         expect.objectContaining({ name: 'Test Team' })
       );
+      
+      // Verifiera att operationPromise är en Promise som resolvas med förväntat värde
+      await expect(operationPromise).resolves.toEqual(mockTeam);
     });
     
     it('ska hantera misslyckade skapandeoperationer korrekt', async () => {
       // Arrangera
       const mockError = new Error('Validation failed');
-      mockCreateTeamUseCase.execute.mockResolvedValue(
-        Result.fail({
-          message: 'Kunde inte skapa team',
-          statusCode: 422,
-          originalError: mockError
-        })
-      );
+      const failResult = Result.fail({
+        message: 'Kunde inte skapa team',
+        statusCode: 422,
+        originalError: mockError
+      });
+      
+      mockCreateTeamUseCase.execute.mockImplementation(async () => {
+        await sleep(50); // Simulerad fördröjning
+        return failResult;
+      });
       
       // Agera
       const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
@@ -124,6 +147,11 @@ describe('useTeamWithStandardHook', () => {
       
       // Vänta på att operationen slutförs
       await waitForNextUpdate();
+      
+      // Extra väntan för att säkerställa att alla uppdateringar är klara
+      await act(async () => {
+        await sleep(100);
+      });
       
       // Verifiera
       expect(result.current.createTeam.status).toBe('error');
@@ -153,6 +181,11 @@ describe('useTeamWithStandardHook', () => {
       // Vänta på att operationen slutförs
       await waitForNextUpdate();
       
+      // Extra väntan för att säkerställa att alla uppdateringar är klara
+      await act(async () => {
+        await sleep(50); // Kort väntan eftersom fel hanteras omedelbart
+      });
+      
       // Verifiera
       expect(result.current.createTeam.status).toBe('error');
       expect(result.current.createTeam.error?.originalError).toBe(thrownError);
@@ -163,17 +196,31 @@ describe('useTeamWithStandardHook', () => {
   describe('getTeam', () => {
     it('ska hantera lyckade hämtningar korrekt', async () => {
       // Arrangera
-      mockGetTeamUseCase.execute.mockResolvedValue(Result.ok(mockTeam));
+      mockGetTeamUseCase.execute.mockImplementation(async () => {
+        await sleep(50); // Simulerad fördröjning
+        return Result.ok(mockTeam);
+      });
       
       // Agera
       const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
+      
+      // Kontrollera initial state
+      expect(result.current.getTeam.status).toBe('idle');
       
       act(() => {
         result.current.getTeam.execute({ teamId: 'team-123' });
       });
       
+      // Kontrollera loading state
+      expect(result.current.getTeam.status).toBe('loading');
+      
       // Vänta på att operationen slutförs
       await waitForNextUpdate();
+      
+      // Extra väntan för att säkerställa att alla uppdateringar är klara
+      await act(async () => {
+        await sleep(100);
+      });
       
       // Verifiera
       expect(result.current.getTeam.status).toBe('success');
@@ -181,16 +228,20 @@ describe('useTeamWithStandardHook', () => {
     });
     
     it('ska kunna utföra återförsök för nätverksfel', async () => {
-      jest.useFakeTimers();
-      
       // Arrangera - första anropet misslyckas, andra lyckas
       mockGetTeamUseCase.execute
-        .mockResolvedValueOnce(Result.fail({
-          message: 'Nätverksfel',
-          statusCode: 500,
-          originalError: new Error('Network error')
-        }))
-        .mockResolvedValueOnce(Result.ok(mockTeam));
+        .mockImplementationOnce(async () => {
+          await sleep(50); // Simulerad fördröjning
+          return Result.fail({
+            message: 'Nätverksfel',
+            statusCode: 500,
+            originalError: new Error('Network error')
+          });
+        })
+        .mockImplementationOnce(async () => {
+          await sleep(50); // Simulerad fördröjning
+          return Result.ok(mockTeam);
+        });
       
       // Agera
       const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
@@ -203,38 +254,49 @@ describe('useTeamWithStandardHook', () => {
       // Vänta på att första anropet slutförs
       await waitForNextUpdate();
       
+      // Extra väntan för att säkerställa att alla uppdateringar är klara
+      await act(async () => {
+        await sleep(100);
+      });
+      
       // Verifiera att första anropet misslyckades
       expect(result.current.getTeam.status).toBe('error');
       expect(result.current.getTeam.error?.code).toBe(HookErrorCode.SERVER_ERROR);
       expect(result.current.getTeam.error?.retryable).toBe(true);
       
-      // Utför återförsök
-      act(() => {
+      // Nu ska vi göra ett nytt försök och säkerställa att vi återgår till loading state
+      await act(async () => {
         result.current.getTeam.retry();
+        // Kort paus för att låta statusuppdateringen ske
+        await sleep(10);
       });
       
-      // Flytta fram tidtagningen
-      act(() => {
-        jest.advanceTimersByTime(1000); // 1 sekund delay
-      });
+      // Nu ska vi vara i loading state igen
+      expect(result.current.getTeam.status).toBe('loading');
       
       // Vänta på att återförsöket slutförs
       await waitForNextUpdate();
+      
+      // Extra väntan för att säkerställa att alla uppdateringar är klara
+      await act(async () => {
+        await sleep(100);
+      });
       
       // Verifiera att återförsöket lyckades
       expect(result.current.getTeam.status).toBe('success');
       expect(result.current.getTeam.data).toEqual(mockTeam);
       expect(mockGetTeamUseCase.execute).toHaveBeenCalledTimes(2);
-      expect(mockGetTeamUseCase.execute).toHaveBeenCalledWith(params);
-      
-      jest.useRealTimers();
+      expect(mockGetTeamUseCase.execute).toHaveBeenNthCalledWith(2, params);
     });
   });
   
   describe('getTeamsForUser', () => {
     it('ska hantera lyckade hämtningar av användarens team', async () => {
       // Arrangera
-      mockGetTeamsForUserUseCase.execute.mockResolvedValue(Result.ok(mockTeams));
+      mockGetTeamsForUserUseCase.execute.mockImplementation(async () => {
+        await sleep(50); // Simulerad fördröjning
+        return Result.ok(mockTeams);
+      });
       
       // Agera
       const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
@@ -246,13 +308,15 @@ describe('useTeamWithStandardHook', () => {
       // Vänta på att operationen slutförs
       await waitForNextUpdate();
       
+      // Extra väntan för att säkerställa att alla uppdateringar är klara
+      await act(async () => {
+        await sleep(100);
+      });
+      
       // Verifiera
       expect(result.current.getTeamsForUser.status).toBe('success');
       expect(result.current.getTeamsForUser.data).toEqual(mockTeams);
-      expect(result.current.getTeamsForUser.data?.length).toBe(2);
+      expect(result.current.getTeamsForUser.data.length).toBe(2);
     });
   });
-  
-  // Ytterligare tester för andra operationer skulle följa samma mönster
-  // För koncishet inkluderas inte alla operationer i testfilen
 }); 

@@ -58,5 +58,29 @@ module.exports = {
     'utils/**/*.{ts,tsx}',
     '!**/*.d.ts',
     '!**/node_modules/**'
+  ],
+  projects: [
+    {
+      displayName: 'domain',
+      testEnvironment: 'node',
+      testMatch: [
+        '<rootDir>/src/domain/**/*.test.{ts,js}'
+      ]
+    },
+    {
+      displayName: 'hooks',
+      testEnvironment: 'jsdom',
+      testMatch: [
+        '<rootDir>/src/application/**/hooks/**/*.test.{tsx,jsx}'
+      ],
+      setupFilesAfterEnv: ['<rootDir>/jest.setup.js']
+    },
+    {
+      displayName: 'application',
+      testEnvironment: 'node',
+      testMatch: [
+        '<rootDir>/src/application/**/*.test.{ts,js}'
+      ]
+    }
   ]
 }; 

@@ -2,46 +2,45 @@
  * Exportera alla mockup-verktyg för testning
  */
 
-export * from './mockDomainEvents';
+// Exportera core mocks
 export * from './AsyncStorageMock';
 export * from './ReactNativeToastMessage';
 export * from './ResultMock';
 export * from './SupabaseMock';
+
+// Exportera repositories
+export * from './mockUserRepository';
+export * from './mockTeamRepository';
+export * from './mockOrganizationRepository';
+
+// Exportera event och publishers
+export * from './mockDomainEvents';
 export * from './mockEventBus';
+export * from './mockDomainEventPublisher';
+export * from './mockEventPublisher';
+export * from './mockLogger';
+
+// Exportera domänspecifika entiteter
+export * from './mockTeamEntities';
+export * from './mockTeamEvents';
+export * from './mockUserEvents';
+export * from './mockOrganizationEvents';
+
+// Exportera factories
 export * from './mockEntityFactory';
 export * from './mockValueObjectFactory';
 export * from './mockServiceFactory';
 export * from './mockRepositoryFactory';
-export * from './mockDomainEventPublisher';
-export * from './mockTeamRepository';
-export * from './mockUserRepository';
-export * from './mockOrganizationRepository';
 
-// Exporterar alla mock-klasser och funktioner för enklare användning i tester
-export * from './mockEventPublisher';
-export * from './mockTeamEntities';
-export * from './mockTeamEvents';
-export * from './mockUserEvents';
-export * from './mockLogger';
+// Exportera use cases
+export * from './mockTeamUseCases';
 
-// Exportera också de vanligaste mockarna som default-exporter för enklare användning
+// Exportera Stripe-objekt
+export * from './mockStripeObjects';
+
+// Exportera vanliga mocks för enklare användning med sina namnade exporter
 export { default as mockEventPublisher } from './mockEventPublisher';
 export { default as MockEventBus } from './mockEventBus';
 export { default as mockDomainEvents } from './mockDomainEvents';
 export { default as mockLogger } from './mockLogger';
-
-// OBS: mockSupabase exporteras redan av test-utils/index.ts, så vi exporterar det inte här
-// för att undvika dubbla exporter. 
-
-// Exportera mockades event-klasser
-export * from './mockUserEvents';
-export * from './mockTeamEntities';
-
-// Exportera mockade use cases
-export * from './mockTeamUseCases';
-
-// Exportera mockade Stripe-objekt
-export * from './mockStripeObjects';
-
-// Exportera hjälpfunktioner
-export * from './ResultMock'; 
+export { MockSupabase, SupabaseProviderMockData } from './mockSupabase'; 

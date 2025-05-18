@@ -1,5 +1,4 @@
-import { BaseOrganizationEvent } from './BaseOrganizationEvent';
-import { Organization } from '../entities/Organization';
+import { DomainEvent } from '@/shared/core/DomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 
 /**
@@ -8,19 +7,27 @@ import { UniqueId } from '@/shared/core/UniqueId';
  * Domänhändelse som publiceras när ett team har lagts till i en organisation.
  * Innehåller information om organisationen och teamet.
  */
-export class TeamAddedToOrganizationEvent extends BaseOrganizationEvent {
+export class TeamAddedToOrganizationEvent extends DomainEvent {
+  public readonly teamId: UniqueId;
+  public readonly organizationId: UniqueId;
+
   /**
    * Skapar en ny TeamAddedToOrganizationEvent
    * 
-   * @param organization - Organization-objekt eller ID för organisationen
+   * @param organizationId - ID för organisationen
    * @param teamId - ID för teamet som lagts till
    */
-  constructor(
-    organization: Organization | UniqueId,
-    teamId: UniqueId
-  ) {
-    super('TeamAddedToOrganizationEvent', organization, {
-      teamId: teamId.toString()
+  constructor(organizationId: UniqueId, teamId: UniqueId) {
+    super({
+      name: 'TeamAddedToOrganizationEvent',
+      payload: {
+        organizationId: organizationId.toString(),
+        teamId: teamId.toString()
+      }
     });
+    
+    // Spara egenskaperna direkt på event-objektet för enklare åtkomst
+    this.organizationId = organizationId;
+    this.teamId = teamId;
   }
 } 

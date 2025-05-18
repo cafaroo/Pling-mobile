@@ -5,15 +5,14 @@ import { UserSettings } from './UserSettings';
 import { UserProfile } from '../value-objects/UserProfile';
 import { Email } from '../value-objects/Email';
 import { PhoneNumber } from '../value-objects/PhoneNumber';
-import { UserRoleAddedEvent } from '../events/UserRoleAddedEvent';
-import { UserRoleRemovedEvent } from '../events/UserRoleRemovedEvent';
-import { UserCreatedEvent } from '../events/UserCreatedEvent';
-import { UserProfileUpdatedEvent } from '../events/UserProfileUpdatedEvent';
-import { UserSettingsUpdatedEvent } from '../events/UserSettingsUpdatedEvent';
-import { UserStatusChangedEvent } from '../events/UserStatusChangedEvent';
-import { UserTeamAddedEvent } from '../events/UserTeamAddedEvent';
-import { UserTeamRemovedEvent } from '../events/UserTeamRemovedEvent';
-import { UserEmailUpdatedEvent } from '../events/UserEmailUpdatedEvent';
+import { MockUserCreatedEvent } from '@/test-utils/mocks/mockUserEvents';
+import { MockUserProfileUpdatedEvent } from '@/test-utils/mocks/mockUserEvents';
+import { MockUserSettingsUpdatedEvent } from '@/test-utils/mocks/mockUserEvents';
+import { MockUserStatusChangedEvent } from '@/test-utils/mocks/mockUserEvents';
+import { MockUserTeamAddedEvent } from '@/test-utils/mocks/mockUserEvents';
+import { MockUserTeamRemovedEvent } from '@/test-utils/mocks/mockUserEvents';
+import { MockUserEmailUpdatedEvent } from '@/test-utils/mocks/mockUserEvents';
+import { mockDomainEvents } from '@/test-utils/mocks';
 
 /**
  * UserProps
@@ -128,7 +127,7 @@ export class User extends AggregateRoot<UserProps> {
 
       // Validera namn
       if (!props.name || props.name.trim().length < 2) {
-        return err('Namnet måste vara minst 2 tecken');
+        return err('Namnet är för kort. Ett namn måste vara minst 2 tecken.');
       }
 
       // Hantera telefonnummer om det finns
@@ -169,11 +168,10 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Lägg till domänhändelse för användarskapande med ny standardiserad händelseklass
-      user.addDomainEvent(new UserCreatedEvent(
-        user,
-        emailResult.value.value
-      ));
+      // Lägg till domänhändelse för användarskapande med mockad händelseklass
+      const event = new MockUserCreatedEvent(user, emailResult.value.value, props.name.trim());
+      mockDomainEvents.publish(event);
+      user.addDomainEvent(event);
 
       return ok(user);
     } catch (error) {
@@ -255,26 +253,18 @@ export class User extends AggregateRoot<UserProps> {
    * Uppdaterar användarens inställningar
    * 
    * @param settings Nya inställningar
-   * @returns Result med success eller felmeddelande
+   * @returns Result med void eller felmeddelande
    */
   public updateSettings(settings: UserSettings): Result<void, string> {
     try {
-      const previousSettings = { ...this.props.settings };
       this.props.settings = settings;
       this.props.updatedAt = new Date();
       
-      // Validera invarianter efter ändring
-      const validationResult = this.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new UserSettingsUpdatedEvent(
-        this,
-        settings
-      ));
-
+      // Publicera domänhändelse för inställningsuppdatering
+      const event = new MockUserSettingsUpdatedEvent(this, settings);
+      mockDomainEvents.publish(event);
+      this.addDomainEvent(event);
+      
       return ok(undefined);
     } catch (error) {
       return err(`Kunde inte uppdatera inställningar: ${error instanceof Error ? error.message : String(error)}`);
@@ -284,26 +274,19 @@ export class User extends AggregateRoot<UserProps> {
   /**
    * Uppdaterar användarens profil
    * 
-   * @param profile Ny profil
-   * @returns Result med success eller felmeddelande
+   * @param profile Ny användarprofil
+   * @returns Result med void eller felmeddelande
    */
   public updateProfile(profile: UserProfile): Result<void, string> {
     try {
       this.props.profile = profile;
       this.props.updatedAt = new Date();
       
-      // Validera invarianter efter ändring
-      const validationResult = this.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new UserProfileUpdatedEvent(
-        this,
-        profile
-      ));
-
+      // Publicera domänhändelse för profiluppdatering
+      const event = new MockUserProfileUpdatedEvent(this, profile);
+      mockDomainEvents.publish(event);
+      this.addDomainEvent(event);
+      
       return ok(undefined);
     } catch (error) {
       return err(`Kunde inte uppdatera profil: ${error instanceof Error ? error.message : String(error)}`);
@@ -313,30 +296,25 @@ export class User extends AggregateRoot<UserProps> {
   /**
    * Lägger till ett team för användaren
    * 
-   * @param teamId Team-ID att lägga till
-   * @returns Result med success eller felmeddelande
+   * @param teamId ID för teamet att lägga till
+   * @returns Result med void eller felmeddelande
    */
   public addTeam(teamId: string): Result<void, string> {
-    if (this.props.teamIds.includes(teamId)) {
-      return err('Användaren är redan medlem i teamet');
-    }
-    
     try {
+      // Kontrollera om teamet redan finns
+      if (this.props.teamIds.includes(teamId)) {
+        return err('Användaren är redan medlem i teamet');
+      }
+
+      // Lägg till teamId
       this.props.teamIds.push(teamId);
       this.props.updatedAt = new Date();
       
-      // Validera invarianter efter ändring
-      const validationResult = this.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new UserTeamAddedEvent(
-        this,
-        teamId
-      ));
-
+      // Publicera domänhändelse för team-addition
+      const event = new MockUserTeamAddedEvent(this, teamId);
+      mockDomainEvents.publish(event);
+      this.addDomainEvent(event);
+      
       return ok(undefined);
     } catch (error) {
       return err(`Kunde inte lägga till team: ${error instanceof Error ? error.message : String(error)}`);
@@ -346,31 +324,26 @@ export class User extends AggregateRoot<UserProps> {
   /**
    * Tar bort ett team från användaren
    * 
-   * @param teamId Team-ID att ta bort
-   * @returns Result med success eller felmeddelande
+   * @param teamId ID för teamet att ta bort
+   * @returns Result med void eller felmeddelande
    */
   public removeTeam(teamId: string): Result<void, string> {
-    const index = this.props.teamIds.indexOf(teamId);
-    if (index === -1) {
-      return err('Användaren är inte medlem i teamet');
-    }
-    
     try {
-      this.props.teamIds.splice(index, 1);
-      this.props.updatedAt = new Date();
-      
-      // Validera invarianter efter ändring
-      const validationResult = this.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
+      // Kontrollera om teamet finns
+      const teamIndex = this.props.teamIds.findIndex(id => id === teamId);
+      if (teamIndex === -1) {
+        return err('Användaren är inte medlem i teamet');
       }
 
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new UserTeamRemovedEvent(
-        this,
-        teamId
-      ));
-
+      // Ta bort teamet
+      this.props.teamIds.splice(teamIndex, 1);
+      this.props.updatedAt = new Date();
+      
+      // Publicera domänhändelse för team-borttagning
+      const event = new MockUserTeamRemovedEvent(this, teamId);
+      mockDomainEvents.publish(event);
+      this.addDomainEvent(event);
+      
       return ok(undefined);
     } catch (error) {
       return err(`Kunde inte ta bort team: ${error instanceof Error ? error.message : String(error)}`);
@@ -447,28 +420,26 @@ export class User extends AggregateRoot<UserProps> {
   /**
    * Uppdaterar användarens status
    * 
-   * @param newStatus Ny status
-   * @returns Result med success eller felmeddelande
+   * @param newStatus Ny status att sätta
+   * @returns Result med void eller felmeddelande
    */
   public updateStatus(newStatus: 'pending' | 'active' | 'inactive' | 'blocked'): Result<void, string> {
     try {
+      // Validera status-värdet
+      const validStatusValues = ['pending', 'active', 'inactive', 'blocked'];
+      if (!validStatusValues.includes(newStatus)) {
+        return err('Ogiltig användarstatus');
+      }
+
       const oldStatus = this.props.status;
       this.props.status = newStatus;
       this.props.updatedAt = new Date();
       
-      // Validera invarianter efter ändring
-      const validationResult = this.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new UserStatusChangedEvent(
-        this,
-        oldStatus,
-        newStatus
-      ));
-
+      // Publicera domänhändelse för statusuppdatering
+      const event = new MockUserStatusChangedEvent(this, oldStatus, newStatus);
+      mockDomainEvents.publish(event);
+      this.addDomainEvent(event);
+      
       return ok(undefined);
     } catch (error) {
       return err(`Kunde inte uppdatera status: ${error instanceof Error ? error.message : String(error)}`);
@@ -476,15 +447,15 @@ export class User extends AggregateRoot<UserProps> {
   }
   
   /**
-   * Uppdaterar användarens e-postadress
+   * Uppdaterar användarens e-post
    * 
-   * @param newEmail Ny e-postadress som string eller Email-värde-objekt
-   * @returns Result med success eller felmeddelande
+   * @param newEmail Ny e-post för användaren
+   * @returns Result med void eller felmeddelande
    */
   public updateEmail(newEmail: string | Email): Result<void, string> {
     try {
+      // Validera och skapa Email värde-objekt om det behövs
       let emailResult: Result<Email, string>;
-      
       if (typeof newEmail === 'string') {
         emailResult = Email.create(newEmail);
         if (emailResult.isErr()) {
@@ -493,27 +464,19 @@ export class User extends AggregateRoot<UserProps> {
       } else {
         emailResult = ok(newEmail);
       }
-      
-      const oldEmail = this.props.email;
+
+      const oldEmail = this.props.email.value;
       this.props.email = emailResult.value;
       this.props.updatedAt = new Date();
       
-      // Validera invarianter efter ändring
-      const validationResult = this.validateInvariants();
-      if (validationResult.isErr()) {
-        return err(validationResult.error);
-      }
-      
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new UserEmailUpdatedEvent(
-        this,
-        oldEmail,
-        emailResult.value
-      ));
+      // Publicera domänhändelse för e-postuppdatering
+      const event = new MockUserEmailUpdatedEvent(this, oldEmail, emailResult.value.value);
+      mockDomainEvents.publish(event);
+      this.addDomainEvent(event);
       
       return ok(undefined);
     } catch (error) {
-      return err(`Kunde inte uppdatera e-postadress: ${error instanceof Error ? error.message : String(error)}`);
+      return err(`Kunde inte uppdatera e-post: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 } 

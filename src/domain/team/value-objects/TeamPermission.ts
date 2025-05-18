@@ -1,5 +1,6 @@
 import { ValueObject } from '@/shared/domain/ValueObject';
 import { TeamRole } from './TeamRole';
+import { Result, ok, err } from '@/shared/core/Result';
 
 export enum TeamPermission {
   // Grundläggande behörigheter
@@ -297,4 +298,62 @@ export function getPermissionLabel(permission: TeamPermission): string {
 
 export function getPermissionDescription(permission: TeamPermission): string {
   return TeamPermissionDetails[permission]?.description || '';
+}
+
+/**
+ * Kontrollerar om ett TeamPermission-värde är lika med ett annat värde
+ * Användbart för att jämföra enums med strängar i tester och applikation
+ */
+export function equalsTeamPermission(
+  permission: TeamPermission,
+  otherPermission: TeamPermission | string
+): boolean {
+  if (typeof otherPermission === 'string') {
+    return permission === otherPermission;
+  }
+  return permission === otherPermission;
+}
+
+/**
+ * Försöker konvertera en sträng till ett TeamPermission-värde
+ * Användbart för tester och gränssnitt där vi tar emot strängar
+ */
+export function parseTeamPermission(permissionStr: string): Result<TeamPermission, string> {
+  const normalizedStr = permissionStr.toLowerCase();
+  
+  // Kolla om strängen matchar någon av enum-värdena
+  const matchingPermission = Object.values(TeamPermission).find(
+    p => p.toLowerCase() === normalizedStr
+  );
+  
+  if (matchingPermission) {
+    return ok(matchingPermission);
+  }
+  
+  return err(`"${permissionStr}" är inte en giltig teambehörighet`);
+}
+
+/**
+ * Funktion för att hantera både gamla och nya sätt att jämföra permissions
+ * Hjälper med testkompatibilitet
+ */
+export function hasTeamPermission(
+  userPermissions: TeamPermission[] | string[],
+  requiredPermission: TeamPermission | string
+): boolean {
+  return userPermissions.some(permission => {
+    if (typeof permission === 'string' && typeof requiredPermission === 'string') {
+      return permission === requiredPermission;
+    }
+    
+    if (typeof permission === 'string' && typeof requiredPermission !== 'string') {
+      return permission === requiredPermission.toString();
+    }
+    
+    if (typeof permission !== 'string' && typeof requiredPermission === 'string') {
+      return permission.toString() === requiredPermission;
+    }
+    
+    return permission === requiredPermission;
+  });
 } 

@@ -1,0 +1,3 @@
+@echo off
+echo Kör specifikt hook-test med jsdom-miljö...
+npm test -- %1 --selectProjects hooks 

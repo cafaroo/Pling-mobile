@@ -8,115 +8,495 @@
 
 import { UniqueId } from '@/shared/core/UniqueId';
 import { User } from '@/domain/user/entities/User';
+import { UserProfile } from '@/domain/user/value-objects/UserProfile';
+import { UserSettings } from '@/domain/user/entities/UserSettings';
+import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
 
 /**
- * Gemensam struktur för alla mockade användarhändelser
+ * Base class för alla mock-user events
  */
-class BaseMockUserEvent {
-  public readonly eventId: UniqueId;
-  public readonly occurredAt: Date;
+export class BaseMockUserEvent implements IDomainEvent {
   public readonly aggregateId: string;
-  public readonly data: Record<string, any>;
-  public readonly eventType: string;
-  // För bakåtkompatibilitet med tester som förväntar sig name istället för eventType
-  public readonly name: string;
+  public readonly eventId: UniqueId;
+  public readonly dateTimeOccurred: Date;
+  public readonly occurredAt: Date; // Krävs av IDomainEvent
+  public readonly eventType: string = 'BaseMockUserEvent'; // Standardvärde som överrids av subklasser
 
-  constructor(eventType: string, user: User | { id: UniqueId | string }, additionalData: Record<string, any> = {}) {
+  constructor(userId: string | UniqueId) {
+    this.aggregateId = userId instanceof UniqueId ? userId.toString() : userId;
     this.eventId = new UniqueId();
-    this.occurredAt = new Date();
-    this.eventType = eventType;
-    this.name = eventType.replace('Event', '');
-    
-    const userId = user instanceof User ? user.id : 
-      (user.id instanceof UniqueId ? user.id : new UniqueId(user.id as string));
-    
-    this.aggregateId = userId.toString();
-    this.data = {
-      userId: userId.toString(),
-      timestamp: this.occurredAt,
-      ...additionalData
-    };
+    this.dateTimeOccurred = new Date();
+    this.occurredAt = this.dateTimeOccurred; // Samma som dateTimeOccurred för bakåtkompatibilitet
+  }
+
+  public getEventData() {
+    // Denna metod överlagras av subklasser för att returnera eventets data
+    return {};
   }
 }
 
 /**
- * Mockad implementation av UserCreatedEvent
- * För att stödja både nya och gamla testscenarion
+ * User skapades
  */
-export class MockUserCreatedEvent extends BaseMockUserEvent {
+export class UserCreatedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserCreatedEvent';
+  public readonly data: {
+    userId: string;
+    email: string;
+    name: string;
+    createdAt: string;
+  };
+
+  // Direkta properties för testning
   public readonly userId: UniqueId;
   public readonly email: string;
   public readonly name: string;
+
+  constructor(props: {
+    userId: string | UniqueId;
+    email: string;
+    name: string;
+  }) {
+    super(props.userId);
+    
+    this.userId = props.userId instanceof UniqueId ? props.userId : new UniqueId(props.userId);
+    this.email = props.email;
+    this.name = props.name;
+    
+    this.data = {
+      userId: this.userId.toString(),
+      email: this.email,
+      name: this.name,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
   
-  constructor(user: User | { id: UniqueId | string }, email: string = 'test@example.com', userName: string = 'Test User') {
-    super('UserCreated', user, { email, name: userName });
-    
-    // Direkta egenskaper för att stödja event.userId istället för event.data.userId
-    const userId = user instanceof User ? user.id : 
-      (user.id instanceof UniqueId ? user.id : new UniqueId(user.id as string));
-    
-    this.userId = userId;
-    this.email = email;
-    this.name = userName;
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
   }
 }
 
 /**
- * Mockad implementation av UserActivatedEvent
+ * User aktiverades
  */
-export class MockUserActivatedEvent extends BaseMockUserEvent {
+export class UserActivatedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserActivatedEvent';
+  public readonly data: {
+    userId: string;
+    activationReason: string;
+    activatedAt: string;
+  };
+  
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
   public readonly activationReason: string;
-  
-  constructor(user: User | { id: UniqueId | string }, activationReason: string = '') {
-    super('user.account.activated', user, { activationReason });
+
+  constructor(
+    userId: string | UniqueId,
+    activationReason: string = ''
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
     this.activationReason = activationReason;
+    
+    this.data = {
+      userId: this.userId.toString(),
+      activationReason: this.activationReason,
+      activatedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
   }
 }
 
 /**
- * Mockad implementation av UserDeactivatedEvent
+ * User deaktiverades
  */
-export class MockUserDeactivatedEvent extends BaseMockUserEvent {
+export class UserDeactivatedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserDeactivatedEvent';
+  public readonly data: {
+    userId: string;
+    deactivationReason: string;
+    deactivatedAt: string;
+  };
+  
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
   public readonly deactivationReason: string;
-  
-  constructor(user: User | { id: UniqueId | string }, deactivationReason: string = '') {
-    super('user.account.deactivated', user, { deactivationReason });
+
+  constructor(
+    userId: string | UniqueId,
+    deactivationReason: string = ''
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
     this.deactivationReason = deactivationReason;
+    
+    this.data = {
+      userId: this.userId.toString(),
+      deactivationReason: this.deactivationReason,
+      deactivatedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
   }
 }
 
 /**
- * Mockad implementation av UserSecurityEvent
+ * User-profil uppdaterades
  */
-export class MockUserSecurityEvent extends BaseMockUserEvent {
-  public readonly securityEventType: string;
+export class UserProfileUpdatedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserProfileUpdatedEvent';
+  public readonly data: {
+    userId: string;
+    profileData: Record<string, any>;
+    updatedAt: string;
+  };
   
-  constructor(user: User | { id: UniqueId | string }, securityEventType: string, metadata: Record<string, any> = {}) {
-    super(securityEventType, user, metadata);
-    this.securityEventType = securityEventType;
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
+  public readonly profileData: Record<string, any>;
+
+  constructor(
+    userId: string | UniqueId,
+    profileData: Record<string, any>
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
+    this.profileData = profileData;
+    
+    this.data = {
+      userId: this.userId.toString(),
+      profileData: this.profileData,
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
   }
 }
 
 /**
- * Mockad implementation av UserPrivacySettingsChanged
+ * User-inställningar uppdaterades
  */
-export class MockUserPrivacySettingsChanged extends BaseMockUserEvent {
-  public readonly privacy: Record<string, any>;
+export class UserSettingsUpdatedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserSettingsUpdatedEvent';
+  public readonly data: {
+    userId: string;
+    settings: Record<string, any>;
+    updatedAt: string;
+  };
   
-  constructor(user: User | { id: UniqueId | string }, privacy: Record<string, any>) {
-    super('UserPrivacySettingsChanged', user, { privacy });
-    this.privacy = privacy;
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
+  public readonly settings: Record<string, any>;
+
+  constructor(
+    userId: string | UniqueId,
+    settings: Record<string, any>
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
+    this.settings = settings;
+    
+    this.data = {
+      userId: this.userId.toString(),
+      settings: this.settings,
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
   }
 }
 
 /**
- * Mockad implementation av UserNotificationSettingsChanged
+ * User tilldelades ett team
  */
-export class MockUserNotificationSettingsChanged extends BaseMockUserEvent {
-  public readonly notifications: Record<string, any>;
+export class UserTeamAddedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserTeamAddedEvent';
+  public readonly data: {
+    userId: string;
+    teamId: string;
+    addedAt: string;
+  };
   
-  constructor(user: User | { id: UniqueId | string }, notifications: Record<string, any>) {
-    super('UserNotificationSettingsChanged', user, { notifications });
-    this.notifications = notifications;
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
+  public readonly teamId: UniqueId;
+
+  constructor(
+    userId: string | UniqueId,
+    teamId: string | UniqueId
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
+    this.teamId = teamId instanceof UniqueId ? teamId : new UniqueId(teamId);
+    
+    this.data = {
+      userId: this.userId.toString(),
+      teamId: this.teamId.toString(),
+      addedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
+  }
+}
+
+/**
+ * User togs bort från ett team
+ */
+export class UserTeamRemovedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserTeamRemovedEvent';
+  public readonly data: {
+    userId: string;
+    teamId: string;
+    removedAt: string;
+  };
+  
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
+  public readonly teamId: UniqueId;
+
+  constructor(
+    userId: string | UniqueId,
+    teamId: string | UniqueId
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
+    this.teamId = teamId instanceof UniqueId ? teamId : new UniqueId(teamId);
+    
+    this.data = {
+      userId: this.userId.toString(),
+      teamId: this.teamId.toString(),
+      removedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
+  }
+}
+
+/**
+ * User tilldelades en roll
+ */
+export class UserRoleAddedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserRoleAddedEvent';
+  public readonly data: {
+    userId: string;
+    roleId: string;
+    addedAt: string;
+  };
+  
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
+  public readonly roleId: string;
+
+  constructor(
+    userId: string | UniqueId,
+    roleId: string
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
+    this.roleId = roleId;
+    
+    this.data = {
+      userId: this.userId.toString(),
+      roleId: this.roleId,
+      addedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
+  }
+}
+
+/**
+ * User förlorade en roll
+ */
+export class UserRoleRemovedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserRoleRemovedEvent';
+  public readonly data: {
+    userId: string;
+    roleId: string;
+    removedAt: string;
+  };
+  
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
+  public readonly roleId: string;
+
+  constructor(
+    userId: string | UniqueId,
+    roleId: string
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
+    this.roleId = roleId;
+    
+    this.data = {
+      userId: this.userId.toString(),
+      roleId: this.roleId,
+      removedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
+  }
+}
+
+/**
+ * Users status ändrades
+ */
+export class UserStatusChangedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserStatusChangedEvent';
+  public readonly data: {
+    userId: string;
+    oldStatus: string;
+    newStatus: string;
+    changedAt: string;
+  };
+  
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
+  public readonly oldStatus: string;
+  public readonly newStatus: string;
+
+  constructor(
+    userId: string | UniqueId,
+    oldStatus: string,
+    newStatus: string
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
+    this.oldStatus = oldStatus;
+    this.newStatus = newStatus;
+    
+    this.data = {
+      userId: this.userId.toString(),
+      oldStatus: this.oldStatus,
+      newStatus: this.newStatus,
+      changedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
+  }
+}
+
+/**
+ * User bytte e-postadress
+ */
+export class UserEmailUpdatedEvent extends BaseMockUserEvent {
+  public readonly eventType = 'UserEmailUpdatedEvent';
+  public readonly data: {
+    userId: string;
+    oldEmail: string;
+    newEmail: string;
+    updatedAt: string;
+  };
+  
+  // Direkta properties för testning
+  public readonly userId: UniqueId;
+  public readonly oldEmail: string;
+  public readonly newEmail: string;
+
+  constructor(
+    userId: string | UniqueId,
+    oldEmail: string,
+    newEmail: string
+  ) {
+    super(userId);
+    
+    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
+    this.oldEmail = oldEmail;
+    this.newEmail = newEmail;
+    
+    this.data = {
+      userId: this.userId.toString(),
+      oldEmail: this.oldEmail,
+      newEmail: this.newEmail,
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  public getEventData() {
+    return this.data;
+  }
+  
+  // Getters för test-kompatibilitet
+  get payload() {
+    return this.data;
   }
 } 

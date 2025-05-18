@@ -14,6 +14,10 @@ export interface OrgSettingsProps {
   maxMembers: number | null;
   allowGuests: boolean;
   notificationSettings: NotificationSettings;
+  description: string;
+  logoUrl: string;
+  name?: string;
+  resourceLimits?: Record<string, number>;
 }
 
 export class OrgSettings extends ValueObject<OrgSettingsProps> {
@@ -33,12 +37,48 @@ export class OrgSettings extends ValueObject<OrgSettingsProps> {
     return this.props.maxMembers;
   }
 
+  set maxMembers(value: number | null) {
+    this.props.maxMembers = value;
+  }
+
   get allowGuests(): boolean {
     return this.props.allowGuests;
   }
 
   get notificationSettings(): NotificationSettings {
     return { ...this.props.notificationSettings };
+  }
+
+  get description(): string {
+    return this.props.description || '';
+  }
+
+  set description(value: string) {
+    this.props.description = value;
+  }
+
+  get logoUrl(): string {
+    return this.props.logoUrl || '';
+  }
+
+  set logoUrl(value: string) {
+    this.props.logoUrl = value;
+  }
+
+  get name(): string | undefined {
+    return this.props.name;
+  }
+
+  set name(value: string | undefined) {
+    this.props.name = value;
+  }
+
+  get resourceLimits(): Record<string, number> | undefined {
+    return this.props.resourceLimits ? {...this.props.resourceLimits} : undefined;
+  }
+
+  set resourceLimits(value: Record<string, number> | undefined) {
+    this.props.resourceLimits = value ? {...value} : undefined;
   }
 
   public static create(props: Partial<OrgSettingsProps> = {}): Result<OrgSettings, string> {
@@ -54,7 +94,10 @@ export class OrgSettings extends ValueObject<OrgSettingsProps> {
           memberLeft: true,
           roleChanges: true,
           activityUpdates: true
-        }
+        },
+        description: '',
+        logoUrl: '',
+        resourceLimits: {}
       };
 
       // Kombinera standardinställningar med angivna inställningar
@@ -103,7 +146,11 @@ export class OrgSettings extends ValueObject<OrgSettingsProps> {
       requiresApproval: this.props.requiresApproval,
       maxMembers: this.props.maxMembers,
       allowGuests: this.props.allowGuests,
-      notificationSettings: { ...this.props.notificationSettings }
+      notificationSettings: { ...this.props.notificationSettings },
+      description: this.props.description,
+      logoUrl: this.props.logoUrl,
+      name: this.props.name,
+      resourceLimits: this.props.resourceLimits
     };
   }
 } 

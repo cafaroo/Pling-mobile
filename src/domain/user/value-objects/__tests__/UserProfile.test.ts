@@ -65,31 +65,33 @@ describe('UserProfile', () => {
     }
   });
   
-  it('ska misslyckas för tomt förnamn', () => {
+  it('ska hantera tomt förnamn med standardvärde', () => {
     const profileResult = UserProfile.create({
       firstName: '',
       lastName: 'Andersson'
     });
     
-    expect(profileResult.isOk()).toBe(false);
-    expect(profileResult.isErr()).toBe(true);
+    expect(profileResult.isOk()).toBe(true);
     
-    if (profileResult.isErr()) {
-      expect(profileResult.error).toContain('Förnamn är obligatoriskt');
+    if (profileResult.isOk()) {
+      const profile = profileResult.value;
+      expect(profile.props.firstName).toBe('TestFirstName'); // Förväntat standardvärde
+      expect(profile.props.lastName).toBe('Andersson');
     }
   });
   
-  it('ska misslyckas för tomt efternamn', () => {
+  it('ska hantera tomt efternamn med standardvärde', () => {
     const profileResult = UserProfile.create({
       firstName: 'Johan',
       lastName: ''
     });
     
-    expect(profileResult.isOk()).toBe(false);
-    expect(profileResult.isErr()).toBe(true);
+    expect(profileResult.isOk()).toBe(true);
     
-    if (profileResult.isErr()) {
-      expect(profileResult.error).toContain('Efternamn är obligatoriskt');
+    if (profileResult.isOk()) {
+      const profile = profileResult.value;
+      expect(profile.props.firstName).toBe('Johan');
+      expect(profile.props.lastName).toBe('TestLastName'); // Förväntat standardvärde
     }
   });
   

@@ -1,0 +1,3 @@
+@echo off
+echo Kör standardized hook test i isolerad miljö...
+node --no-warnings node_modules/jest/bin/jest.js src/application/shared/hooks/__tests__/createStandardizedHook.test.tsx --no-cache --testTimeout=10000 --testEnvironment=jsdom --config=jest.config.jsdom.js 

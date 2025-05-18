@@ -3,51 +3,47 @@
  */
 
 import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
+import { UniqueId } from '@/shared/domain/UniqueId';
 
-export interface TeamMemberJoinedEventData {
-  teamId: string;
-  userId: string;
-  roles: string[];
-  metadata?: Record<string, any>;
+export interface TeamMemberJoinedEventProps {
+  teamId: UniqueId;
+  userId: UniqueId;
+  role: string;
+  joinedAt: Date;
 }
 
 export class TeamMemberJoinedEvent implements IDomainEvent {
-  public readonly eventName: string = 'TeamMemberJoinedEvent';
-  public readonly name: string = 'TeamMemberJoinedEvent';
+  public readonly eventType: string = 'TeamMemberJoinedEvent';
+  public readonly aggregateId: string;
+  public readonly data: {
+    teamId: string;
+    userId: string;
+    role: string;
+    joinedAt: string;
+  };
   public readonly dateTimeOccurred: Date;
-  public readonly teamId: string;
-  public readonly userId: string;
-  public readonly roles: string[];
-  public readonly metadata?: Record<string, any>;
 
-  constructor(data: TeamMemberJoinedEventData) {
+  constructor(props: TeamMemberJoinedEventProps) {
     this.dateTimeOccurred = new Date();
-    this.teamId = data.teamId;
-    this.userId = data.userId;
-    this.roles = data.roles;
-    this.metadata = data.metadata;
-  }
-
-  /**
-   * Hämta aggregatets ID
-   */
-  get aggregateId(): string {
-    return this.teamId;
-  }
-
-  /**
-   * Konvertera till ett enkelt objekt
-   */
-  toPlainObject(): Record<string, any> {
-    return {
-      eventName: this.eventName,
-      name: this.name,
-      dateTimeOccurred: this.dateTimeOccurred,
-      teamId: this.teamId,
-      userId: this.userId,
-      roles: this.roles,
-      metadata: this.metadata
+    this.aggregateId = props.teamId.toString();
+    this.data = {
+      teamId: props.teamId.toString(),
+      userId: props.userId.toString(),
+      role: props.role,
+      joinedAt: props.joinedAt.toISOString()
     };
+  }
+  
+  /**
+   * Returnerar event-data
+   */
+  public getEventData(): {
+    teamId: string;
+    userId: string;
+    role: string;
+    joinedAt: string;
+  } {
+    return this.data;
   }
 }
 

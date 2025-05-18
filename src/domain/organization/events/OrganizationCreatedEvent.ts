@@ -1,35 +1,27 @@
-import { BaseOrganizationEvent } from './BaseOrganizationEvent';
-import { Organization } from '../entities/Organization';
+import { DomainEvent } from '@/shared/core/DomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
 
 /**
- * OrganizationCreatedEvent
- * 
- * Domänhändelse som publiceras när en ny organisation har skapats.
- * Innehåller information om den nya organisationen och dess ägare.
+ * Händelse som publiceras när en organisation skapas
  */
-export class OrganizationCreatedEvent extends BaseOrganizationEvent {
-  /**
-   * Skapar en ny OrganizationCreatedEvent
-   * 
-   * @param organization - Organization-objekt eller ID för den nya organisationen
-   * @param ownerId - ID för användaren som äger organisationen
-   * @param name - Organisationens namn (om bara ID skickades in)
-   */
-  constructor(
-    organization: Organization | UniqueId,
-    ownerId: UniqueId,
-    name?: string
-  ) {
-    const additionalData: Record<string, any> = {
-      ownerId: ownerId.toString(),
-    };
+export class OrganizationCreatedEvent extends DomainEvent {
+  public readonly name: string;
+  public readonly ownerId: UniqueId;
+  public readonly organizationId: UniqueId;
+
+  constructor(organizationId: UniqueId, name: string, ownerId: UniqueId) {
+    super({
+      name: 'OrganizationCreatedEvent',
+      payload: {
+        organizationId: organizationId.toString(),
+        name,
+        ownerId: ownerId.toString()
+      }
+    });
     
-    // Om name angetts explicit (och organization är ett ID), lägg till det i eventdata
-    if (name) {
-      additionalData.name = name;
-    }
-    
-    super('OrganizationCreatedEvent', organization, additionalData);
+    // Spara egenskaperna direkt på event-objektet för enklare åtkomst
+    this.name = name;
+    this.ownerId = ownerId;
+    this.organizationId = organizationId;
   }
 } 

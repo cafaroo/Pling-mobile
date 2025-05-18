@@ -7,25 +7,36 @@ import { DomainEvent } from '@/shared/core/DomainEvent';
 import { DomainEventTestHelper } from './DomainEventTestHelper';
 
 /**
- * Verifierar att ett Result-objekt är i OK-tillstånd
+ * Verifierar att ett Result-objekt är i OK-tillstånd och returnerar dess värde eller boolean
  * @param result Result-objektet att kontrollera
  * @param message Anpassat felmeddelande vid fel
+ * @returns Om value är en boolean, returneras den. Annars returneras true.
  */
-export function expectResultOk<T, E = string>(result: Result<T, E>, message?: string): T {
+export function expectResultOk<T, E = string>(result: Result<T, E>, message?: string): boolean | T {
   expect(result.isOk()).toBe(true, message || 'Förväntade OK-resultat men fick error');
   expect(result.isErr()).toBe(false, message || 'Förväntade OK-resultat men fick error');
-  return result.value;
+  
+  // Om värdet är en boolean, returnera det direkt
+  if (typeof result.value === 'boolean') {
+    return result.value;
+  }
+  
+  // Annars returnera true eftersom testet passerade
+  return true;
 }
 
 /**
  * Verifierar att ett Result-objekt är i Error-tillstånd
  * @param result Result-objektet att kontrollera
  * @param message Anpassat felmeddelande vid fel
+ * @returns false eftersom testet förväntade sig ett error
  */
-export function expectResultErr<T, E = string>(result: Result<T, E>, message?: string): E {
+export function expectResultErr<T, E = string>(result: Result<T, E>, message?: string): boolean | E {
   expect(result.isErr()).toBe(true, message || 'Förväntade error-resultat men fick OK');
   expect(result.isOk()).toBe(false, message || 'Förväntade error-resultat men fick OK');
-  return result.error;
+  
+  // Returnera false eftersom testet förväntar ett error
+  return false;
 }
 
 /**

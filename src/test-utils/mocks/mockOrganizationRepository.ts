@@ -5,12 +5,24 @@
  */
 
 import { Organization } from '@/domain/organization/entities/Organization';
-import { OrganizationRepository } from '@/domain/organization/repositories/OrganizationRepository';
 import { Result, ok, err } from '@/shared/core/Result';
+import { OrganizationRepository } from '@/domain/organization/repositories/OrganizationRepository';
+import { UniqueId } from '@/shared/core/UniqueId';
 
+/**
+ * Implementering av ett mockRepository för Organization-entiteter för testning
+ */
 export class MockOrganizationRepository implements OrganizationRepository {
   private organizations: Map<string, Organization> = new Map();
   private savedOrganizations: Organization[] = [];
+
+  /**
+   * Skapar en instans av mockrepository
+   */
+  constructor() {
+    this.organizations = new Map();
+    this.savedOrganizations = [];
+  }
 
   /**
    * Återställer mocken till ursprungligt tillstånd
@@ -42,56 +54,83 @@ export class MockOrganizationRepository implements OrganizationRepository {
   }
 
   /**
-   * Mock-implementation av findById
+   * Hittar en organisation baserat på ID
    */
   async findById(id: string): Promise<Result<Organization, Error>> {
     const organization = this.organizations.get(id);
-    
     if (!organization) {
       return err(new Error(`Organisation med ID ${id} hittades inte`));
     }
-    
     return ok(organization);
   }
 
   /**
-   * Mock-implementation av findByName
+   * Hittar organisationer som en användare är medlem i
    */
-  async findByName(name: string): Promise<Result<Organization[], Error>> {
-    const matchingOrganizations = Array.from(this.organizations.values())
-      .filter(org => org.name.toLowerCase().includes(name.toLowerCase()));
-    
-    return ok(matchingOrganizations);
+  async findByUserId(userId: string): Promise<Result<Organization[], Error>> {
+    const organizations = Array.from(this.organizations.values()).filter(org => {
+      return org.props.members.some(member => {
+        const memberId = typeof member.userId === 'string' 
+          ? member.userId 
+          : member.userId?.toString();
+        return memberId === userId;
+      });
+    });
+    return ok(organizations);
   }
 
   /**
-   * Mock-implementation av findByMemberId
+   * Söker organisationer baserat på sökterm
    */
-  async findByMemberId(userId: string): Promise<Result<Organization[], Error>> {
-    const matchingOrganizations = Array.from(this.organizations.values())
-      .filter(org => org.hasMember(userId));
-    
-    return ok(matchingOrganizations);
+  async search(term: string): Promise<Result<Organization[], Error>> {
+    if (!term) {
+      return ok([]);
+    }
+
+    const lowercaseTerm = term.toLowerCase();
+    const results = Array.from(this.organizations.values()).filter(org => {
+      return org.props.name.toLowerCase().includes(lowercaseTerm);
+    });
+
+    return ok(results);
   }
 
   /**
-   * Mock-implementation av save
+   * Hittar alla organisationer
+   */
+  async findAll(): Promise<Result<Organization[], Error>> {
+    return ok(Array.from(this.organizations.values()));
+  }
+
+  /**
+   * Spara en organisation (skapa eller uppdatera)
    */
   async save(organization: Organization): Promise<Result<Organization, Error>> {
-    this.organizations.set(organization.id.toString(), organization);
+    if (!organization || !organization.id) {
+      return err(new Error('Kan inte spara organisation: Ogiltigt Organization-objekt eller saknat ID'));
+    }
+    
+    const orgIdStr = organization.id instanceof UniqueId 
+      ? organization.id.toString() 
+      : String(organization.id);
+      
+    this.organizations.set(orgIdStr, organization);
     this.savedOrganizations.push(organization);
     return ok(organization);
   }
 
   /**
-   * Mock-implementation av delete
+   * Radera en organisation
    */
-  async delete(id: string): Promise<Result<void, Error>> {
-    if (!this.organizations.has(id)) {
-      return err(new Error(`Organisation med ID ${id} hittades inte`));
+  async delete(organizationId: string | UniqueId): Promise<Result<void, Error>> {
+    const orgIdStr = organizationId instanceof UniqueId ? organizationId.toString() : organizationId;
+    const organization = this.organizations.get(orgIdStr);
+    
+    if (!organization) {
+      return err(new Error(`Organisation med ID ${orgIdStr} hittades inte`));
     }
-
-    this.organizations.delete(id);
+    
+    this.organizations.delete(orgIdStr);
     return ok(undefined);
   }
 
@@ -100,6 +139,21 @@ export class MockOrganizationRepository implements OrganizationRepository {
    */
   async getAll(): Promise<Result<Organization[], Error>> {
     return ok(Array.from(this.organizations.values()));
+  }
+
+  /**
+   * Metod som gör mockingen möjlig
+   */
+  mockAddOrganization(organization: Organization): void {
+    if (!organization || !organization.id) {
+      throw new Error('Kan inte lägga till organisation: Ogiltigt Organization-objekt eller saknat ID');
+    }
+    
+    const orgIdStr = organization.id instanceof UniqueId 
+      ? organization.id.toString() 
+      : String(organization.id);
+      
+    this.organizations.set(orgIdStr, organization);
   }
 
   /**
@@ -112,7 +166,9 @@ export class MockOrganizationRepository implements OrganizationRepository {
   }
 }
 
-// Exportera en factory-funktion för enkel användning
+/**
+ * Hjälpfunktion för att skapa en mockrepository-instans
+ */
 export const createMockOrganizationRepository = (): MockOrganizationRepository => {
   return new MockOrganizationRepository();
 }; 

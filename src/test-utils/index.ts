@@ -15,6 +15,14 @@ import { MockServiceFactory } from './mocks/mockServiceFactory';
 import { MockRepositoryFactory } from './mocks/mockRepositoryFactory';
 import { EventNameHelper } from './EventNameHelper';
 
+// Exportera React Query test helpers
+export { 
+  createTestQueryClient, 
+  QueryClientTestProvider, 
+  createQueryClientWrapper, 
+  WAIT_FOR_OPTIONS 
+} from './QueryClientTestProvider';
+
 // Exportera alla befintliga test-utils
 export * from './mocks/mockEventBus';
 export * from './mocks/mockSupabase';

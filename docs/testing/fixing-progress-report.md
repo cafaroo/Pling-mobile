@@ -136,6 +136,13 @@ Efter senaste fixarna:
 
 ## Senaste uppdateringar
 
+### 2024-06-07
+- Implementerat standardiserad React Query-testning:
+  - Skapat QueryClientTestProvider för enklare testning av React Query-hooks och komponenter
+  - Implementerat createQueryClientWrapper för användning med wrapper-parametern i test
+  - Skapat dokumentation i react-query-testing-guide.md för bästa praxis
+  - Uppdaterat useSubscriptionStandardized.test.tsx för att visa implementation
+
 ### 2024-06-06
 - Förbättrat mockUserEvents.ts för att stödja fler teststandarder:
   - Lagt till MockUserCreatedEvent för användarhantering i UserCreatedHandler-tester
@@ -160,6 +167,11 @@ Efter senaste fixarna:
 
 ## Framsteg
 
+### React Query och Hooks
+- ✅ QueryClientTestProvider - Standardiserad React Query setup för tester
+- ✅ react-query-testing-guide.md - Guide för att använda React Query i tester
+- ✅ useSubscriptionStandardized.test.tsx - Uppdaterat exempeltest
+
 ### Entiteter och Värde-objekt
 - ✅ TeamRole - Lagts till equalsValue()-metod
 - ✅ OrganizationRole - Konverterad från enum till ValueObject-klass
@@ -182,13 +194,10 @@ Efter senaste fixarna:
 
 ## Nästa steg
 
-1. Fixa standardiserade tester för React Query-hooks
-   - Lägga till QueryClientProvider i tester som använder useQuery
-
-2. Fixa integration-tester mellan domäner
+1. Fixa integration-tester mellan domäner
    - Organization-Team integration
    - User-Team integration
 
-3. Fixa invariant-tester för organization- och team-domänerna
+2. Fixa invariant-tester för organization- och team-domänerna
    - Förbättra Organization.invariants.test.ts 
    - Förbättra Team.standardized.test.ts 

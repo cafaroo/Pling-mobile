@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, act, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientTestProvider } from '@/test-utils';
 import { useSubscription } from '../useSubscriptionContext';
 import { Result } from '@/shared/core/Result';
 
@@ -44,20 +44,8 @@ jest.mock('../useSubscriptionContext', () => {
 const waitForNextUpdate = () => new Promise(resolve => setTimeout(resolve, 50));
 
 describe('useSubscriptionStandardized', () => {
-  let queryClient: QueryClient;
-
-  // Skapa ny QueryClient för varje test
+  // Rensa alla mock-anrop mellan tester
   beforeEach(() => {
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-          cacheTime: 0,
-        },
-      },
-    });
-    
-    // Rensa alla mock-anrop mellan tester
     jest.clearAllMocks();
     
     // Reset mocks
@@ -66,12 +54,6 @@ describe('useSubscriptionStandardized', () => {
     mockUseUpdateSubscriptionStatus.mockReset();
     mockUseTrackUsage.mockReset();
   });
-
-  const createWrapper = ({ children }) => (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
-  );
 
   describe('useOrganizationSubscription', () => {
     it('should load a subscription by organization id', async () => {
@@ -116,9 +98,9 @@ describe('useSubscriptionStandardized', () => {
       };
 
       render(
-        <QueryClientProvider client={queryClient}>
+        <QueryClientTestProvider>
           <OrganizationSubscriptionTest />
-        </QueryClientProvider>
+        </QueryClientTestProvider>
       );
 
       // Assert
@@ -155,9 +137,9 @@ describe('useSubscriptionStandardized', () => {
       };
 
       render(
-        <QueryClientProvider client={queryClient}>
+        <QueryClientTestProvider>
           <OrganizationSubscriptionTest />
-        </QueryClientProvider>
+        </QueryClientTestProvider>
       );
 
       // Assert
@@ -201,9 +183,9 @@ describe('useSubscriptionStandardized', () => {
       };
 
       render(
-        <QueryClientProvider client={queryClient}>
+        <QueryClientTestProvider>
           <FeatureFlagTest />
-        </QueryClientProvider>
+        </QueryClientTestProvider>
       );
 
       // Assert
@@ -238,9 +220,9 @@ describe('useSubscriptionStandardized', () => {
       };
 
       render(
-        <QueryClientProvider client={queryClient}>
+        <QueryClientTestProvider>
           <FeatureFlagTest />
-        </QueryClientProvider>
+        </QueryClientTestProvider>
       );
 
       // Assert
@@ -250,19 +232,24 @@ describe('useSubscriptionStandardized', () => {
   });
 
   describe('useUpdateSubscriptionStatus', () => {
-    it('should update subscription status successfully', async () => {
+    it('should update subscription status', async () => {
       // Arrange
+      const orgId = 'test-org-id';
+      const newStatus = 'canceled';
+      
       mockSubscriptionRepository.updateStatus.mockResolvedValue(
         Result.ok(true)
       );
       
-      // Mock mutation implementation
-      const mockMutate = jest.fn();
+      // Mock för mutation
       mockUseUpdateSubscriptionStatus.mockImplementation(() => {
         return {
-          mutate: mockMutate,
+          mutate: async (params) => {
+            const { organizationId, status } = params;
+            await mockSubscriptionRepository.updateStatus(organizationId, status);
+            return Result.ok(true);
+          },
           isLoading: false,
-          isSuccess: true,
           error: null
         };
       });
@@ -270,59 +257,62 @@ describe('useSubscriptionStandardized', () => {
       // Act
       const UpdateSubscriptionTest = () => {
         const { useUpdateSubscriptionStatus } = useSubscription();
-        const mutation = useUpdateSubscriptionStatus();
+        const { mutate, isLoading } = useUpdateSubscriptionStatus();
         
-        React.useEffect(() => {
-          mutation.mutate({ 
-            subscriptionId: 'sub-1', 
-            status: 'active' 
-          });
-        }, []);
+        const handleClick = async () => {
+          await mutate({ organizationId: orgId, status: newStatus });
+        };
         
         return (
           <div>
-            {mutation.isLoading ? (
-              'Uppdaterar...'
-            ) : mutation.isSuccess ? (
-              'Status uppdaterad!'
-            ) : mutation.error ? (
-              `Fel: ${mutation.error.message}`
-            ) : (
-              'Redo att uppdatera'
-            )}
+            <button onClick={handleClick}>
+              {isLoading ? 'Uppdaterar...' : 'Uppdatera status'}
+            </button>
           </div>
         );
       };
 
       render(
-        <QueryClientProvider client={queryClient}>
+        <QueryClientTestProvider>
           <UpdateSubscriptionTest />
-        </QueryClientProvider>
+        </QueryClientTestProvider>
       );
 
-      // Assert
-      expect(screen.getByText('Status uppdaterad!')).toBeInTheDocument();
-      expect(mockMutate).toHaveBeenCalledWith({ 
-        subscriptionId: 'sub-1', 
-        status: 'active' 
+      // Klicka på knappen
+      await act(async () => {
+        screen.getByText('Uppdatera status').click();
+        await waitForNextUpdate();
       });
+
+      // Assert
+      expect(mockUseUpdateSubscriptionStatus).toHaveBeenCalled();
+      expect(mockSubscriptionRepository.updateStatus).toHaveBeenCalledWith(
+        orgId,
+        newStatus
+      );
     });
   });
 
   describe('useTrackUsage', () => {
-    it('should track usage successfully', async () => {
+    it('should track feature usage', async () => {
       // Arrange
+      const orgId = 'test-org-id';
+      const featureKey = 'api_calls';
+      const amount = 1;
+      
       mockSubscriptionRepository.trackUsage.mockResolvedValue(
         Result.ok(true)
       );
       
-      // Mock mutation implementation
-      const mockMutate = jest.fn();
+      // Mock för mutation
       mockUseTrackUsage.mockImplementation(() => {
         return {
-          mutate: mockMutate,
+          mutate: async (params) => {
+            const { organizationId, feature, amount } = params;
+            await mockSubscriptionRepository.trackUsage(organizationId, feature, amount);
+            return Result.ok(true);
+          },
           isLoading: false,
-          isSuccess: true,
           error: null
         };
       });
@@ -330,44 +320,40 @@ describe('useSubscriptionStandardized', () => {
       // Act
       const TrackUsageTest = () => {
         const { useTrackUsage } = useSubscription();
-        const mutation = useTrackUsage();
+        const { mutate, isLoading } = useTrackUsage();
         
-        React.useEffect(() => {
-          mutation.mutate({ 
-            organizationId: 'org-1', 
-            featureKey: 'api_calls', 
-            usage: 1 
-          });
-        }, []);
+        const handleClick = async () => {
+          await mutate({ organizationId: orgId, feature: featureKey, amount });
+        };
         
         return (
           <div>
-            {mutation.isLoading ? (
-              'Spårar användning...'
-            ) : mutation.isSuccess ? (
-              'Användning spårad!'
-            ) : mutation.error ? (
-              `Fel: ${mutation.error.message}`
-            ) : (
-              'Redo att spåra'
-            )}
+            <button onClick={handleClick}>
+              {isLoading ? 'Registrerar användning...' : 'Registrera användning'}
+            </button>
           </div>
         );
       };
 
       render(
-        <QueryClientProvider client={queryClient}>
+        <QueryClientTestProvider>
           <TrackUsageTest />
-        </QueryClientProvider>
+        </QueryClientTestProvider>
       );
 
-      // Assert
-      expect(screen.getByText('Användning spårad!')).toBeInTheDocument();
-      expect(mockMutate).toHaveBeenCalledWith({ 
-        organizationId: 'org-1', 
-        featureKey: 'api_calls', 
-        usage: 1 
+      // Klicka på knappen
+      await act(async () => {
+        screen.getByText('Registrera användning').click();
+        await waitForNextUpdate();
       });
+
+      // Assert
+      expect(mockUseTrackUsage).toHaveBeenCalled();
+      expect(mockSubscriptionRepository.trackUsage).toHaveBeenCalledWith(
+        orgId,
+        featureKey,
+        amount
+      );
     });
   });
 }); 

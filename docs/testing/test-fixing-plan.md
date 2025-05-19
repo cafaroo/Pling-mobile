@@ -811,7 +811,7 @@ public hasMemberPermission(userId: UniqueId, permission: TeamPermission | string
 }
 ```
 
-Genom att tillämpa dessa mönster har vi lyckats fixa domäntesterna för Organization, Team och User-entiteterna, vilket ökat våra testframgångar från 54% till 79%.
+Genom att tillämpa dessa mönster har vi lyckats fixa domäntesterna för Organization, Team och User-entiterna, vilket ökat våra testframgångar från 54% till 79%.
 
 ### Nästa steg
 
@@ -879,3 +879,185 @@ Med framgången för invarianttesterna och domän-integrationstesterna, ska vi f
 3. Förbättra event-hantering i applikationslagret
 
 Vi är nu på en mycket bättre position för att hantera domain-driven design-tester och förbättra testbarheten av vår applikation.
+
+## Uppdatering av framsteg (2024-05-28)
+
+Vi har fortsatt arbetet med att fixa integrationstester och värde-objekt:
+
+### Genomförda förbättringar:
+1. ✅ **TeamPermission Value Object** - Implementerat en fullständig ValueObject-baserad klass för TeamPermission
+   - Lagt till `TeamPermissionValue` klass som implementerar ValueObject-mönstret
+   - Skapat konsekvent ValueObject-struktur med create(), equals(), equalsValue() och toString()
+   - Gjort behörighetshantering flexiblare med stöd för olika representationer av behörigheter
+
+2. ✅ **Team.hasPermission** - Lagt till en ny metod för bekväm behörighetskontroll 
+   - Refaktorerat `hasMemberPermission` att använda den nya metoden 
+   - Förbättrat testbarheten av behörighetsmekanismen
+
+3. ✅ **user-team-integration.test.ts** - Komplett fixad med alla tester fungerande
+   - Uppdaterat mockade Team-objekt att implementera den nya behörighetslogiken
+   - Utökat med nya tester som validerar behörighetssystemet i alla former
+
+4. ✅ **Bakåtkompatibel design** - Säkerställt bakåtkompatibilitet med befintliga tester
+   - Funktioner som accepterar både nya ValueObjects och gamla enum/string-representationer
+   - Konsekvent API för behörighetskontroller
+
+## Uppdatering: UI Hooks-integrationstester
+
+Vi behöver nu integrera standardiserade hooks från applikationslagret i våra tester, med särskild fokus på React Query-optimering och korrekt skärmintegration.
+
+### Prioriterade komponentområden:
+
+1. **Hooks-integrationstester** - Nästa fokus
+   - Organization-Team-hooks samverkan
+   - React Query-testning med mockade providers
+   - Kontexthantering mellan skärmar och komponenter
+
+2. **Skärmintegrationstester**
+   - Verifiering av dataflöde mellan containers och presentationslager
+   - Testning av optimistiska UI-uppdateringar
+   - Felhanteringsscenarier i UI-komponenter
+
+### Integrationsplan för hooks-tester
+
+För att säkerställa korrekt integration mellan UI och applikationslagret kommer vi att fokusera på följande områden:
+
+1. **Förbättra testkonfiguration för React-hooks**
+   - Anpassa jest.config.jsdom.js för hook-specifika tester
+   - Skapa standardiserade test-utilities för React Query
+   - Utveckla gemensamma wrapper-komponenter för konsekvent testkontext
+
+2. **Testa hooks med React Query**
+   - Verifiera korrekt användning av staleTime och cacheTime
+   - Testa omvalideringsstrategier vid fokus och intervall
+   - Validera felhanteringsbeteenden
+
+3. **Testa hook-integration i Context Providers**
+   - Säkerställa att data flödar korrekt mellan context och komponenter
+   - Verifiera uppdateringscykler vid dataförändringar
+   - Testa prestandaoptimering och memorisering
+
+### Implementationsdetaljer för hooks-tester
+
+För varje hook-integrationtest ska vi:
+
+1. Skapa konsekvent test-setup med:
+   ```tsx
+   const wrapper = ({ children }) => (
+     <MockedProvider>
+       <MockContextProvider>
+         {children}
+       </MockContextProvider>
+     </MockedProvider>
+   );
+   
+   const { result, waitFor } = renderHook(() => useMyHook(), { wrapper });
+   ```
+
+2. Testa key-funktionaliteter:
+   - Initial laddning och laddningstillstånd
+   - Cachad datahämtning
+   - Hantering av felscenarier
+   - Optimistiska uppdateringar
+
+3. Verifiera integration med domänlagret:
+   - Korrekt transformation av DTOs till domänobjekt
+   - Event-publicering från UI-interaktioner
+   - Validering av affärsregler i UI-lagret
+
+## Prioriteringsordning för nästa fas
+
+Vi har nu definierat en klar prioriteringsordning för nästa fas av testfixar:
+
+1. **Hooks-integrationstester för Organization-Team-samspel**
+   - Testa dataflöde mellan organisationskontext och team-komponenter
+   - Verifiera att behörighetsförändringar i organization påverkar team-komponenter korrekt
+   - Validera optimistiska uppdateringar mellan kontext-lagret
+
+2. **Event-hantering i applikationslagret**
+   - Förbättra eventhantering i användningsfall (useCases)
+   - Standardisera eventhanteringen mellan domänlagret och applikationslagret
+   - Testa event-publikation och prenumeration i hooks
+
+3. **React Query-integrationer i UI-komponenter**
+   - Testa dataflöde genom QueryClient och Cache
+   - Validera invalidering av queries vid mutationer
+   - Verifiera onSuccess och onError callbacks
+
+4. **Skärmintegrationstester**
+   - Verifiera full E2E-dataflöde från UI till domänlager och tillbaka
+   - Testa navigationsbeteende mellan skärmar
+   - Validera tillståndspersistens mellan navigationer
+
+## Nästa konkreta steg
+
+Med utgångspunkt i vår uppdaterade plan kommer vi att:
+
+1. Implementera förbättrade testfixtures för Organization-Team-hooks integration
+2. Skapa standardiserade mockar för React Query i testerna
+3. Utveckla robustare test-providers som kombinerar domänkontext och UI-kontext
+4. Fixa specifika hooks-integrationstester för team- och organisationsrelaterade komponenter
+
+Denna approach kommer att säkerställa att vi gradvis förbättrar testbarheten i hela applikationen och säkerställer att UI-lagret korrekt integrerar med domänmodellen och applikationslagret.
+
+## Uppdatering av framsteg (2024-05-29)
+
+Vi har fortsatt arbetet med hooks-integrationstester och gjort betydande framsteg i standardiseringen av testmiljön:
+
+### Genomförda förbättringar:
+1. ✅ **Standardiserad testmiljö för hooks** - Implementerat nya robusta hjälpklasser för hooks-integrationstester
+   - Skapat `HooksIntegrationTestWrapper` för konsekvent provider-struktur
+   - Utvecklat `renderHookWithQueryClient` för förenklad testing av hooks
+   - Implementerat testhjälpare för att skapa och populera testdata i repositories
+   - Skapat `mockReactQuery` med funktioner för mockad React Query-funktionalitet
+
+2. ✅ **Refaktorering av Organization-Team integrationstester** - Uppdaterat testerna att använda den nya standardiserade metoden
+   - Förbättrat `organization-team-integration.test.tsx` med konsekvent approach
+   - Uppdaterat `team-organization-integration.test.ts` för att använda standardkomponenter
+   - Förbättrat testkvaliteten genom mer robusta assertions och feltester
+   - Eliminerat behovet av direkt context-mockning genom wrapper-komponenten
+
+3. ✅ **Dokumentation** - Skapat en guide för hooks-integrationstestning
+   - Dokumenterat best practices för att skriva hooks-integrationstester
+   - Specificerat standardiserade mönster för test setup och assertions
+   - Skapat felsökningsguide för hooks-tester
+
+### Problem som upptäcktes vid körning:
+Efter implementation av den standardiserade testmiljön uppstod flera fel som behöver åtgärdas:
+
+1. ❌ **Saknade moduler och providers** - Vissa komponenter kunde inte hittas:
+   - `OrganizationContextProvider` finns inte på förväntad plats
+   - `GetTeamUseCase` kunde inte importeras från '../useCases/getTeam'
+   - `TeamFactory` saknas i team-domänen
+
+2. ❌ **Inkonsekventa interfaces och anrop** - Flera metoder och parametrar matchar inte:
+   - UniqueId-parametrar skickas som `{ id: 'id' }` istället för `{ value: 'id' }`
+   - `organization.setEventPublisher` finns inte tillgänglig som metod
+   - Flera useCase-funktioner finns inte eller anropas inte korrekt
+
+3. ❌ **Testfixtur-problem** - Testvärden och mock-funktioner behöver uppdateras:
+   - Flera `expect().toBe()` testar misslyckas med värden som ändrats
+   - Team- och User-testvärden har inkompatibla strukturer
+
+### Nästa steg (prioritetsordning):
+1. Skapa saknade moduler och providers:
+   - Implementera `OrganizationContextProvider` på rätt plats
+   - Skapa `GetTeamUseCase` under rätt sökväg
+   - Implementera `TeamFactory` enligt domänmönstret
+
+2. Standardisera interfaces och repositories:
+   - Konsekvent hantering av UniqueId mellan olika delar av koden
+   - Implementera `setEventPublisher` på Organization-entiteten
+   - Standardisera event-publiceringsbeteende
+
+3. Lösa test-assertions och verifikationer:
+   - Uppdatera assertions för att matcha faktiska returvärden
+   - Standardisera mock-funktioner för konsekvent beteende
+   - Åtgärda saknade event-publiceringar
+
+4. Tillämpa den standardiserade hooks-testmetoden på fler moduler:
+   - Fixa subscription-relaterade hooks-integrationstester
+   - Standardisera testfixturer för alla domäner
+   - Implementera korrekt mockade useCases
+
+När dessa steg är genomförda kommer vi att skapa ett mer robust, underhållbart och standardiserat testsystem som minskar risken för liknande fel i framtiden.

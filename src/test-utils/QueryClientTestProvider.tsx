@@ -19,6 +19,9 @@ export const WAIT_FOR_OPTIONS = {
   timeout: 5000,
 };
 
+// Statisk repository-hantering för att dela repositories mellan hooks
+const repositories: Record<string, any> = {};
+
 /**
  * QueryClientTestProvider
  * 
@@ -66,4 +69,50 @@ export const createQueryClientWrapper = (client?: QueryClient) => {
       {children}
     </QueryClientTestProvider>
   );
-}; 
+};
+
+/**
+ * Statiska metoder för att hantera repositories i tester
+ */
+export namespace QueryClientTestProvider {
+  /**
+   * Registrerar repositories för användning i tester
+   * 
+   * @param repos - Object med repository-instanser som ska registreras
+   */
+  export function registerRepositories(repos: Record<string, any>): void {
+    Object.keys(repos).forEach(key => {
+      repositories[key] = repos[key];
+    });
+    
+    // Koppla ihop repositories om de behöver samarbeta
+    if (repositories['OrganizationRepository'] && repositories['TeamRepository']) {
+      if (typeof repositories['OrganizationRepository'].setTeamRepository === 'function') {
+        repositories['OrganizationRepository'].setTeamRepository(repositories['TeamRepository']);
+      }
+    }
+  }
+  
+  /**
+   * Återställer alla registrerade repositories
+   */
+  export function resetRepositories(): void {
+    Object.values(repositories).forEach(repo => {
+      if (typeof repo.reset === 'function') {
+        repo.reset();
+      }
+    });
+    
+    // Rensa repositories-dictionary om det behövs
+    // Object.keys(repositories).forEach(key => delete repositories[key]);
+  }
+  
+  /**
+   * Hämtar ett registrerat repository
+   * 
+   * @param name - Namnet på repository som ska hämtas
+   */
+  export function getRepository<T>(name: string): T | undefined {
+    return repositories[name] as T;
+  }
+} 

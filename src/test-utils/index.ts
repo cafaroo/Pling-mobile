@@ -14,6 +14,8 @@ import { MockValueObjectFactory } from './mocks/mockValueObjectFactory';
 import { MockServiceFactory } from './mocks/mockServiceFactory';
 import { MockRepositoryFactory } from './mocks/mockRepositoryFactory';
 import { EventNameHelper } from './EventNameHelper';
+import { EventDataAdapter, getEventData, hasEventProperty } from './helpers/eventDataAdapter';
+import { ValueObjectTestHelper, compareValueObject, expectValueObjectToEqual, areEquivalentValueObjects } from './helpers/valueObjectTestHelper';
 
 // Exportera React Query test helpers
 export { 
@@ -34,6 +36,8 @@ export * from './userProfileTestHelper';
 export * from './eventTestHelper';
 export * from './helpers/invariantTestHelper';
 export * from './helpers/useCaseErrorTestHelper';
+export * from './helpers/eventDataAdapter';
+export * from './helpers/valueObjectTestHelper';
 
 // Återexportera mockEventBus som standard export
 export { mockEventBus } from './mocks/mockEventBus';
@@ -79,6 +83,12 @@ export { DomainServiceTestHelper } from './helpers/DomainServiceTestHelper';
 
 // Exportera EventNameHelper
 export { EventNameHelper } from './EventNameHelper';
+
+// Exportera EventDataAdapter med dess funktioner
+export { EventDataAdapter, getEventData, hasEventProperty };
+
+// Exportera ValueObjectTestHelper med dess funktioner
+export { ValueObjectTestHelper, compareValueObject, expectValueObjectToEqual, areEquivalentValueObjects };
 
 // Importera useCaseErrorTestHelper funktioner om de finns
 let testUseCaseErrors = () => {};
@@ -142,6 +152,8 @@ export const TestKit = {
   result: ResultTestHelper,
   profile: UserProfileTestHelper,
   eventName: EventNameHelper,
+  eventData: EventDataAdapter,
+  valueObject: ValueObjectTestHelper,
   
   // Mock-factories
   mockEntity: MockEntityFactory,

@@ -72,11 +72,11 @@ export class DefaultSubscriptionService implements SubscriptionService {
       }
       
       // Förenklade regler för testning
-      if (featureName === 'basicFeature') {
+      if (featureName === 'basic_feature') {
         return ok(true);
-      } else if (featureName === 'proFeature' && subscription.plan.type === 'pro') {
+      } else if (featureName === 'pro_feature' && subscription.plan.type === 'pro') {
         return ok(true);
-      } else if (featureName === 'enterpriseFeature' && subscription.plan.type === 'enterprise') {
+      } else if (featureName === 'enterprise_feature' && subscription.plan.type === 'enterprise') {
         return ok(true);
       }
       

@@ -1,5 +1,5 @@
 import { UniqueId } from '../../core/UniqueId';
-import { BillingAddress, SubscriptionStatus, SubscriptionUsage } from '../value-objects/SubscriptionTypes';
+import { BillingAddress, SubscriptionStatus, SubscriptionUsage } from '../entities/SubscriptionTypes';
 
 export namespace SubscriptionEvents {
   export interface BaseEvent {

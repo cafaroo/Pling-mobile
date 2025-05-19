@@ -27,6 +27,13 @@ export class BaseMockTeamEvent implements IDomainEvent {
   }
 }
 
+export interface TeamCreatedEventProps {
+  teamId: string | UniqueId;
+  name: string;
+  ownerId: string | UniqueId;
+  createdAt: Date;
+}
+
 /**
  * Team skapades
  */
@@ -44,12 +51,7 @@ export class TeamCreatedEvent extends BaseMockTeamEvent {
   public readonly name: string;
   public readonly ownerId: UniqueId;
 
-  constructor(props: {
-    teamId: string | UniqueId;
-    name: string;
-    ownerId: string | UniqueId;
-    createdAt: Date;
-  }) {
+  constructor(props: TeamCreatedEventProps) {
     super(props.teamId);
     
     this.teamId = props.teamId instanceof UniqueId ? props.teamId : new UniqueId(props.teamId);
@@ -74,6 +76,13 @@ export class TeamCreatedEvent extends BaseMockTeamEvent {
   }
 }
 
+export interface TeamUpdatedEventProps {
+  teamId: string | UniqueId;
+  name: string;
+  description?: string;
+  updatedAt: Date;
+}
+
 /**
  * Team uppdaterades
  */
@@ -82,23 +91,27 @@ export class TeamUpdatedEvent extends BaseMockTeamEvent {
   public readonly data: {
     teamId: string;
     name: string;
+    description?: string;
     updatedAt: string;
   };
   
   // Direkta properties för testning
   public readonly teamId: UniqueId;
   public readonly name: string;
+  public readonly description?: string;
 
-  constructor(teamId: string | UniqueId, name: string) {
-    super(teamId);
+  constructor(props: TeamUpdatedEventProps) {
+    super(props.teamId);
     
-    this.teamId = teamId instanceof UniqueId ? teamId : new UniqueId(teamId);
-    this.name = name;
+    this.teamId = props.teamId instanceof UniqueId ? props.teamId : new UniqueId(props.teamId);
+    this.name = props.name;
+    this.description = props.description;
     
     this.data = {
       teamId: this.teamId.toString(),
       name: this.name,
-      updatedAt: new Date().toISOString()
+      description: this.description,
+      updatedAt: props.updatedAt.toISOString()
     };
   }
 
@@ -110,6 +123,13 @@ export class TeamUpdatedEvent extends BaseMockTeamEvent {
   get payload() {
     return this.data;
   }
+}
+
+export interface TeamMemberJoinedEventProps {
+  teamId: string | UniqueId;
+  userId: string | UniqueId;
+  role: string;
+  joinedAt?: Date;
 }
 
 /**
@@ -128,23 +148,23 @@ export class TeamMemberJoinedEvent extends BaseMockTeamEvent {
   public readonly teamId: UniqueId;
   public readonly userId: UniqueId;
   public readonly role: string;
+  public readonly joinedAt: string;
 
-  constructor(
-    teamId: string | UniqueId,
-    userId: string | UniqueId,
-    role: string
-  ) {
-    super(teamId);
+  constructor(props: TeamMemberJoinedEventProps) {
+    super(props.teamId);
     
-    this.teamId = teamId instanceof UniqueId ? teamId : new UniqueId(teamId);
-    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
-    this.role = role;
+    this.teamId = props.teamId instanceof UniqueId ? props.teamId : new UniqueId(props.teamId);
+    this.userId = props.userId instanceof UniqueId ? props.userId : new UniqueId(props.userId);
+    this.role = props.role;
+    
+    const joinedAt = props.joinedAt || new Date();
+    this.joinedAt = joinedAt.toISOString();
     
     this.data = {
       teamId: this.teamId.toString(),
       userId: this.userId.toString(),
       role: this.role,
-      joinedAt: new Date().toISOString()
+      joinedAt: this.joinedAt
     };
   }
 
@@ -156,6 +176,12 @@ export class TeamMemberJoinedEvent extends BaseMockTeamEvent {
   get payload() {
     return this.data;
   }
+}
+
+export interface TeamMemberLeftEventProps {
+  teamId: string | UniqueId;
+  userId: string | UniqueId;
+  removedAt?: Date;
 }
 
 /**
@@ -172,17 +198,21 @@ export class TeamMemberLeftEvent extends BaseMockTeamEvent {
   // Direkta properties för testning
   public readonly teamId: UniqueId;
   public readonly userId: UniqueId;
+  public readonly removedAt: string;
 
-  constructor(teamId: string | UniqueId, userId: string | UniqueId) {
-    super(teamId);
+  constructor(props: TeamMemberLeftEventProps) {
+    super(props.teamId);
     
-    this.teamId = teamId instanceof UniqueId ? teamId : new UniqueId(teamId);
-    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
+    this.teamId = props.teamId instanceof UniqueId ? props.teamId : new UniqueId(props.teamId);
+    this.userId = props.userId instanceof UniqueId ? props.userId : new UniqueId(props.userId);
+    
+    const removedAt = props.removedAt || new Date();
+    this.removedAt = removedAt.toISOString();
     
     this.data = {
       teamId: this.teamId.toString(),
       userId: this.userId.toString(),
-      removedAt: new Date().toISOString()
+      removedAt: this.removedAt
     };
   }
 
@@ -194,6 +224,14 @@ export class TeamMemberLeftEvent extends BaseMockTeamEvent {
   get payload() {
     return this.data;
   }
+}
+
+export interface TeamMemberRoleChangedEventProps {
+  teamId: string | UniqueId;
+  userId: string | UniqueId;
+  oldRole: string;
+  newRole: string;
+  changedAt?: Date;
 }
 
 /**
@@ -214,26 +252,25 @@ export class TeamMemberRoleChangedEvent extends BaseMockTeamEvent {
   public readonly userId: UniqueId;
   public readonly oldRole: string;
   public readonly newRole: string;
+  public readonly changedAt: string;
 
-  constructor(
-    teamId: string | UniqueId,
-    userId: string | UniqueId,
-    oldRole: string,
-    newRole: string
-  ) {
-    super(teamId);
+  constructor(props: TeamMemberRoleChangedEventProps) {
+    super(props.teamId);
     
-    this.teamId = teamId instanceof UniqueId ? teamId : new UniqueId(teamId);
-    this.userId = userId instanceof UniqueId ? userId : new UniqueId(userId);
-    this.oldRole = oldRole;
-    this.newRole = newRole;
+    this.teamId = props.teamId instanceof UniqueId ? props.teamId : new UniqueId(props.teamId);
+    this.userId = props.userId instanceof UniqueId ? props.userId : new UniqueId(props.userId);
+    this.oldRole = props.oldRole;
+    this.newRole = props.newRole;
+    
+    const changedAt = props.changedAt || new Date();
+    this.changedAt = changedAt.toISOString();
     
     this.data = {
       teamId: this.teamId.toString(),
       userId: this.userId.toString(),
       oldRole: this.oldRole,
       newRole: this.newRole,
-      changedAt: new Date().toISOString()
+      changedAt: this.changedAt
     };
   }
 
@@ -245,6 +282,13 @@ export class TeamMemberRoleChangedEvent extends BaseMockTeamEvent {
   get payload() {
     return this.data;
   }
+}
+
+export interface TeamInvitationSentEventProps {
+  teamId: string | UniqueId;
+  inviteeEmail: string;
+  senderId: string | UniqueId;
+  sentAt?: Date;
 }
 
 /**
@@ -263,23 +307,23 @@ export class TeamInvitationSentEvent extends BaseMockTeamEvent {
   public readonly teamId: UniqueId;
   public readonly inviteeEmail: string;
   public readonly senderId: UniqueId;
+  public readonly sentAt: string;
 
-  constructor(
-    teamId: string | UniqueId,
-    inviteeEmail: string,
-    senderId: string | UniqueId
-  ) {
-    super(teamId);
+  constructor(props: TeamInvitationSentEventProps) {
+    super(props.teamId);
     
-    this.teamId = teamId instanceof UniqueId ? teamId : new UniqueId(teamId);
-    this.inviteeEmail = inviteeEmail;
-    this.senderId = senderId instanceof UniqueId ? senderId : new UniqueId(senderId);
+    this.teamId = props.teamId instanceof UniqueId ? props.teamId : new UniqueId(props.teamId);
+    this.inviteeEmail = props.inviteeEmail;
+    this.senderId = props.senderId instanceof UniqueId ? props.senderId : new UniqueId(props.senderId);
+    
+    const sentAt = props.sentAt || new Date();
+    this.sentAt = sentAt.toISOString();
     
     this.data = {
       teamId: this.teamId.toString(),
       inviteeEmail: this.inviteeEmail,
       senderId: this.senderId.toString(),
-      sentAt: new Date().toISOString()
+      sentAt: this.sentAt
     };
   }
 
@@ -291,6 +335,13 @@ export class TeamInvitationSentEvent extends BaseMockTeamEvent {
   get payload() {
     return this.data;
   }
+}
+
+export interface TeamInvitationAcceptedEventProps {
+  teamId: string | UniqueId;
+  inviteeEmail: string;
+  inviteeId: string | UniqueId;
+  acceptedAt?: Date;
 }
 
 /**
@@ -309,23 +360,23 @@ export class TeamInvitationAcceptedEvent extends BaseMockTeamEvent {
   public readonly teamId: UniqueId;
   public readonly inviteeEmail: string;
   public readonly inviteeId: UniqueId;
+  public readonly acceptedAt: string;
 
-  constructor(
-    teamId: string | UniqueId,
-    inviteeEmail: string,
-    inviteeId: string | UniqueId
-  ) {
-    super(teamId);
+  constructor(props: TeamInvitationAcceptedEventProps) {
+    super(props.teamId);
     
-    this.teamId = teamId instanceof UniqueId ? teamId : new UniqueId(teamId);
-    this.inviteeEmail = inviteeEmail;
-    this.inviteeId = inviteeId instanceof UniqueId ? inviteeId : new UniqueId(inviteeId);
+    this.teamId = props.teamId instanceof UniqueId ? props.teamId : new UniqueId(props.teamId);
+    this.inviteeEmail = props.inviteeEmail;
+    this.inviteeId = props.inviteeId instanceof UniqueId ? props.inviteeId : new UniqueId(props.inviteeId);
+    
+    const acceptedAt = props.acceptedAt || new Date();
+    this.acceptedAt = acceptedAt.toISOString();
     
     this.data = {
       teamId: this.teamId.toString(),
       inviteeEmail: this.inviteeEmail,
       inviteeId: this.inviteeId.toString(),
-      acceptedAt: new Date().toISOString()
+      acceptedAt: this.acceptedAt
     };
   }
 
@@ -337,6 +388,12 @@ export class TeamInvitationAcceptedEvent extends BaseMockTeamEvent {
   get payload() {
     return this.data;
   }
+}
+
+export interface TeamInvitationDeclinedEventProps {
+  teamId: string | UniqueId;
+  inviteeEmail: string;
+  declinedAt?: Date;
 }
 
 /**
@@ -353,20 +410,21 @@ export class TeamInvitationDeclinedEvent extends BaseMockTeamEvent {
   // Direkta properties för testning
   public readonly teamId: UniqueId;
   public readonly inviteeEmail: string;
+  public readonly declinedAt: string;
 
-  constructor(
-    teamId: string | UniqueId,
-    inviteeEmail: string
-  ) {
-    super(teamId);
+  constructor(props: TeamInvitationDeclinedEventProps) {
+    super(props.teamId);
     
-    this.teamId = teamId instanceof UniqueId ? teamId : new UniqueId(teamId);
-    this.inviteeEmail = inviteeEmail;
+    this.teamId = props.teamId instanceof UniqueId ? props.teamId : new UniqueId(props.teamId);
+    this.inviteeEmail = props.inviteeEmail;
+    
+    const declinedAt = props.declinedAt || new Date();
+    this.declinedAt = declinedAt.toISOString();
     
     this.data = {
       teamId: this.teamId.toString(),
       inviteeEmail: this.inviteeEmail,
-      declinedAt: new Date().toISOString()
+      declinedAt: this.declinedAt
     };
   }
 

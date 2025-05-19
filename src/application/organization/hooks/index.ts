@@ -1,2 +1,2 @@
-export * from './useOrganizationContext';
+export * from '../providers/OrganizationContextProvider';
 export * from './useOrganizationWithStandardHook'; 

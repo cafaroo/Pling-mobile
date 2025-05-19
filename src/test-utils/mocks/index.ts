@@ -2,6 +2,9 @@
  * Exportera alla mockup-verktyg för testning
  */
 
+// Exportera TestKit
+export { TestKit } from '../TestKit';
+
 // Exportera core mocks
 export * from './AsyncStorageMock';
 export * from './ReactNativeToastMessage';

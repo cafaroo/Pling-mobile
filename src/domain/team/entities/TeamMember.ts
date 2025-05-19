@@ -6,7 +6,7 @@ import { TeamError } from '../errors/TeamError';
 
 interface TeamMemberProps {
   userId: UniqueId;
-  role: string;
+  role: TeamRole | string;
   joinedAt: Date;
 }
 
@@ -19,7 +19,7 @@ export class TeamMember extends ValueObject<TeamMemberProps> {
     return this.props.userId;
   }
 
-  get role(): string {
+  get role(): TeamRole | string {
     return this.props.role;
   }
 
@@ -32,10 +32,16 @@ export class TeamMember extends ValueObject<TeamMemberProps> {
       // Validera att rollen är giltig med parseTeamRole
       const roleResult = parseTeamRole(props.role);
       if (roleResult.isErr()) {
-        return err(new TeamError.InvalidRole(props.role));
+        return err(new TeamError.InvalidRole(String(props.role)));
       }
       
-      return ok(new TeamMember(props));
+      // Använd det parsade TeamRole-objektet
+      const normalizedProps = {
+        ...props,
+        role: roleResult.value
+      };
+      
+      return ok(new TeamMember(normalizedProps));
     } catch (error) {
       return err(error as Error);
     }
@@ -46,18 +52,30 @@ export class TeamMember extends ValueObject<TeamMemberProps> {
   }
 
   public canInviteMembers(): boolean {
-    return ['owner', 'admin'].includes(this.props.role);
+    const roleValue = typeof this.props.role === 'string' 
+      ? this.props.role.toLowerCase() 
+      : this.props.role.value;
+    return ['owner', 'admin'].includes(roleValue);
   }
 
   public canRemoveMembers(): boolean {
-    return ['owner', 'admin'].includes(this.props.role);
+    const roleValue = typeof this.props.role === 'string' 
+      ? this.props.role.toLowerCase() 
+      : this.props.role.value;
+    return ['owner', 'admin'].includes(roleValue);
   }
 
   public canEditTeam(): boolean {
-    return this.props.role === 'owner';
+    const roleValue = typeof this.props.role === 'string' 
+      ? this.props.role.toLowerCase() 
+      : this.props.role.value;
+    return roleValue === 'owner';
   }
 
   public canManageRoles(): boolean {
-    return this.props.role === 'owner';
+    const roleValue = typeof this.props.role === 'string' 
+      ? this.props.role.toLowerCase() 
+      : this.props.role.value;
+    return roleValue === 'owner';
   }
 } 

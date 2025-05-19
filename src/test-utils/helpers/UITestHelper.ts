@@ -36,10 +36,13 @@ export const UITestHelper = {
   ) => {
     const queryClient = UITestHelper.createTestQueryClient();
     
-    return render(
-      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
-      options
+    const wrappedComponent = React.createElement(
+      QueryClientProvider, 
+      { client: queryClient }, 
+      ui
     );
+    
+    return render(wrappedComponent, options);
   },
   
   /**

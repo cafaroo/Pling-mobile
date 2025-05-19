@@ -11,7 +11,8 @@ import { UniqueId } from '@/shared/core/UniqueId';
 import { TeamMember } from '@/domain/team/value-objects/TeamMember';
 
 export class MockTeamRepository implements TeamRepository {
-  private teams: Map<string, Team> = new Map();
+  // Använd public för att tillåta direkt åtkomst i tester
+  public teams: Map<string, Team> = new Map();
   private teamsByOrgId: Map<string, Team[]> = new Map();
   private savedTeams: Team[] = [];
 
@@ -28,6 +29,7 @@ export class MockTeamRepository implements TeamRepository {
    * Lägger till ett team i mocken
    */
   addTeam(team: Team): void {
+    // Använd toString för att säkerställa att vi alltid använder string-nycklar
     this.teams.set(team.id.toString(), team);
   }
 
@@ -48,10 +50,14 @@ export class MockTeamRepository implements TeamRepository {
   /**
    * Hittar ett team baserat på ID
    */
-  async findById(id: string): Promise<Result<Team, Error>> {
-    const team = this.teams.get(id);
+  async findById(id: string | UniqueId): Promise<Result<Team, Error>> {
+    const idStr = typeof id === 'string' ? id : id.toString();
+    console.log('Team findById söker efter:', idStr);
+    console.log('teams map innehåller:', Array.from(this.teams.keys()));
+    
+    const team = this.teams.get(idStr);
     if (!team) {
-      return err(new Error(`Team med ID ${id} hittades inte`));
+      return err(new Error(`Team med ID ${idStr} hittades inte`));
     }
     return ok(team);
   }
@@ -110,18 +116,26 @@ export class MockTeamRepository implements TeamRepository {
       return err(new Error('Kan inte spara team: Ogiltigt Team-objekt eller saknat ID'));
     }
     
-    const teamIdStr = team.id instanceof UniqueId 
-      ? team.id.toString() 
-      : String(team.id);
+    // Använd toString för att säkerställa att vi alltid använder string-nycklar
+    const teamIdStr = team.id.toString();
       
+    // Spara med string-nyckel
     this.teams.set(teamIdStr, team);
     this.savedTeams.push(team);
     
     // Indexera team per organisationsID
     if (team.organizationId) {
-      const orgId = team.organizationId instanceof UniqueId 
-        ? team.organizationId.toString() 
-        : String(team.organizationId);
+      let orgId = '';
+      
+      // Hantera alla möjliga typer för organizationId
+      if (typeof team.organizationId === 'string') {
+        orgId = team.organizationId;
+      } else if (team.organizationId.toString) {
+        orgId = team.organizationId.toString();
+      } else {
+        console.warn('organizationId kunde inte konverteras till string:', team.organizationId);
+        orgId = String(team.organizationId); // Fallback
+      }
         
       if (!this.teamsByOrgId.has(orgId)) {
         this.teamsByOrgId.set(orgId, []);
@@ -130,8 +144,7 @@ export class MockTeamRepository implements TeamRepository {
       // Ta bort eventuell tidigare version av teamet
       const teamsForOrg = this.teamsByOrgId.get(orgId) || [];
       const filteredTeams = teamsForOrg.filter(t => {
-        const tId = t.id instanceof UniqueId ? t.id.toString() : String(t.id);
-        return tId !== teamIdStr;
+        return t.id.toString() !== teamIdStr;
       });
       
       // Lägg till teamet i listan för organisationen
@@ -146,7 +159,7 @@ export class MockTeamRepository implements TeamRepository {
    * Radera ett team
    */
   async delete(teamId: string | UniqueId): Promise<Result<void, Error>> {
-    const teamIdStr = teamId instanceof UniqueId ? teamId.toString() : teamId;
+    const teamIdStr = typeof teamId === 'string' ? teamId : teamId.toString();
     const team = this.teams.get(teamIdStr);
     
     if (!team) {
@@ -155,15 +168,22 @@ export class MockTeamRepository implements TeamRepository {
     
     // Ta bort från organisationsindex
     if (team.organizationId) {
-      const orgId = team.organizationId instanceof UniqueId 
-        ? team.organizationId.toString() 
-        : String(team.organizationId);
+      let orgId = '';
+      
+      // Hantera alla möjliga typer för organizationId
+      if (typeof team.organizationId === 'string') {
+        orgId = team.organizationId;
+      } else if (team.organizationId.toString) {
+        orgId = team.organizationId.toString();
+      } else {
+        console.warn('organizationId kunde inte konverteras till string:', team.organizationId);
+        orgId = String(team.organizationId); // Fallback
+      }
         
       if (this.teamsByOrgId.has(orgId)) {
         const teamsForOrg = this.teamsByOrgId.get(orgId) || [];
         const filteredTeams = teamsForOrg.filter(t => {
-          const tId = t.id instanceof UniqueId ? t.id.toString() : String(t.id);
-          return tId !== teamIdStr;
+          return t.id.toString() !== teamIdStr;
         });
         
         this.teamsByOrgId.set(orgId, filteredTeams);
@@ -218,17 +238,24 @@ export class MockTeamRepository implements TeamRepository {
       throw new Error('Kan inte lägga till team: Ogiltigt Team-objekt eller saknat ID');
     }
     
-    const teamIdStr = team.id instanceof UniqueId 
-      ? team.id.toString() 
-      : String(team.id);
+    // Använd toString för att säkerställa att vi alltid använder string-nycklar
+    const teamIdStr = team.id.toString();
       
     this.teams.set(teamIdStr, team);
     
     // Indexera team per organisationsID
     if (team.organizationId) {
-      const orgId = team.organizationId instanceof UniqueId 
-        ? team.organizationId.toString() 
-        : String(team.organizationId);
+      let orgId = '';
+      
+      // Hantera alla möjliga typer för organizationId
+      if (typeof team.organizationId === 'string') {
+        orgId = team.organizationId;
+      } else if (team.organizationId.toString) {
+        orgId = team.organizationId.toString();
+      } else {
+        console.warn('organizationId kunde inte konverteras till string:', team.organizationId);
+        orgId = String(team.organizationId); // Fallback
+      }
         
       if (!this.teamsByOrgId.has(orgId)) {
         this.teamsByOrgId.set(orgId, []);

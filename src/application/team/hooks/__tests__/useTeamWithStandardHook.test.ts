@@ -1,10 +1,15 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react-hooks';
 import { Result } from '@/shared/core/Result';
 import { useTeamWithStandardHook } from '../useTeamWithStandardHook';
 import { useTeamContext } from '../useTeamContext';
 import { HookErrorCode } from '@/application/shared/hooks/HookErrorTypes';
 import { Team } from '@/domain/team/entities/Team';
 import { createLogger } from '@/infrastructure/logger';
+import { 
+  createTestQueryClient, 
+  renderHookWithQueryClient
+} from '@/test-utils/helpers/ReactQueryTestHelper';
+import { QueryClient } from '@tanstack/react-query';
 
 // Mocka beroenden
 jest.mock('@/infrastructure/logger', () => ({
@@ -21,12 +26,26 @@ jest.mock('../useTeamContext', () => ({
 }));
 
 // Hjälpfunktion för att vänta
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Hjälpfunktion för att tömma alla väntande promises
+const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('useTeamWithStandardHook', () => {
   // Skapa mockad team-data
-  const mockTeam = { id: 'team-123', name: 'Test Team' } as Team;
-  const mockTeams = [mockTeam, { id: 'team-456', name: 'Another Team' }] as Team[];
+  const mockTeam = { 
+    id: 'team-123', 
+    name: 'Test Team',
+    members: [
+      { id: 'user-1', name: 'User 1', role: 'admin' },
+      { id: 'user-2', name: 'User 2', role: 'member' }
+    ]
+  } as unknown as Team;
+  
+  const mockTeams = [
+    mockTeam, 
+    { id: 'team-456', name: 'Another Team', members: [] }
+  ] as unknown as Team[];
   
   // Mockade use cases
   const mockCreateTeamUseCase = {
@@ -56,10 +75,14 @@ describe('useTeamWithStandardHook', () => {
   const mockGetTeamStatisticsUseCase = {
     execute: jest.fn(),
   };
+
+  // QueryClient för testning
+  let queryClient: QueryClient;
   
   // Återställ alla mockar före varje test
   beforeEach(() => {
     jest.clearAllMocks();
+    queryClient = createTestQueryClient();
     
     // Konfigurera mockad useTeamContext
     (useTeamContext as jest.Mock).mockReturnValue({
@@ -73,250 +96,312 @@ describe('useTeamWithStandardHook', () => {
     });
   });
   
-  describe('createTeam', () => {
+  describe('useGetTeam', () => {
+    it('ska hantera lyckade hämtningar korrekt', async () => {
+      // Arrangera - använd synkron mock
+      mockGetTeamUseCase.execute.mockReturnValue(Result.ok(mockTeam));
+      
+      // Agera
+      const { result, waitFor } = renderHookWithQueryClient(() => {
+        const { useGetTeam } = useTeamWithStandardHook();
+        return useGetTeam('team-123');
+      });
+      
+      // Kontrollera initial loading state
+      expect(result.current.status).toBe('loading');
+      
+      // Vänta på att operationen slutförs
+      await waitFor(() => result.current.status === 'success');
+      
+      // Verifiera
+      expect(result.current.data).toEqual(mockTeam);
+      expect(mockGetTeamUseCase.execute).toHaveBeenCalledWith({ teamId: 'team-123' });
+    });
+    
+    it('ska hantera misslyckade hämtningar korrekt', async () => {
+      // Arrangera
+      const mockError = new Error('Server error');
+      mockGetTeamUseCase.execute.mockReturnValue(
+        Result.fail({
+          message: 'Kunde inte hämta team',
+          statusCode: 500,
+          originalError: mockError
+        })
+      );
+      
+      // Agera
+      const { result, waitFor } = renderHookWithQueryClient(() => {
+        const { useGetTeam } = useTeamWithStandardHook();
+        return useGetTeam('team-123');
+      });
+      
+      // Vänta på att operationen slutförs
+      await waitFor(() => result.current.status === 'error');
+      
+      // Verifiera
+      expect(result.current.error).toBeDefined();
+      expect(result.current.error?.code).toBe(HookErrorCode.API_ERROR);
+    });
+    
+    it('ska inte anropa API när teamId är undefined', async () => {
+      // Agera
+      const { result } = renderHookWithQueryClient(() => {
+        const { useGetTeam } = useTeamWithStandardHook();
+        return useGetTeam(undefined);
+      });
+      
+      // Slutför eventuella promises
+      await act(async () => {
+        await flushPromises();
+      });
+      
+      // Verifiera
+      expect(mockGetTeamUseCase.execute).not.toHaveBeenCalled();
+    });
+  });
+  
+  describe('useGetTeamsForUser', () => {
+    it('ska hämta teams för en specifik användare', async () => {
+      // Arrangera
+      mockGetTeamsForUserUseCase.execute.mockReturnValue(Result.ok(mockTeams));
+      
+      // Agera
+      const { result, waitFor } = renderHookWithQueryClient(() => {
+        const { useGetTeamsForUser } = useTeamWithStandardHook();
+        return useGetTeamsForUser('user-123');
+      });
+      
+      // Vänta på att operationen slutförs
+      await waitFor(() => result.current.status === 'success');
+      
+      // Verifiera
+      expect(result.current.data).toEqual(mockTeams);
+      expect(mockGetTeamsForUserUseCase.execute).toHaveBeenCalledWith({ userId: 'user-123' });
+    });
+  });
+  
+  describe('useCreateTeam', () => {
     it('ska hantera lyckade skapandeoperationer korrekt', async () => {
-      // Arrangera - använd simulerad fördröjning för att mer likna verkligt beteende
-      mockCreateTeamUseCase.execute.mockImplementation(async () => {
-        await sleep(50); // Låtsas att det tar lite tid
+      // Arrangera
+      mockCreateTeamUseCase.execute.mockImplementation(() => {
         return Result.ok(mockTeam);
       });
       
       // Agera
-      const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
+      const { result, waitFor } = renderHookWithQueryClient(() => {
+        const { useCreateTeam } = useTeamWithStandardHook();
+        return useCreateTeam();
+      });
       
-      // Kontrollera initial state
-      expect(result.current.createTeam.status).toBe('idle');
+      // Förbered test-parametrarna
+      const testParams = { 
+        name: 'Test Team', 
+        description: 'A test team',
+        ownerId: 'owner-id'
+      };
       
-      let operationPromise;
+      // Utför mutation synkront (i en act-block)
       act(() => {
-        operationPromise = result.current.createTeam.execute({ 
-          name: 'Test Team', 
-          description: 'A test team' 
-        });
+        result.current.mutate(testParams);
       });
       
-      // Kontrollera loading state innan första uppdateringen
-      expect(result.current.createTeam.status).toBe('loading');
+      // Verifiera att mocken anropades med rätt parametrar
+      expect(mockCreateTeamUseCase.execute).toHaveBeenCalledWith(testParams);
       
-      // Vänta på att den första asynkrona uppdateringen slutförs
-      await waitForNextUpdate();
+      // Vänta på att status ändras till success
+      await waitFor(() => result.current.status === 'success');
       
-      // Extra väntan för att säkerställa att alla uppdateringar är klara
-      await act(async () => {
-        await sleep(100);
-      });
+      // Verifiera slutstatus
+      expect(result.current.data).toEqual(mockTeam);
       
-      // Nu bör status vara success
-      expect(result.current.createTeam.status).toBe('success');
-      expect(result.current.createTeam.data).toEqual(mockTeam);
-      expect(result.current.createTeam.error).toBeNull();
-      
-      // Kontrollera att logger.info anropades korrekt
+      // Verifiera att logger.info anropades korrekt
       expect(createLogger('useTeamWithStandardHook').info).toHaveBeenCalledWith(
         'Skapar nytt team', 
         expect.objectContaining({ name: 'Test Team' })
       );
-      
-      // Verifiera att operationPromise är en Promise som resolvas med förväntat värde
-      await expect(operationPromise).resolves.toEqual(mockTeam);
     });
     
     it('ska hantera misslyckade skapandeoperationer korrekt', async () => {
       // Arrangera
       const mockError = new Error('Validation failed');
-      const failResult = Result.fail({
-        message: 'Kunde inte skapa team',
-        statusCode: 422,
-        originalError: mockError
-      });
-      
-      mockCreateTeamUseCase.execute.mockImplementation(async () => {
-        await sleep(50); // Simulerad fördröjning
-        return failResult;
-      });
-      
-      // Agera
-      const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
-      
-      act(() => {
-        result.current.createTeam.execute({ 
-          name: '', // Tomt namn orsakar valideringsfel
-          description: 'A test team' 
-        });
-      });
-      
-      // Vänta på att operationen slutförs
-      await waitForNextUpdate();
-      
-      // Extra väntan för att säkerställa att alla uppdateringar är klara
-      await act(async () => {
-        await sleep(100);
-      });
-      
-      // Verifiera
-      expect(result.current.createTeam.status).toBe('error');
-      expect(result.current.createTeam.isError).toBe(true);
-      expect(result.current.createTeam.data).toBeNull();
-      expect(result.current.createTeam.error).not.toBeNull();
-      expect(result.current.createTeam.error?.code).toBe(HookErrorCode.VALIDATION_ERROR);
-    });
-    
-    it('ska hantera kastade fel korrekt', async () => {
-      // Arrangera
-      const thrownError = new Error('Network error');
       mockCreateTeamUseCase.execute.mockImplementation(() => {
-        throw thrownError;
-      });
-      
-      // Agera
-      const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
-      
-      act(() => {
-        result.current.createTeam.execute({ 
-          name: 'Test Team', 
-          description: 'A test team' 
+        return Result.fail({
+          message: 'Kunde inte skapa team',
+          statusCode: 422,
+          originalError: mockError
         });
       });
       
-      // Vänta på att operationen slutförs
-      await waitForNextUpdate();
-      
-      // Extra väntan för att säkerställa att alla uppdateringar är klara
-      await act(async () => {
-        await sleep(50); // Kort väntan eftersom fel hanteras omedelbart
+      // Agera
+      const { result, waitFor } = renderHookWithQueryClient(() => {
+        const { useCreateTeam } = useTeamWithStandardHook();
+        return useCreateTeam();
       });
       
+      // Utför mutation synkront
+      act(() => {
+        result.current.mutate({ 
+          name: '', // Tomt namn orsakar valideringsfel
+          description: 'A test team',
+          ownerId: 'owner-id' 
+        });
+      });
+      
+      // Vänta på att status ändras till error
+      await waitFor(() => result.current.status === 'error');
+      
       // Verifiera
-      expect(result.current.createTeam.status).toBe('error');
-      expect(result.current.createTeam.error?.originalError).toBe(thrownError);
-      expect(createLogger('useTeamWithStandardHook').error).toHaveBeenCalled();
+      expect(result.current.isError).toBe(true);
+      expect(result.current.error).toBeDefined();
+      expect(result.current.error?.code).toBe(HookErrorCode.VALIDATION_ERROR);
     });
   });
   
-  describe('getTeam', () => {
-    it('ska hantera lyckade hämtningar korrekt', async () => {
+  describe('useAddTeamMember', () => {
+    it('ska lägga till medlem och hantera optimistisk uppdatering', async () => {
       // Arrangera
-      mockGetTeamUseCase.execute.mockImplementation(async () => {
-        await sleep(50); // Simulerad fördröjning
-        return Result.ok(mockTeam);
+      mockAddTeamMemberUseCase.execute.mockImplementation(() => {
+        return Result.ok(undefined);
       });
+      
+      const initialTeam = { 
+        ...mockTeam, 
+        members: [{ id: 'user-1', role: 'admin' }] 
+      };
       
       // Agera
-      const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
+      const { result, waitFor } = renderHookWithQueryClient(() => {
+        const { useAddTeamMember } = useTeamWithStandardHook();
+        return useAddTeamMember();
+      }, { 
+        initialQueryData: { 
+          'team,team-123': initialTeam 
+        } 
+      });
       
-      // Kontrollera initial state
-      expect(result.current.getTeam.status).toBe('idle');
+      // Förbered test-parametrarna
+      const testParams = { 
+        teamId: 'team-123', 
+        userId: 'user-2',
+        role: 'member'
+      };
       
+      // Utför mutation synkront
       act(() => {
-        result.current.getTeam.execute({ teamId: 'team-123' });
+        result.current.mutate(testParams);
       });
       
-      // Kontrollera loading state
-      expect(result.current.getTeam.status).toBe('loading');
+      // Verifiera att mockAddTeamMemberUseCase.execute anropades med rätt parametrar
+      expect(mockAddTeamMemberUseCase.execute).toHaveBeenCalledWith(testParams);
       
-      // Vänta på att operationen slutförs
-      await waitForNextUpdate();
+      // Vänta på att operation slutförs
+      await waitFor(() => result.current.status === 'success');
       
-      // Extra väntan för att säkerställa att alla uppdateringar är klara
-      await act(async () => {
-        await sleep(100);
-      });
-      
-      // Verifiera
-      expect(result.current.getTeam.status).toBe('success');
-      expect(result.current.getTeam.data).toEqual(mockTeam);
+      // Verifiera slutresultat
+      expect(result.current.status).toBe('success');
     });
     
-    it('ska kunna utföra återförsök för nätverksfel', async () => {
-      // Arrangera - första anropet misslyckas, andra lyckas
-      mockGetTeamUseCase.execute
-        .mockImplementationOnce(async () => {
-          await sleep(50); // Simulerad fördröjning
-          return Result.fail({
-            message: 'Nätverksfel',
-            statusCode: 500,
-            originalError: new Error('Network error')
-          });
-        })
-        .mockImplementationOnce(async () => {
-          await sleep(50); // Simulerad fördröjning
-          return Result.ok(mockTeam);
+    it('ska hantera fel vid tillägg av teammedlem', async () => {
+      // Arrangera
+      mockAddTeamMemberUseCase.execute.mockImplementation(() => {
+        return Result.fail({
+          message: 'Användaren tillhör redan teamet',
+          statusCode: 400
         });
+      });
       
       // Agera
-      const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
+      const { result, waitFor } = renderHookWithQueryClient(() => {
+        const { useAddTeamMember } = useTeamWithStandardHook();
+        return useAddTeamMember();
+      });
       
-      const params = { teamId: 'team-123' };
+      // Utför mutation synkront
       act(() => {
-        result.current.getTeam.execute(params);
+        result.current.mutate({ 
+          teamId: 'team-123', 
+          userId: 'user-1', // Användare som redan är medlem
+          role: 'member'
+        });
       });
       
-      // Vänta på att första anropet slutförs
-      await waitForNextUpdate();
+      // Vänta på att status ändras till error
+      await waitFor(() => result.current.status === 'error');
       
-      // Extra väntan för att säkerställa att alla uppdateringar är klara
-      await act(async () => {
-        await sleep(100);
-      });
-      
-      // Verifiera att första anropet misslyckades
-      expect(result.current.getTeam.status).toBe('error');
-      expect(result.current.getTeam.error?.code).toBe(HookErrorCode.SERVER_ERROR);
-      expect(result.current.getTeam.error?.retryable).toBe(true);
-      
-      // Nu ska vi göra ett nytt försök och säkerställa att vi återgår till loading state
-      await act(async () => {
-        result.current.getTeam.retry();
-        // Kort paus för att låta statusuppdateringen ske
-        await sleep(10);
-      });
-      
-      // Nu ska vi vara i loading state igen
-      expect(result.current.getTeam.status).toBe('loading');
-      
-      // Vänta på att återförsöket slutförs
-      await waitForNextUpdate();
-      
-      // Extra väntan för att säkerställa att alla uppdateringar är klara
-      await act(async () => {
-        await sleep(100);
-      });
-      
-      // Verifiera att återförsöket lyckades
-      expect(result.current.getTeam.status).toBe('success');
-      expect(result.current.getTeam.data).toEqual(mockTeam);
-      expect(mockGetTeamUseCase.execute).toHaveBeenCalledTimes(2);
-      expect(mockGetTeamUseCase.execute).toHaveBeenNthCalledWith(2, params);
+      // Verifiera
+      expect(result.current.error).toBeDefined();
+      expect(result.current.error?.code).toBe(HookErrorCode.VALIDATION_ERROR);
     });
   });
   
-  describe('getTeamsForUser', () => {
-    it('ska hantera lyckade hämtningar av användarens team', async () => {
+  describe('useRemoveTeamMember', () => {
+    it('ska ta bort medlem från ett team', async () => {
       // Arrangera
-      mockGetTeamsForUserUseCase.execute.mockImplementation(async () => {
-        await sleep(50); // Simulerad fördröjning
-        return Result.ok(mockTeams);
+      mockRemoveTeamMemberUseCase.execute.mockImplementation(() => {
+        return Result.ok(undefined);
       });
       
       // Agera
-      const { result, waitForNextUpdate } = renderHook(() => useTeamWithStandardHook());
+      const { result, waitFor } = renderHookWithQueryClient(() => {
+        const { useRemoveTeamMember } = useTeamWithStandardHook();
+        return useRemoveTeamMember();
+      });
       
+      // Förbered test-parametrarna
+      const testParams = { 
+        teamId: 'team-123', 
+        memberId: 'user-1'
+      };
+      
+      // Utför mutation synkront
       act(() => {
-        result.current.getTeamsForUser.execute({ userId: 'user-123' });
+        result.current.mutate(testParams);
       });
       
-      // Vänta på att operationen slutförs
-      await waitForNextUpdate();
+      // Verifiera att mocken anropades korrekt
+      expect(mockRemoveTeamMemberUseCase.execute).toHaveBeenCalledWith(testParams);
       
-      // Extra väntan för att säkerställa att alla uppdateringar är klara
-      await act(async () => {
-        await sleep(100);
-      });
+      // Vänta på att status ändras till success
+      await waitFor(() => result.current.status === 'success');
       
       // Verifiera
-      expect(result.current.getTeamsForUser.status).toBe('success');
-      expect(result.current.getTeamsForUser.data).toEqual(mockTeams);
-      expect(result.current.getTeamsForUser.data.length).toBe(2);
+      expect(result.current.status).toBe('success');
+    });
+  });
+  
+  describe('useUpdateTeamMemberRole', () => {
+    it('ska uppdatera en medlems roll i teamet', async () => {
+      // Arrangera
+      mockUpdateTeamMemberRoleUseCase.execute.mockImplementation(() => {
+        return Result.ok(undefined);
+      });
+      
+      // Agera
+      const { result, waitFor } = renderHookWithQueryClient(() => {
+        const { useUpdateTeamMemberRole } = useTeamWithStandardHook();
+        return useUpdateTeamMemberRole();
+      });
+      
+      // Förbered test-parametrarna
+      const testParams = { 
+        teamId: 'team-123', 
+        memberId: 'user-1',
+        role: 'admin'
+      };
+      
+      // Utför mutation synkront
+      act(() => {
+        result.current.mutate(testParams);
+      });
+      
+      // Verifiera att mocken anropades korrekt
+      expect(mockUpdateTeamMemberRoleUseCase.execute).toHaveBeenCalledWith(testParams);
+      
+      // Vänta på att status ändras till success
+      await waitFor(() => result.current.status === 'success');
+      
+      // Verifiera
+      expect(result.current.status).toBe('success');
     });
   });
 }); 

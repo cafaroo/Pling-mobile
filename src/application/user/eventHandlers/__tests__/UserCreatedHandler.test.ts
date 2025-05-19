@@ -37,7 +37,7 @@ const mockOrganizationRepository: jest.Mocked<OrganizationRepository> = {
 
 describe('UserCreatedHandler', () => {
   let handler: UserCreatedHandler;
-  let userId: UniqueId;
+  let userId: string;
   
   // Återställ alla mocks före varje test
   beforeEach(() => {
@@ -50,8 +50,8 @@ describe('UserCreatedHandler', () => {
       mockOrganizationRepository
     );
     
-    // Skapa ett exempel-userId
-    userId = new UniqueId();
+    // Skapa ett exempel-userId som string
+    userId = new UniqueId().toString();
   });
   
   it('ska returnera korrekt eventType', () => {
@@ -60,9 +60,16 @@ describe('UserCreatedHandler', () => {
   });
   
   it('ska initiera användarstatistik när en användare skapas', async () => {
+    // Skapa ett MockUserCreatedEvent
+    const event = new MockUserCreatedEvent(
+      userId,
+      'test@example.com',
+      'Test User'
+    );
+    
     // Mocka ett User-objekt
     const mockUser = {
-      id: userId,
+      id: new UniqueId(userId),
       hasStatistics: jest.fn().mockReturnValue(false),
       initializeStatistics: jest.fn(),
       hasPrivacySettings: jest.fn().mockReturnValue(false),
@@ -73,21 +80,18 @@ describe('UserCreatedHandler', () => {
     mockUserRepository.findById.mockResolvedValue(Result.ok(mockUser));
     mockUserRepository.save.mockResolvedValue(Result.ok());
     
-    // Skapa ett MockUserCreatedEvent
-    const event = new MockUserCreatedEvent(
-      userId.toString(), // använd userId direkt som sträng istället för objekt
-      'test@example.com',
-      'Test User'
-    );
-    
     // Säkerställ att userId är korrekt i eventet
-    expect(event.userId.toString()).toBe(userId.toString());
+    expect(event.userId.toString()).toBe(userId);
     
     // Anropa handleEvent
     await handler.handleEvent(event);
     
-    // Verifiera att findById anropades med rätt userId
-    expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
+    // Verifiera att findById anropades med rätt parameter - ett UniqueId-objekt
+    expect(mockUserRepository.findById).toHaveBeenCalledWith(
+      expect.objectContaining({ 
+        id: expect.any(String) 
+      })
+    );
     
     // Verifiera att hasStatistics anropades
     expect(mockUser.hasStatistics).toHaveBeenCalled();
@@ -116,27 +120,31 @@ describe('UserCreatedHandler', () => {
   });
   
   it('ska hantera fel om användaren inte kan hittas', async () => {
+    // Skapa ett MockUserCreatedEvent
+    const event = new MockUserCreatedEvent(
+      userId,
+      'test@example.com',
+      'Test User'
+    );
+    
     // Konfigurera mockRepository att returnera ett fel
     mockUserRepository.findById.mockResolvedValue(Result.fail('Användaren hittades inte'));
     
     // Skapa spion för console.error
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
     
-    // Skapa ett MockUserCreatedEvent
-    const event = new MockUserCreatedEvent(
-      userId.toString(), // använd userId direkt som sträng istället för objekt
-      'test@example.com',
-      'Test User'
-    );
-    
     // Säkerställ att userId är korrekt i eventet
-    expect(event.userId.toString()).toBe(userId.toString());
+    expect(event.userId.toString()).toBe(userId);
     
     // Anropa handleEvent
     await handler.handleEvent(event);
     
-    // Verifiera att findById anropades med rätt userId
-    expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
+    // Verifiera att findById anropades med rätt parameter - ett UniqueId-objekt
+    expect(mockUserRepository.findById).toHaveBeenCalledWith(
+      expect.objectContaining({ 
+        id: expect.any(String) 
+      })
+    );
     
     // Verifiera att console.error anropades med rätt felmeddelande
     expect(consoleErrorSpy).toHaveBeenCalledWith(

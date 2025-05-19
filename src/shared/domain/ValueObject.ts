@@ -1,4 +1,10 @@
 import { Result, ok, err } from '@/shared/core/Result';
+// Ta bort explicit require-import eftersom vi nu använder named imports
+// const { ok, err } = require('@/shared/core/Result');
+
+interface ValueObjectProps {
+  [index: string]: any;
+}
 
 /**
  * Abstrakt basklass för alla värde-objekt
@@ -6,7 +12,7 @@ import { Result, ok, err } from '@/shared/core/Result';
  * Värde-objekt är oföränderliga (immutable) och definieras av sina attribut.
  * De har inga identitet och ses som lika om deras attribut är lika.
  */
-export abstract class ValueObject<T> {
+export abstract class ValueObject<T extends ValueObjectProps> {
   protected readonly props: T;
 
   constructor(props: T) {
@@ -20,6 +26,9 @@ export abstract class ValueObject<T> {
    */
   public equals(vo?: ValueObject<T>): boolean {
     if (vo === null || vo === undefined) {
+      return false;
+    }
+    if (vo.props === undefined) {
       return false;
     }
     return JSON.stringify(this.props) === JSON.stringify(vo.props);
@@ -44,17 +53,34 @@ export abstract class ValueObject<T> {
   }
   
   /**
-   * Validerar ett värde-objekts egenskaper
-   * Detta är en hjälpmetod som kan användas i create-metoder
-   * @param props Egenskaperna att validera
-   * @returns Ett Result som innehåller antingen felet eller void
+   * Definierar ok-funktion för Result
    */
-  protected static validate<P>(props: P, validations: Array<[boolean, string]>): Result<void, string> {
+  protected static ok<T, E>(value: T): Result<T, E> {
+    return ok<T, E>(value);
+  }
+  
+  /**
+   * Definierar err-funktion för Result
+   */
+  protected static err<T, E>(error: E): Result<T, E> {
+    return err<T, E>(error);
+  }
+  
+  /**
+   * Validerar egenskaper för värde-objekt baserat på en lista av valideringsregler
+   * @param props Egenskaper att validera
+   * @param validations Lista av [villkor, felmeddelande]-tupler
+   * @returns Result med props vid framgång, eller felmeddelande
+   */
+  protected static validate<P>(
+    props: P,
+    validations: Array<[boolean, string]>
+  ): Result<P, string> {
     for (const [isValid, errorMessage] of validations) {
       if (!isValid) {
-        return err(errorMessage);
+        return this.err(errorMessage);
       }
     }
-    return ok(undefined);
+    return this.ok(props);
   }
 } 

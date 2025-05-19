@@ -1,6 +1,6 @@
 import { Result } from '../../shared/core/Result';
 import { FeatureFlagService } from '../../domain/subscription/services/FeatureFlagService';
-import { SubscriptionTier } from '../../domain/subscription/value-objects/SubscriptionTypes';
+import { SubscriptionTier } from '../../domain/subscription/value-objects/SubscriptionTier';
 
 /**
  * MockServiceFactory tillhandahåller standardiserade mockfunktioner för att skapa

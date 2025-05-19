@@ -1,196 +1,347 @@
-# Guide för testning med React Query
+# React Query Testningsguide
 
 ## Introduktion
 
-React Query används för datahantering i applikationen, vilket kräver speciell setup för testning. 
-Denna guide visar hur du ska testa komponenter och hooks som använder React Query.
+Denna guide förklarar hur du testar React Query-baserade hooks och komponenter i Pling-mobil-projektet.
 
-## Standardiserad testning med QueryClientTestProvider
+## Testverktygen
 
-Vi har skapat ett standardiserat sätt att testa komponenter och hooks som använder React Query:
+För att förenkla testning av React Query-koden har vi skapat några specialverktyg:
+
+1. `QueryClientTestProvider` - En wrapper-komponent som ger dina tester tillgång till en förkonfigurerad QueryClient
+2. `createTestQueryClient` - En funktion som skapar en QueryClient optimerad för tester
+3. `createQueryClientWrapper` - En utility-funktion som skapar en test-wrapper med QueryClient
+
+## Grundläggande teststruktur
+
+En typisk test för en React Query-hook eller komponent bör följa denna struktur:
 
 ```tsx
-import { render } from '@testing-library/react-native';
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClientTestProvider } from '@/test-utils';
-import YourComponent from '../YourComponent';
+import { YourComponent } from '../YourComponent';
 
 describe('YourComponent', () => {
-  it('ska visas korrekt', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should render correctly with data', async () => {
+    // Arrange
+    const mockData = { /* dina mockade data */ };
+    
+    // Act
     render(
       <QueryClientTestProvider>
         <YourComponent />
       </QueryClientTestProvider>
     );
     
-    // Fortsätt med dina förväntningar
+    // Assert
+    await waitFor(() => {
+      expect(screen.getByText(/förväntad text/i)).toBeInTheDocument();
+    });
   });
 });
 ```
 
-## Alternativ 1: Använda wrapper-funktionen
+## Mocka hooks och repositories
 
-Om du föredrar testfunktionens wrapper-parameter:
+För att testa komponenter som använder React Query-hooks behöver du mocka dessa hooks.
+
+### Exempel på mockning av en hook
 
 ```tsx
-import { render } from '@testing-library/react-native';
-import { createQueryClientWrapper } from '@/test-utils';
-import YourComponent from '../YourComponent';
-
-describe('YourComponent', () => {
-  it('ska visas korrekt', () => {
-    const wrapper = createQueryClientWrapper();
-    render(<YourComponent />, { wrapper });
-    
-    // Fortsätt med dina förväntningar
-  });
+// Mock för useSubscription-hooken
+jest.mock('@/application/subscription/hooks/useSubscriptionContext', () => {
+  return {
+    useSubscription: () => ({
+      useOrganizationSubscription: () => ({
+        data: { id: 'sub-1', planId: 'premium' },
+        isLoading: false,
+        error: null
+      }),
+      useFeatureFlag: () => ({
+        data: true,
+        isLoading: false,
+        error: null
+      })
+    })
+  };
 });
 ```
 
-## Alternativ 2: Skapa en testhjälpare för din komponent
+### Mocka Repository-metoder
 
-För mer specialiserade test-setups:
+För att testa hooks som använder repositories:
 
 ```tsx
-import { render } from '@testing-library/react-native';
-import { QueryClientTestProvider } from '@/test-utils';
-import YourComponent from '../YourComponent';
-
-// Skapa en anpassad render-funktion
-const renderComponent = (props = {}) => {
-  return render(
-    <QueryClientTestProvider>
-      <YourComponent {...props} />
-    </QueryClientTestProvider>
-  );
+// Mock för subscription repository
+const mockSubscriptionRepository = {
+  findByOrganizationId: jest.fn().mockResolvedValue(
+    Result.ok({ id: 'sub-1', planId: 'premium' })
+  ),
+  updateStatus: jest.fn().mockResolvedValue(Result.ok(true))
 };
 
-describe('YourComponent', () => {
-  it('ska visas korrekt', () => {
-    const { getByText } = renderComponent({ title: 'Test' });
-    expect(getByText('Test')).toBeInTheDocument();
-  });
+// Mock för subscription context
+jest.mock('@/application/subscription/hooks/useSubscriptionContext', () => {
+  return {
+    useSubscriptionContext: () => ({
+      subscriptionRepository: mockSubscriptionRepository
+    })
+  };
 });
 ```
 
-## Testa React Query hooks
+## Testa laddningstillstånd
 
-För att testa hooks som använder React Query:
+För att testa laddningstillstånd:
 
 ```tsx
-import { renderHook } from '@testing-library/react-hooks';
-import { createQueryClientWrapper } from '@/test-utils';
-import { useYourHook } from '../useYourHook';
-
-describe('useYourHook', () => {
-  it('ska returnera förväntad data', async () => {
-    const wrapper = createQueryClientWrapper();
-    const { result, waitFor } = renderHook(() => useYourHook(), { wrapper });
-    
-    // Vänta på att data laddas
-    await waitFor(() => !result.current.isLoading);
-    
-    // Kontrollera resultatet
-    expect(result.current.data).toEqual(expectedData);
-  });
+it('should show loading state', async () => {
+  // Arrange
+  // Konfigurera din mock så att isLoading är true
+  mockYourHook.mockImplementation(() => ({
+    data: null,
+    isLoading: true,
+    error: null
+  }));
+  
+  // Act
+  render(
+    <QueryClientTestProvider>
+      <YourComponent />
+    </QueryClientTestProvider>
+  );
+  
+  // Assert
+  expect(screen.getByText(/laddar/i)).toBeInTheDocument();
 });
 ```
 
-## Hantera testproblem
+## Testa fel-tillstånd
 
-### Långsamma tester
-
-Om tester tar för lång tid, kan du anpassa timeouts:
+För att testa fel-hantering:
 
 ```tsx
-import { renderHook } from '@testing-library/react-hooks';
-import { createQueryClientWrapper, WAIT_FOR_OPTIONS } from '@/test-utils';
-
-// Använd förkonfigurerade options
-await waitFor(() => !result.current.isLoading, WAIT_FOR_OPTIONS);
+it('should handle errors', async () => {
+  // Arrange
+  // Konfigurera din mock för att returnera ett fel
+  mockYourHook.mockImplementation(() => ({
+    data: null,
+    isLoading: false,
+    error: { message: 'Ett fel har inträffat' }
+  }));
+  
+  // Act
+  render(
+    <QueryClientTestProvider>
+      <YourComponent />
+    </QueryClientTestProvider>
+  );
+  
+  // Assert
+  expect(screen.getByText(/ett fel har inträffat/i)).toBeInTheDocument();
+});
 ```
 
-### Mockad data
+## Testa Mutations
 
-För att testa med mockad data:
+För att testa mutations:
 
 ```tsx
-import { QueryClient } from '@tanstack/react-query';
-import { createTestQueryClient } from '@/test-utils';
-
-// Skapa en anpassad QueryClient
-const mockQueryClient = createTestQueryClient();
-
-// Förinställ data i cachen
-mockQueryClient.setQueryData(['key', 'subKey'], mockData);
-
-// Använd den anpassade klienten
-const wrapper = createQueryClientWrapper(mockQueryClient);
+it('should call mutation correctly', async () => {
+  // Arrange
+  const mockMutate = jest.fn();
+  
+  mockYourMutationHook.mockImplementation(() => ({
+    mutate: mockMutate,
+    isLoading: false,
+    error: null
+  }));
+  
+  // Act
+  render(
+    <QueryClientTestProvider>
+      <YourComponent />
+    </QueryClientTestProvider>
+  );
+  
+  // Trigga mutation genom att klicka på en knapp
+  fireEvent.press(screen.getByText(/spara/i));
+  
+  // Assert
+  expect(mockMutate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      // förväntade parametrar
+    })
+  );
+});
 ```
+
+## Integration med Result-API
+
+När du testar hooks som returnerar Result-objekt:
+
+```tsx
+it('should handle successful result', async () => {
+  // Arrange
+  mockYourRepository.yourMethod.mockResolvedValue(
+    Result.ok({ /* dina data */ })
+  );
+  
+  // Act & Assert
+  // Fortsätt med testen som vanligt
+});
+
+it('should handle error result', async () => {
+  // Arrange
+  mockYourRepository.yourMethod.mockResolvedValue(
+    Result.err('Ett fel inträffade')
+  );
+  
+  // Act & Assert
+  // Fortsätt med testen som vanligt
+});
+```
+
+## Testning av sammanslagna hooks
+
+För hooks som kombinerar flera andra hooks (som useSubscription):
+
+```tsx
+it('should combine hooks correctly', async () => {
+  // Mocka individuella hooks
+  mockUseOrganizationSubscription.mockImplementation(() => ({
+    data: { id: 'sub-1' },
+    isLoading: false
+  }));
+  
+  mockUseFeatureFlag.mockImplementation(() => ({
+    data: true,
+    isLoading: false
+  }));
+  
+  // Konfigurera huvudhooken
+  mockUseSubscription.mockImplementation(() => ({
+    useOrganizationSubscription: mockUseOrganizationSubscription,
+    useFeatureFlag: mockUseFeatureFlag
+  }));
+  
+  // Act & Assert
+  // Fortsätt med testen
+});
+```
+
+## Vanliga fel och lösningar
+
+### Fel: "Unable to find the QueryClient"
+
+Om du ser detta fel, saknas QueryClientTestProvider eller så är den inte korrekt konfigurerad.
+
+**Lösning**: Se till att din komponent är inlindad i QueryClientTestProvider:
+
+```tsx
+render(
+  <QueryClientTestProvider>
+    <YourComponent />
+  </QueryClientTestProvider>
+);
+```
+
+### Fel: TypeError: Cannot read property 'value' of undefined
+
+Detta fel uppstår ofta när Result-objekt hanteras felaktigt.
+
+**Lösning**: Se till att du använder Result.ok och Result.err korrekt:
+
+```tsx
+// Rätt sätt
+mockFunction.mockResolvedValue(Result.ok({ data }));
+
+// Inte
+mockFunction.mockResolvedValue({ 
+  _value: { data }, 
+  _isOk: true 
+});
+```
+
+### Fel: jsdom fel - "document is not defined"
+
+**Lösning**: Se till att köra testerna med rätt jest-konfiguration som inkluderar jsdom-miljön.
 
 ## Bästa praxis
 
-1. **Använd alltid QueryClientTestProvider**: Varje test som involverar React Query behöver en Provider.
+1. **Isolera tester** - Mock alltid externa beroenden
+2. **Återställ mocks** - Använd beforeEach för att återställa mocks mellan tester
+3. **Testa alla tillstånd** - Testa laddning, fel, och framgång
+4. **Använd waitFor** - För att vänta på asynkrona uppdateringar
+5. **Testa användarinteraktioner** - Använd fireEvent för att simulera interaktioner
 
-2. **Isolera tester**: Skapa en ny QueryClient för varje test.
+## Exempel på testfiler
 
-3. **Mockdata först**: Förinställ mock-data för att undvika faktiska API-anrop.
+Se dessa testfiler för praktiska exempel:
 
-4. **Testa laddningstillstånd**: Verifiera både laddnings- och färdiga tillstånd.
+- `src/application/subscription/hooks/__tests__/useSubscriptionStandardized.test.tsx`
+- `src/application/team/hooks/__tests__/useTeamMembersStandardized.test.tsx`
 
-5. **Hantera asynkronitet**: Använd `waitFor` för att vänta på att Query-resultat blir tillgängliga.
+## Migrering av befintliga tester
 
-## Exempel på integrerade tester
+Om du har befintliga tester som inte använder QueryClientTestProvider:
 
-### Testa komponent med databehandling
+1. Importera `QueryClientTestProvider` från '@/test-utils'
+2. Byt ut alla custom QueryClient-lösningar med denna komponent
+3. Ersätt alla mockQueryClient med `createTestQueryClient()` om det behövs
+
+## Avancerade testningsscenarion
+
+### Skriva integration-tester
+
+För att testa interaktioner mellan flera hooks och komponenter:
 
 ```tsx
-import { render, screen, waitFor } from '@testing-library/react-native';
-import { QueryClientTestProvider, WAIT_FOR_OPTIONS } from '@/test-utils';
-import TeamList from '../TeamList';
-import { mockTeamRepository } from '@/test-utils/mocks';
-
-// Mocka repository
-jest.mock('@/application/team/hooks/useTeamDependencies', () => ({
-  useTeamDependencies: () => ({
-    teamRepository: mockTeamRepository
-  })
-}));
-
-describe('TeamList', () => {
-  beforeEach(() => {
-    // Förbered mockdata
-    mockTeamRepository.findAll.mockResolvedValue(
-      Result.ok([{ id: '1', name: 'Team 1' }, { id: '2', name: 'Team 2' }])
-    );
-  });
+it('should integrate correctly with other components', async () => {
+  render(
+    <QueryClientTestProvider>
+      <ParentComponent>
+        <ComponentWithHooks />
+      </ParentComponent>
+    </QueryClientTestProvider>
+  );
   
-  it('ska visa laddningsindikator och sedan data', async () => {
-    render(
-      <QueryClientTestProvider>
-        <TeamList />
-      </QueryClientTestProvider>
-    );
-    
-    // Kontrollera laddningstillstånd
-    expect(screen.getByText('Laddar...')).toBeInTheDocument();
-    
-    // Vänta på att data laddas
-    await waitFor(() => screen.getByText('Team 1'), WAIT_FOR_OPTIONS);
-    
-    // Verifiera att data visas korrekt
-    expect(screen.getByText('Team 1')).toBeInTheDocument();
-    expect(screen.getByText('Team 2')).toBeInTheDocument();
-  });
+  // Tester fortsätter...
 });
 ```
 
-## Felsökning
+### Testa prefetching och cache-invalidering
 
-### Vanliga problem
+```tsx
+it('should invalidate queries correctly', async () => {
+  // Arrange
+  const queryClient = createTestQueryClient();
+  
+  // Sätt cache-data manuellt
+  queryClient.setQueryData(['key'], mockData);
+  
+  // Act
+  render(
+    <QueryClientTestProvider client={queryClient}>
+      <YourComponent />
+    </QueryClientTestProvider>
+  );
+  
+  // Trigga invalidering
+  fireEvent.press(screen.getByText(/uppdatera/i));
+  
+  // Assert cache-invalidering
+  // ...
+});
+```
 
-| Problem | Lösning |
-|---------|---------|
-| Timeout när vi väntar på data | Öka timeout i WAIT_FOR_OPTIONS eller förkonfigurera mockad data |
-| Query körs inte i test | Säkerställ att QueryClientProvider omsluter komponenten |
-| "TypeError: window is not defined" | Testa med Jest JSDOM-miljö, addera `@jest-environment jsdom` i testfilen |
-| Data uppdateras inte | Använd `mockQueryClient.invalidateQueries()` före waitFor | 
+## Sammanfattning
+
+Genom att använda QueryClientTestProvider och följa dessa mönster kan du enkelt testa React Query-baserade komponenter och hooks i Pling-mobil-projektet.
+
+För frågor eller feedback om dessa testverktyg, kontakta teamet. 

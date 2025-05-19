@@ -6,49 +6,57 @@
 
 import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
 import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
+import { DomainEventPublisher } from '@/shared/domain/events/DomainEventPublisher';
+import { DomainEvent } from '@/shared/domain/events/DomainEvent';
 
-export class MockDomainEventPublisher implements IDomainEventPublisher {
-  private publishedEvents: IDomainEvent[] = [];
-  private handlers: Record<string, Array<(event: IDomainEvent) => Promise<void>>> = {};
+export class MockDomainEventPublisher implements DomainEventPublisher {
+  private publishedEvents: DomainEvent[] = [];
+  private handlers: Map<string, Function[]> = new Map();
+  private isMarkingDispatchedEvents: boolean = false;
   
   /**
    * Publicerar en händelse
    */
-  async publish(event: IDomainEvent): Promise<void> {
+  publish(event: DomainEvent): void {
     this.publishedEvents.push(event);
     
-    const eventName = event.name || event.eventName || '';
+    // Anropa alla handlers för denna event-typ
+    const eventType = event.constructor.name;
+    const handlers = this.handlers.get(eventType) || [];
     
-    // Anropa registrerade handlers
-    if (this.handlers[eventName]) {
-      await Promise.all(
-        this.handlers[eventName].map(handler => 
-          handler(event).catch(err => console.error('Error in event handler', err))
-        )
-      );
-    }
+    handlers.forEach(handler => {
+      try {
+        handler(event);
+      } catch (error) {
+        console.error(`Error in event handler for ${eventType}:`, error);
+      }
+    });
   }
   
   /**
    * Registrera en händelsehanterare
    */
-  register(eventName: string, handler: (event: IDomainEvent) => Promise<void>): void {
-    if (!this.handlers[eventName]) {
-      this.handlers[eventName] = [];
+  subscribe(eventName: string, handler: Function): void {
+    if (!this.handlers.has(eventName)) {
+      this.handlers.set(eventName, []);
     }
-    
-    this.handlers[eventName].push(handler);
+    this.handlers.get(eventName)?.push(handler);
   }
   
   /**
    * Avregistrera en händelsehanterare
    */
-  unregister(eventName: string, handler: (event: IDomainEvent) => Promise<void>): void {
-    if (!this.handlers[eventName]) {
+  unsubscribe(eventName: string, handler: Function): void {
+    if (!this.handlers.has(eventName)) {
       return;
     }
     
-    this.handlers[eventName] = this.handlers[eventName].filter(h => h !== handler);
+    const handlers = this.handlers.get(eventName) || [];
+    const index = handlers.indexOf(handler);
+    
+    if (index !== -1) {
+      handlers.splice(index, 1);
+    }
   }
   
   /**
@@ -58,21 +66,21 @@ export class MockDomainEventPublisher implements IDomainEventPublisher {
     eventNames: string[], 
     handler: (event: IDomainEvent) => Promise<void>
   ): void {
-    eventNames.forEach(eventName => this.register(eventName, handler));
+    eventNames.forEach(eventName => this.subscribe(eventName, handler));
   }
   
   /**
    * Rensa alla registrerade handlers
    */
   clearHandlers(): void {
-    this.handlers = {};
+    this.handlers.clear();
   }
   
   /**
    * Hämta alla publicerade händelser
    */
-  getPublishedEvents(): IDomainEvent[] {
-    return [...this.publishedEvents];
+  getPublishedEvents(): DomainEvent[] {
+    return this.publishedEvents;
   }
   
   /**
@@ -106,6 +114,37 @@ export class MockDomainEventPublisher implements IDomainEventPublisher {
   reset(): void {
     this.clearEvents();
     this.clearHandlers();
+  }
+
+  /**
+   * Kontrollerar om en specifik typ av händelse har publicerats
+   * 
+   * @param eventType Händelsetypen att kontrollera
+   */
+  hasPublishedEventOfType(eventType: string): boolean {
+    return this.publishedEvents.some(e => e.constructor.name === eventType);
+  }
+
+  /**
+   * Hämtar alla publicerade händelser av en specifik typ
+   * 
+   * @param eventType Händelsetypen att filtrera på
+   */
+  getPublishedEventsOfType(eventType: string): DomainEvent[] {
+    return this.publishedEvents.filter(e => e.constructor.name === eventType);
+  }
+
+  /**
+   * Kontrollerar om en specifik händelse har publicerats
+   * 
+   * @param event Händelsen att kontrollera
+   */
+  hasPublishedEvent(event: DomainEvent): boolean {
+    return this.publishedEvents.includes(event);
+  }
+
+  setMarkingDispatchedEvents(value: boolean): void {
+    this.isMarkingDispatchedEvents = value;
   }
 }
 

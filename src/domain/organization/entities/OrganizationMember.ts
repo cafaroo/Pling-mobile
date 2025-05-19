@@ -1,80 +1,129 @@
-import { Entity } from '@/shared/core/Entity';
+import { Entity } from '@/shared/domain/Entity';
 import { UniqueId } from '@/shared/core/UniqueId';
-import { OrganizationRole } from '../value-objects/OrganizationRole';
-import { OrganizationPermission } from '../value-objects/OrganizationPermission';
 import { Result, ok, err } from '@/shared/core/Result';
+import { OrganizationRole } from '../value-objects/OrganizationRole';
 
-export interface OrganizationMemberProps {
+/**
+ * Interface för OrganizationMember properties
+ */
+interface OrganizationMemberProps {
   userId: UniqueId;
   role: OrganizationRole;
-  joinedAt: Date;
+  joinedAt?: Date;
+  invitedBy?: UniqueId;
 }
 
-export type OrganizationMemberCreateDTO = {
-  userId: string | UniqueId;
-  role: OrganizationRole;
-  joinedAt?: Date;
-};
-
+/**
+ * Entitet för medlemskap i en organisation
+ */
 export class OrganizationMember extends Entity<OrganizationMemberProps> {
-  private constructor(props: OrganizationMemberProps) {
-    super(props);
+  private constructor(props: OrganizationMemberProps, id?: UniqueId) {
+    super(props, id || new UniqueId());
   }
 
+  /**
+   * Hämta användarens ID
+   */
   get userId(): UniqueId {
     return this.props.userId;
   }
 
+  /**
+   * Hämta användarens roll i organisationen
+   */
   get role(): OrganizationRole {
     return this.props.role;
   }
 
-  get joinedAt(): Date {
+  /**
+   * Ändra användarens roll
+   */
+  changeRole(newRole: OrganizationRole): void {
+    this.props.role = newRole;
+  }
+
+  /**
+   * Tidpunkt då användaren gick med i organisationen
+   */
+  get joinedAt(): Date | undefined {
     return this.props.joinedAt;
   }
 
-  // Kontrollera om medlemmen har en specifik behörighet
-  public hasPermission(permission: OrganizationPermission): boolean {
-    // Implementera behörighetslogik baserat på roll
-    // Admin har alla behörigheter
-    if (this.role === OrganizationRole.ADMIN || this.role === OrganizationRole.OWNER) {
-      return true;
-    }
-
-    // Medlemmar har endast vissa behörigheter
-    if (this.role === OrganizationRole.MEMBER) {
-      switch (permission) {
-        case OrganizationPermission.VIEW_ORGANIZATION:
-        case OrganizationPermission.VIEW_MEMBERS:
-        case OrganizationPermission.VIEW_TEAMS:
-          return true;
-        default:
-          return false;
-      }
-    }
-
-    return false;
+  /**
+   * ID för användaren som bjöd in denna medlem (om tillgängligt)
+   */
+  get invitedBy(): UniqueId | undefined {
+    return this.props.invitedBy;
   }
 
-  // Skapa en ny medlem
-  public static create(dto: OrganizationMemberCreateDTO): Result<OrganizationMember, string> {
+  /**
+   * Skapar en ny organisationsmedlem
+   * 
+   * @param props Egenskaper för medlemskapet
+   * @returns Ett Result med OrganizationMember eller felmeddelande
+   */
+  public static create(props: OrganizationMemberProps): Result<OrganizationMember, string> {
     try {
-      const userId = dto.userId instanceof UniqueId 
-        ? dto.userId 
-        : new UniqueId(dto.userId);
-
-      // Validera roll
-      if (!Object.values(OrganizationRole).includes(dto.role)) {
-        return err('Ogiltig roll för organisationsmedlem');
+      // Validera användar-ID
+      if (!props.userId) {
+        return err('Medlemskapet måste ha ett användar-ID');
       }
 
-      return ok(new OrganizationMember({
-        userId,
-        role: dto.role,
-        joinedAt: dto.joinedAt || new Date()
-      }));
+      // Validera roll
+      if (!props.role) {
+        return err('Medlemmen måste ha en roll');
+      }
+
+      // Sätt joinedAt till nu om det inte anges
+      const joinedAt = props.joinedAt || new Date();
+
+      const member = new OrganizationMember({
+        ...props,
+        joinedAt
+      });
+
+      return ok(member);
     } catch (error) {
       return err(`Kunde inte skapa organisationsmedlem: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  /**
+   * Kontrollerar om denna medlem är ägare
+   */
+  isOwner(): boolean {
+    return this.props.role === OrganizationRole.OWNER;
+  }
+
+  /**
+   * Kontrollerar om denna medlem är administratör
+   */
+  isAdmin(): boolean {
+    return this.props.role === OrganizationRole.ADMIN || this.isOwner();
+  }
+
+  /**
+   * Kontrollerar om denna medlem är en vanlig medlem
+   */
+  isMember(): boolean {
+    return this.props.role === OrganizationRole.MEMBER || this.isAdmin();
+  }
+
+  /**
+   * Kontrollerar om denna medlem är en gäst
+   */
+  isGuest(): boolean {
+    return this.props.role === OrganizationRole.GUEST;
+  }
+
+  /**
+   * Jämför med ett annat OrganizationMember-objekt
+   */
+  equals(other: OrganizationMember): boolean {
+    if (!(other instanceof OrganizationMember)) {
+      return false;
+    }
+    
+    return this.props.userId.equals(other.props.userId);
   }
 } 

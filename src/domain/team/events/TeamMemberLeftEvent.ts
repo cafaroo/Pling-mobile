@@ -3,32 +3,76 @@
  */
 
 import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
-import { UniqueId } from '@/shared/domain/UniqueId';
+import { UniqueId } from '@/shared/core/UniqueId';
 
 export interface TeamMemberLeftEventProps {
-  teamId: UniqueId;
-  userId: UniqueId;
+  teamId: string | UniqueId;
+  userId: string | UniqueId;
   removedAt: Date;
 }
 
 export class TeamMemberLeftEvent implements IDomainEvent {
+  public readonly eventId: UniqueId;
   public readonly eventType: string = 'TeamMemberLeftEvent';
   public readonly aggregateId: string;
+  public readonly occurredAt: Date;
   public readonly data: {
     teamId: string;
     userId: string;
     removedAt: string;
   };
-  public readonly dateTimeOccurred: Date;
+
+  // Direkta properties för testkompatibilitet
+  public readonly teamId: string;
+  public readonly userId: string;
+  public readonly removedAt: string;
 
   constructor(props: TeamMemberLeftEventProps) {
-    this.dateTimeOccurred = new Date();
-    this.aggregateId = props.teamId.toString();
+    this.eventId = new UniqueId();
+    this.occurredAt = new Date();
+    
+    // Säkerställ att aggregateId alltid är en sträng
+    this.aggregateId = props.teamId && typeof props.teamId === 'object' && 'toString' in props.teamId
+      ? props.teamId.toString()
+      : String(props.teamId);
+    
     this.data = {
-      teamId: props.teamId.toString(),
-      userId: props.userId.toString(),
-      removedAt: props.removedAt.toISOString()
+      teamId: props.teamId && typeof props.teamId === 'object' && 'toString' in props.teamId
+        ? props.teamId.toString()
+        : String(props.teamId),
+      userId: props.userId && typeof props.userId === 'object' && 'toString' in props.userId
+        ? props.userId.toString()
+        : String(props.userId),
+      removedAt: props.removedAt ? props.removedAt.toISOString() : new Date().toISOString()
     };
+    
+    // Direkta properties för testkompatibilitet
+    this.teamId = this.data.teamId;
+    this.userId = this.data.userId;
+    this.removedAt = this.data.removedAt;
+  }
+  
+  /**
+   * Hjälpfunktion för säker toString-konvertering
+   */
+  private safeToString(value: any): string {
+    if (value === undefined || value === null) {
+      return '';
+    }
+    
+    try {
+      if (typeof value === 'string') {
+        return value;
+      } else if (typeof value === 'object' && value !== null) {
+        if (typeof value.toString === 'function') {
+          return value.toString();
+        }
+      }
+      return String(value);
+    } catch (error) {
+      console.error('Error i TeamMemberLeftEvent.safeToString:', error);
+      return '';
+    }
   }
   
   /**

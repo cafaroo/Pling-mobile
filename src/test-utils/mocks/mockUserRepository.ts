@@ -11,7 +11,8 @@ import { Email } from '@/domain/user/value-objects/Email';
 import { UniqueId } from '@/shared/core/UniqueId';
 
 export class MockUserRepository implements UserRepository {
-  private users: Map<string, User> = new Map();
+  // Gör users map publik för testning
+  public users: Map<string, User> = new Map();
   private usersByEmail: Map<string, User> = new Map();
   private savedUsers: User[] = [];
   private userCount: number = 0;
@@ -29,8 +30,17 @@ export class MockUserRepository implements UserRepository {
    * Lägger till en användare i mocken
    */
   addUser(user: User): void {
+    if (!user || !user.id) {
+      console.error('Försökte lägga till användare utan giltigt ID', user);
+      return;
+    }
+    
+    // Använd toString för att säkerställa att vi alltid använder string-nycklar
     this.users.set(user.id.toString(), user);
-    this.usersByEmail.set(user.email.value, user);
+    
+    if (user.email && user.email.value) {
+      this.usersByEmail.set(user.email.value, user);
+    }
   }
 
   /**
@@ -50,10 +60,14 @@ export class MockUserRepository implements UserRepository {
   /**
    * Hittar en användare baserat på ID
    */
-  async findById(id: string): Promise<Result<User, Error>> {
-    const user = this.users.get(id);
+  async findById(id: string | UniqueId): Promise<Result<User, Error>> {
+    const idStr = typeof id === 'string' ? id : id.toString();
+    console.log('User findById söker efter:', idStr);
+    console.log('users map innehåller:', Array.from(this.users.keys()));
+    
+    const user = this.users.get(idStr);
     if (!user) {
-      return err(new Error(`Användare med ID ${id} hittades inte`));
+      return err(new Error(`Användare med ID ${idStr} hittades inte`));
     }
     return ok(user);
   }
@@ -118,9 +132,8 @@ export class MockUserRepository implements UserRepository {
       return err(new Error('Kan inte spara användare: Ogiltigt User-objekt eller saknat ID'));
     }
     
-    const userIdStr = user.id instanceof UniqueId 
-      ? user.id.toString() 
-      : String(user.id);
+    // Använd toString för att säkerställa att vi alltid använder string-nycklar
+    const userIdStr = user.id.toString();
       
     this.users.set(userIdStr, user);
     
@@ -136,7 +149,7 @@ export class MockUserRepository implements UserRepository {
    * Radera en användare
    */
   async delete(userId: string | UniqueId): Promise<Result<void, Error>> {
-    const userIdStr = userId instanceof UniqueId ? userId.toString() : userId;
+    const userIdStr = typeof userId === 'string' ? userId : userId.toString();
     const user = this.users.get(userIdStr);
     
     if (!user) {
@@ -173,9 +186,8 @@ export class MockUserRepository implements UserRepository {
       throw new Error('Kan inte lägga till användare: Ogiltigt User-objekt eller saknat ID');
     }
     
-    const userIdStr = user.id instanceof UniqueId 
-      ? user.id.toString() 
-      : String(user.id);
+    // Använd toString för att säkerställa att vi alltid använder string-nycklar
+    const userIdStr = user.id.toString();
       
     this.users.set(userIdStr, user);
     

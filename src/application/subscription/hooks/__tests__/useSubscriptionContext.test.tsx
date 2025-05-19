@@ -6,6 +6,7 @@ import { DefaultSubscriptionService } from '@/domain/subscription/services/Defau
 import { DefaultFeatureFlagService } from '@/domain/subscription/services/DefaultFeatureFlagService';
 import { UsageTrackingService } from '@/domain/subscription/services/UsageTrackingService';
 import { IDomainEventPublisher } from '@/shared/domain/events/IDomainEventPublisher';
+import { QueryClientTestProvider } from '@/test-utils';
 
 // Mocka Result-klassen för att säkerställa att testerna får rätt implementering
 jest.mock('@/shared/core/Result', () => {
@@ -95,12 +96,14 @@ describe('useSubscriptionContext', () => {
   
   it('should provide context values to consumers', () => {
     render(
-      <SubscriptionContextProvider
-        subscriptionRepository={mockSubscriptionRepository}
-        eventPublisher={mockEventPublisher}
-      >
-        <TestConsumer />
-      </SubscriptionContextProvider>
+      <QueryClientTestProvider>
+        <SubscriptionContextProvider
+          subscriptionRepository={mockSubscriptionRepository}
+          eventPublisher={mockEventPublisher}
+        >
+          <TestConsumer />
+        </SubscriptionContextProvider>
+      </QueryClientTestProvider>
     );
     
     expect(screen.getByText('Hittat kontext: Ja')).toBeInTheDocument();
@@ -124,12 +127,14 @@ describe('useSubscriptionContext', () => {
     );
     
     render(
-      <SubscriptionContextProvider
-        subscriptionRepository={mockSubscriptionRepository}
-        eventPublisher={mockEventPublisher}
-      >
-        <TestConsumer />
-      </SubscriptionContextProvider>
+      <QueryClientTestProvider>
+        <SubscriptionContextProvider
+          subscriptionRepository={mockSubscriptionRepository}
+          eventPublisher={mockEventPublisher}
+        >
+          <TestConsumer />
+        </SubscriptionContextProvider>
+      </QueryClientTestProvider>
     );
     
     // Kontrollera att serviceklasserna skapades med rätt parameters
@@ -150,15 +155,17 @@ describe('useSubscriptionContext', () => {
   
   it('should use provided services when given', () => {
     render(
-      <SubscriptionContextProvider
-        subscriptionRepository={mockSubscriptionRepository}
-        subscriptionService={mockSubscriptionService}
-        featureFlagService={mockFeatureFlagService}
-        usageTrackingService={mockUsageTrackingService}
-        eventPublisher={mockEventPublisher}
-      >
-        <TestConsumer />
-      </SubscriptionContextProvider>
+      <QueryClientTestProvider>
+        <SubscriptionContextProvider
+          subscriptionRepository={mockSubscriptionRepository}
+          subscriptionService={mockSubscriptionService}
+          featureFlagService={mockFeatureFlagService}
+          usageTrackingService={mockUsageTrackingService}
+          eventPublisher={mockEventPublisher}
+        >
+          <TestConsumer />
+        </SubscriptionContextProvider>
+      </QueryClientTestProvider>
     );
     
     // Inget att testa här direkt, men vi säkerställer att inget felmeddelande visas
@@ -167,12 +174,14 @@ describe('useSubscriptionContext', () => {
   
   it('should provide usable services via useSubscription', () => {
     render(
-      <SubscriptionContextProvider
-        subscriptionRepository={mockSubscriptionRepository}
-        eventPublisher={mockEventPublisher}
-      >
-        <TestSubscriptionConsumer />
-      </SubscriptionContextProvider>
+      <QueryClientTestProvider>
+        <SubscriptionContextProvider
+          subscriptionRepository={mockSubscriptionRepository}
+          eventPublisher={mockEventPublisher}
+        >
+          <TestSubscriptionConsumer />
+        </SubscriptionContextProvider>
+      </QueryClientTestProvider>
     );
     
     expect(screen.getByText('Hittat prenumerationstjänst: Ja')).toBeInTheDocument();
@@ -191,8 +200,12 @@ describe('useSubscriptionContext', () => {
       'DomainEventPublisher'
     );
     
-    // Rendera utan provider
-    render(<TestConsumer />);
+    // Rendera utan provider men med QueryClientProvider
+    render(
+      <QueryClientTestProvider>
+        <TestConsumer />
+      </QueryClientTestProvider>
+    );
     
     // Kontrollera att repository skapades
     expect(SupabaseSubscriptionRepositorySpy).toHaveBeenCalled();

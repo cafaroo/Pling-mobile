@@ -1,29 +1,60 @@
-import { BaseUserEvent } from './BaseUserEvent';
-import { User } from '../entities/User';
+import { DomainEvent } from '@/shared/core/DomainEvent';
 import { UniqueId } from '@/shared/core/UniqueId';
+import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
+
+export interface UserStatusChangedEventProps {
+  userId: string | UniqueId;
+  oldStatus: string;
+  newStatus: string;
+  changedAt?: Date;
+}
 
 /**
  * UserStatusChangedEvent
  * 
  * Domänhändelse som publiceras när en användares status har ändrats.
- * Innehåller information om användarens tidigare och nya status.
+ * Innehåller information om statusändringen.
  */
-export class UserStatusChangedEvent extends BaseUserEvent {
+export class UserStatusChangedEvent extends DomainEvent implements IDomainEvent {
+  public readonly eventId: UniqueId;
+  public readonly userId: UniqueId;
+  public readonly oldStatus: string;
+  public readonly newStatus: string;
+  public readonly changedAt: Date;
+  public readonly occurredAt: Date;
+  public readonly aggregateId: string;
+  public readonly eventType: string = 'UserStatusChangedEvent';
+
   /**
    * Skapar en ny UserStatusChangedEvent
    * 
-   * @param user - User-objekt eller ID för användaren
-   * @param oldStatus - Användarens tidigare status
-   * @param newStatus - Användarens nya status
+   * @param props - Parameterobjekt med event-properties
    */
-  constructor(
-    user: User | UniqueId,
-    oldStatus: 'pending' | 'active' | 'inactive' | 'blocked',
-    newStatus: 'pending' | 'active' | 'inactive' | 'blocked'
-  ) {
-    super('UserStatusChangedEvent', user, {
-      oldStatus,
-      newStatus
+  constructor(props: UserStatusChangedEventProps) {
+    // Konvertera till UniqueId om det behövs
+    const userId = UniqueId.from(props.userId);
+    const changedAt = props.changedAt || new Date();
+    
+    // Skapa event med payload
+    super({
+      name: 'UserStatusChangedEvent',
+      payload: {
+        userId: userId.toString(),
+        oldStatus: props.oldStatus,
+        newStatus: props.newStatus,
+        changedAt: changedAt.toISOString()
+      }
     });
+    
+    // Egenskaper för IDomainEvent
+    this.eventId = new UniqueId();
+    this.occurredAt = new Date();
+    this.aggregateId = userId.toString();
+    
+    // Spara egenskaperna direkt på event-objektet för enklare åtkomst
+    this.userId = userId;
+    this.oldStatus = props.oldStatus;
+    this.newStatus = props.newStatus;
+    this.changedAt = changedAt;
   }
 } 

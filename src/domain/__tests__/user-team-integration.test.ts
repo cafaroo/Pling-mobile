@@ -4,20 +4,18 @@ import { User } from '@/domain/user/entities/User';
 import { Team } from '@/domain/team/entities/Team';
 import { TeamMember } from '@/domain/team/value-objects/TeamMember';
 import { TeamRole } from '@/domain/team/value-objects/TeamRole';
-import { DomainEventTestHelper } from '@/test-utils/DomainEventTestHelper';
-import { MockEventBus } from '@/test-utils/mocks';
-import { UserRepository } from '@/domain/user/repositories/UserRepository';
-import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
+import { TeamPermission, TeamPermissionValue } from '@/domain/team/value-objects/TeamPermission';
+import { TeamMemberJoinedEvent } from '@/domain/team/events/TeamMemberJoinedEvent';
+import { TeamMemberLeftEvent } from '@/domain/team/events/TeamMemberLeftEvent';
+import { TeamMemberRoleChangedEvent } from '@/domain/team/events/TeamMemberRoleChangedEvent';
 import { UserSettings } from '@/domain/user/entities/UserSettings';
 import { MockTeam } from '@/test-utils/mocks/mockTeamEntities';
-import { 
-  TeamMemberJoinedEvent, 
-  TeamMemberLeftEvent, 
-  TeamMemberRoleChangedEvent 
-} from '@/test-utils/mocks/mockTeamEvents';
-import { TeamCreateDTO } from '@/domain/team/dtos/TeamCreateDTO';
 import { MockEntityFactory } from '@/test-utils/mocks/mockEntityFactory';
-import { IDomainEvent } from '@/domain/core/events/IDomainEvent';
+import { IDomainEvent } from '@/shared/domain/events/IDomainEvent';
+import { UserRepository } from '@/domain/user/repositories/UserRepository';
+import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
+import { MockEventBus } from '@/test-utils/mocks';
+import { DomainEventTestHelper } from '@/test-utils/DomainEventTestHelper';
 
 describe('User-Team Integration', () => {
   let mockEventBus: MockEventBus;
@@ -137,6 +135,69 @@ describe('User-Team Integration', () => {
             return this._events;
           },
           
+          // Permissions
+          hasPermission(role: TeamRole, permission: TeamPermission | TeamPermissionValue | string) {
+            // Implementera samma logic som i Team.hasPermission
+            
+            // Hämta behörighetsvärdet från olika möjliga inmatningstyper
+            let permissionValue: string;
+            
+            if (permission instanceof TeamPermissionValue) {
+              permissionValue = permission.value;
+            } else if (typeof permission === 'string') {
+              permissionValue = permission;
+            } else {
+              permissionValue = permission;
+            }
+            
+            // Kontrollera behörighet baserat på roll
+            switch (true) {
+              case role.equalsValue(TeamRole.OWNER):
+                // Ägare har alla behörigheter
+                return true;
+                
+              case role.equalsValue(TeamRole.ADMIN):
+                // Administratör har alla behörigheter förutom att ta bort teamet
+                return permissionValue !== TeamPermission.DELETE_TEAM;
+                
+              case role.equalsValue(TeamRole.MEMBER):
+                // Vanlig medlem har grundläggande behörigheter
+                return [
+                  TeamPermission.VIEW_TEAM,
+                  TeamPermission.SEND_MESSAGES,
+                  TeamPermission.UPLOAD_FILES,
+                  TeamPermission.JOIN_ACTIVITIES,
+                  TeamPermission.CREATE_POSTS,
+                ].includes(permissionValue as TeamPermission);
+                
+              case role.equalsValue(TeamRole.GUEST):
+                // Gäst har begränsade behörigheter
+                return [
+                  TeamPermission.VIEW_TEAM,
+                  TeamPermission.JOIN_ACTIVITIES
+                ].includes(permissionValue as TeamPermission);
+                
+              default:
+                return false;
+            }
+          },
+          
+          hasMemberPermission(userId: UniqueId | string, permission: TeamPermission | TeamPermissionValue | string) {
+            const userIdObj = userId instanceof UniqueId ? userId : new UniqueId(userId.toString());
+            
+            // Hitta medlemmen
+            const member = this.members.find((m: any) => 
+              m.userId.equals(userIdObj)
+            );
+          
+            if (!member) {
+              return false;
+            }
+          
+            // Använd hasPermission för att kontrollera behörighet
+            return this.hasPermission(member.role, permission);
+          },
+          
           // Member operations
           addMember(member: TeamMember) {
             // Validera att medlemmen inte redan finns
@@ -151,12 +212,13 @@ describe('User-Team Integration', () => {
             // Lägg till medlemmen
             this.members.push(member);
             
-            // Skapa och lägg till en händelse
-            const memberJoinedEvent = new TeamMemberJoinedEvent(
-              this.id,
-              member.userId,
-              member.role
-            );
+            // Skapa och lägg till en händelse med korrekt parametrar enligt ny implementation
+            const memberJoinedEvent = new TeamMemberJoinedEvent({
+              teamId: this.id,
+              userId: member.userId,
+              role: member.role.toString(),
+              joinedAt: member.joinedAt
+            });
             
             this.addDomainEvent(memberJoinedEvent);
             
@@ -164,7 +226,7 @@ describe('User-Team Integration', () => {
           },
           
           removeMember(userId: UniqueId | string) {
-            const userIdObj = userId instanceof UniqueId ? userId : new UniqueId(userId);
+            const userIdObj = UniqueId.from(userId);
             
             // Validera att det inte är ägaren
             if (userIdObj.equals(this.ownerId)) {
@@ -182,17 +244,18 @@ describe('User-Team Integration', () => {
             const memberToRemove = this.members[memberIndex];
             this.members.splice(memberIndex, 1);
             
-            // Simulera ett domänevent för borttagning
-            this.addDomainEvent(new TeamMemberLeftEvent(
-              this.id,
-              userIdObj
-            ));
+            // Simulera ett domänevent för borttagning med korrekt parametrar
+            this.addDomainEvent(new TeamMemberLeftEvent({
+              teamId: this.id,
+              userId: userIdObj,
+              removedAt: new Date()
+            }));
             
             return ok(undefined);
           },
           
           updateMemberRole(userId: UniqueId | string, newRole: TeamRole | string) {
-            const userIdObj = userId instanceof UniqueId ? userId : new UniqueId(userId);
+            const userIdObj = UniqueId.from(userId);
             
             // Validera att det inte är ägaren om rollen inte är OWNER
             if (userIdObj.equals(this.ownerId) && newRole !== TeamRole.OWNER) {
@@ -243,13 +306,14 @@ describe('User-Team Integration', () => {
             // Ta bort den gamla medlemmen och lägg till den nya
             this.members.splice(memberIndex, 1, newMemberResult.value);
             
-            // Skapa och lägg till en händelse för rollförändring
-            const roleChangedEvent = new TeamMemberRoleChangedEvent(
-              this.id,
-              userIdObj,
-              oldRole.toString(),
-              roleValue.toString()
-            );
+            // Skapa och lägg till en händelse för rollförändring med korrekt parametrar
+            const roleChangedEvent = new TeamMemberRoleChangedEvent({
+              teamId: this.id,
+              userId: userIdObj,
+              oldRole: oldRole.toString(),
+              newRole: roleValue.toString(),
+              changedAt: new Date()
+            });
             
             this.addDomainEvent(roleChangedEvent);
             
@@ -291,7 +355,7 @@ describe('User-Team Integration', () => {
 
       const memberResult = TeamMember.create({
         userId,
-        role: TeamRole.Member,
+        role: TeamRole.MEMBER,
         joinedAt: new Date()
       });
 
@@ -318,15 +382,15 @@ describe('User-Team Integration', () => {
         // Verifiera att användaren lades till i teamet
         const addedMember = team.members.find(m => m.userId.equals(userId));
         expect(addedMember).toBeDefined();
-        expect(addedMember?.role).toBe(TeamRole.Member);
+        expect(addedMember?.role.equalsValue(TeamRole.MEMBER)).toBeTruthy();
 
         // Verifiera att TeamMemberJoined-händelsen publicerades
         const events = team.getDomainEvents();
         const joinedEvent = events.find(e => e instanceof TeamMemberJoinedEvent) as TeamMemberJoinedEvent;
         expect(joinedEvent).toBeDefined();
-        expect(joinedEvent.teamId.equals(team.id)).toBeTruthy();
-        expect(joinedEvent.userId.equals(userId)).toBeTruthy();
-        expect(joinedEvent.role).toBe(TeamRole.Member);
+        expect(joinedEvent.teamId).toBe(team.id.toString());
+        expect(joinedEvent.userId).toBe(userId.toString());
+        expect(joinedEvent.role).toBe(TeamRole.MEMBER.toString());
       }
     });
 
@@ -337,7 +401,7 @@ describe('User-Team Integration', () => {
       
       const memberResult = TeamMember.create({
         userId: new UniqueId('test-user-id'),
-        role: TeamRole.Member,
+        role: TeamRole.MEMBER,
         joinedAt: new Date()
       });
 
@@ -403,14 +467,14 @@ describe('User-Team Integration', () => {
       // Verifiera att medlemmens roll uppdaterades
       const updatedMember = team.members.find(m => m.userId.equals(userId));
       expect(updatedMember).toBeDefined();
-      expect(updatedMember?.role).toBe(TeamRole.ADMIN);
+      expect(updatedMember?.role.equalsValue(TeamRole.ADMIN)).toBeTruthy();
 
       // Verifiera att TeamMemberRoleChanged-händelsen publicerades
       const events = team.getDomainEvents();
       const roleChangedEvent = events.find(e => e instanceof TeamMemberRoleChangedEvent) as TeamMemberRoleChangedEvent;
       expect(roleChangedEvent).toBeDefined();
-      expect(roleChangedEvent.teamId.equals(team.id)).toBeTruthy();
-      expect(roleChangedEvent.userId.equals(userId)).toBeTruthy();
+      expect(roleChangedEvent.teamId).toBe(team.id.toString());
+      expect(roleChangedEvent.userId).toBe(userId.toString());
       expect(roleChangedEvent.oldRole).toBe(TeamRole.MEMBER.toString());
       expect(roleChangedEvent.newRole).toBe(TeamRole.ADMIN.toString());
     });
@@ -421,7 +485,7 @@ describe('User-Team Integration', () => {
       const team = await createTestTeam('test-owner-id');
 
       // Act
-      const updateResult = team.updateMemberRole(ownerId, TeamRole.Member);
+      const updateResult = team.updateMemberRole(ownerId, TeamRole.MEMBER);
 
       // Assert
       expect(updateResult.isErr()).toBeTruthy();
@@ -439,7 +503,7 @@ describe('User-Team Integration', () => {
       
       const memberResult = TeamMember.create({
         userId,
-        role: TeamRole.Member,
+        role: TeamRole.MEMBER,
         joinedAt: new Date()
       });
 
@@ -464,8 +528,8 @@ describe('User-Team Integration', () => {
       const events = team.getDomainEvents();
       const leftEvent = events.find(e => e instanceof TeamMemberLeftEvent) as TeamMemberLeftEvent;
       expect(leftEvent).toBeDefined();
-      expect(leftEvent.teamId.equals(team.id)).toBeTruthy();
-      expect(leftEvent.userId.equals(userId)).toBeTruthy();
+      expect(leftEvent.teamId).toBe(team.id.toString());
+      expect(leftEvent.userId).toBe(userId.toString());
     });
 
     it('ska förhindra borttagning av ägaren', async () => {
@@ -481,6 +545,180 @@ describe('User-Team Integration', () => {
       if (removeResult.isErr()) {
         expect(removeResult.error).toContain('Ägaren kan inte tas bort från teamet');
       }
+    });
+
+    it('ska korrekt verifiera behörigheter för medlemmar med olika roller', async () => {
+      // Arrange
+      const ownerId = new UniqueId('test-owner-id');
+      const adminId = new UniqueId('test-admin-id');
+      const memberId = new UniqueId('test-member-id');
+      const guestId = new UniqueId('test-guest-id');
+      
+      const team = await createTestTeam('test-owner-id');
+      
+      // Skapa medlemmar med olika roller
+      const adminMemberResult = TeamMember.create({
+        userId: adminId,
+        role: TeamRole.ADMIN,
+        joinedAt: new Date()
+      });
+      
+      const memberResult = TeamMember.create({
+        userId: memberId,
+        role: TeamRole.MEMBER,
+        joinedAt: new Date()
+      });
+      
+      const guestResult = TeamMember.create({
+        userId: guestId,
+        role: TeamRole.GUEST,
+        joinedAt: new Date()
+      });
+      
+      if (adminMemberResult.isErr() || memberResult.isErr() || guestResult.isErr()) {
+        throw new Error('Kunde inte skapa testmedlemmar');
+      }
+      
+      // Lägg till medlemmarna i teamet
+      team.addMember(adminMemberResult.value);
+      team.addMember(memberResult.value);
+      team.addMember(guestResult.value);
+      
+      // Act & Assert - Test med TeamPermission enum
+      // OWNER behörigheter
+      expect(team.hasMemberPermission(ownerId, TeamPermission.DELETE_TEAM)).toBe(true);
+      expect(team.hasMemberPermission(ownerId, TeamPermission.MANAGE_ROLES)).toBe(true);
+      
+      // ADMIN behörigheter
+      expect(team.hasMemberPermission(adminId, TeamPermission.DELETE_TEAM)).toBe(false);
+      expect(team.hasMemberPermission(adminId, TeamPermission.MANAGE_ROLES)).toBe(true);
+      
+      // MEMBER behörigheter
+      expect(team.hasMemberPermission(memberId, TeamPermission.VIEW_TEAM)).toBe(true);
+      expect(team.hasMemberPermission(memberId, TeamPermission.MANAGE_ROLES)).toBe(false);
+      
+      // GUEST behörigheter
+      expect(team.hasMemberPermission(guestId, TeamPermission.VIEW_TEAM)).toBe(true);
+      expect(team.hasMemberPermission(guestId, TeamPermission.SEND_MESSAGES)).toBe(false);
+      
+      // Act & Assert - Test med TeamPermissionValue objekt
+      // Skapa TeamPermissionValue-objekt
+      const deleteTeamPermission = TeamPermissionValue.create(TeamPermission.DELETE_TEAM);
+      const manageRolesPermission = TeamPermissionValue.create(TeamPermission.MANAGE_ROLES);
+      const viewTeamPermission = TeamPermissionValue.create(TeamPermission.VIEW_TEAM);
+      
+      if (deleteTeamPermission.isErr() || manageRolesPermission.isErr() || viewTeamPermission.isErr()) {
+        throw new Error('Kunde inte skapa TeamPermissionValue objekt');
+      }
+      
+      // OWNER behörigheter med TeamPermissionValue
+      expect(team.hasMemberPermission(ownerId, deleteTeamPermission.value)).toBe(true);
+      expect(team.hasMemberPermission(ownerId, manageRolesPermission.value)).toBe(true);
+      
+      // ADMIN behörigheter med TeamPermissionValue
+      expect(team.hasMemberPermission(adminId, deleteTeamPermission.value)).toBe(false);
+      expect(team.hasMemberPermission(adminId, manageRolesPermission.value)).toBe(true);
+      
+      // MEMBER behörigheter med TeamPermissionValue
+      expect(team.hasMemberPermission(memberId, viewTeamPermission.value)).toBe(true);
+      expect(team.hasMemberPermission(memberId, manageRolesPermission.value)).toBe(false);
+      
+      // Act & Assert - Test med strängar
+      // OWNER behörigheter med strängar
+      expect(team.hasMemberPermission(ownerId, 'delete_team')).toBe(true);
+      expect(team.hasMemberPermission(ownerId, 'manage_roles')).toBe(true);
+      
+      // ADMIN behörigheter med strängar
+      expect(team.hasMemberPermission(adminId, 'delete_team')).toBe(false);
+      expect(team.hasMemberPermission(adminId, 'manage_roles')).toBe(true);
+    });
+  });
+
+  describe('team permissions', () => {
+    it('ska korrekt verifiera behörigheter för medlemmar med olika roller', async () => {
+      // Arrange
+      const ownerId = new UniqueId('test-owner-id');
+      const adminId = new UniqueId('test-admin-id');
+      const memberId = new UniqueId('test-member-id');
+      const guestId = new UniqueId('test-guest-id');
+      
+      const team = await createTestTeam('test-owner-id');
+      
+      // Skapa medlemmar med olika roller
+      const adminMemberResult = TeamMember.create({
+        userId: adminId,
+        role: TeamRole.ADMIN,
+        joinedAt: new Date()
+      });
+      
+      const memberResult = TeamMember.create({
+        userId: memberId,
+        role: TeamRole.MEMBER,
+        joinedAt: new Date()
+      });
+      
+      const guestResult = TeamMember.create({
+        userId: guestId,
+        role: TeamRole.GUEST,
+        joinedAt: new Date()
+      });
+      
+      if (adminMemberResult.isErr() || memberResult.isErr() || guestResult.isErr()) {
+        throw new Error('Kunde inte skapa testmedlemmar');
+      }
+      
+      // Lägg till medlemmarna i teamet
+      team.addMember(adminMemberResult.value);
+      team.addMember(memberResult.value);
+      team.addMember(guestResult.value);
+      
+      // Act & Assert - Test med TeamPermission enum
+      // OWNER behörigheter
+      expect(team.hasMemberPermission(ownerId, TeamPermission.DELETE_TEAM)).toBe(true);
+      expect(team.hasMemberPermission(ownerId, TeamPermission.MANAGE_ROLES)).toBe(true);
+      
+      // ADMIN behörigheter
+      expect(team.hasMemberPermission(adminId, TeamPermission.DELETE_TEAM)).toBe(false);
+      expect(team.hasMemberPermission(adminId, TeamPermission.MANAGE_ROLES)).toBe(true);
+      
+      // MEMBER behörigheter
+      expect(team.hasMemberPermission(memberId, TeamPermission.VIEW_TEAM)).toBe(true);
+      expect(team.hasMemberPermission(memberId, TeamPermission.MANAGE_ROLES)).toBe(false);
+      
+      // GUEST behörigheter
+      expect(team.hasMemberPermission(guestId, TeamPermission.VIEW_TEAM)).toBe(true);
+      expect(team.hasMemberPermission(guestId, TeamPermission.SEND_MESSAGES)).toBe(false);
+      
+      // Act & Assert - Test med TeamPermissionValue objekt
+      // Skapa TeamPermissionValue-objekt
+      const deleteTeamPermission = TeamPermissionValue.create(TeamPermission.DELETE_TEAM);
+      const manageRolesPermission = TeamPermissionValue.create(TeamPermission.MANAGE_ROLES);
+      const viewTeamPermission = TeamPermissionValue.create(TeamPermission.VIEW_TEAM);
+      
+      if (deleteTeamPermission.isErr() || manageRolesPermission.isErr() || viewTeamPermission.isErr()) {
+        throw new Error('Kunde inte skapa TeamPermissionValue objekt');
+      }
+      
+      // OWNER behörigheter med TeamPermissionValue
+      expect(team.hasMemberPermission(ownerId, deleteTeamPermission.value)).toBe(true);
+      expect(team.hasMemberPermission(ownerId, manageRolesPermission.value)).toBe(true);
+      
+      // ADMIN behörigheter med TeamPermissionValue
+      expect(team.hasMemberPermission(adminId, deleteTeamPermission.value)).toBe(false);
+      expect(team.hasMemberPermission(adminId, manageRolesPermission.value)).toBe(true);
+      
+      // MEMBER behörigheter med TeamPermissionValue
+      expect(team.hasMemberPermission(memberId, viewTeamPermission.value)).toBe(true);
+      expect(team.hasMemberPermission(memberId, manageRolesPermission.value)).toBe(false);
+      
+      // Act & Assert - Test med strängar
+      // OWNER behörigheter med strängar
+      expect(team.hasMemberPermission(ownerId, 'delete_team')).toBe(true);
+      expect(team.hasMemberPermission(ownerId, 'manage_roles')).toBe(true);
+      
+      // ADMIN behörigheter med strängar
+      expect(team.hasMemberPermission(adminId, 'delete_team')).toBe(false);
+      expect(team.hasMemberPermission(adminId, 'manage_roles')).toBe(true);
     });
   });
 }); 

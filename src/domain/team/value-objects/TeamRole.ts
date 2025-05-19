@@ -30,7 +30,12 @@ export class TeamRole extends ValueObject<TeamRoleProps> {
   /**
    * Skapar ett nytt TeamRole-värdesobjekt
    */
-  public static create(roleValue: string): Result<TeamRole, string> {
+  public static create(roleValue: string | null | undefined): Result<TeamRole, string> {
+    // Kontrollera att rollen inte är null eller undefined
+    if (roleValue === null || roleValue === undefined) {
+      return err('Teamroll kan inte vara null eller undefined');
+    }
+    
     // Kontrollera att rollen är en av de tillåtna värdena
     const normalizedRole = roleValue.toLowerCase();
     

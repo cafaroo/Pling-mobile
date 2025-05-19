@@ -1,11 +1,11 @@
 import { AggregateRoot } from '@/shared/domain/AggregateRoot';
-import { UniqueId } from '@/shared/domain/UniqueId';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { Result, ok, err } from '@/shared/core/Result';
 import { TeamMember } from '../value-objects/TeamMember';
 import { TeamInvitation } from '../value-objects/TeamInvitation';
 import { TeamSettings, TeamSettingsProps } from './TeamSettings';
-import { TeamRole } from '../value-objects/TeamRole';
-import { TeamPermission } from '../value-objects/TeamPermission';
+import { TeamRole, TeamRoleEnum } from '../value-objects/TeamRole';
+import { TeamPermission, TeamPermissionValue } from '../value-objects/TeamPermission';
 import { 
   TeamUpdated, 
   InvitationSent,
@@ -20,6 +20,7 @@ import { TeamCreatedEvent } from '../events/TeamCreatedEvent';
 import { TeamMemberJoinedEvent } from '../events/TeamMemberJoinedEvent';
 import { TeamMemberLeftEvent } from '../events/TeamMemberLeftEvent';
 import { TeamMemberRoleChangedEvent } from '../events/TeamMemberRoleChangedEvent';
+import { DefaultRolePermissions, roleHasPermission } from '../value-objects/DefaultRolePermissions';
 
 /**
  * TeamProps - Interface som definierar egenskaperna för Team-entiteten.
@@ -50,7 +51,7 @@ export interface TeamCreateDTO {
  */
 export interface TeamUpdateDTO {
   name?: string;
-  description?: string;
+  description?: string | null;
   settings?: Partial<TeamSettingsProps>;
 }
 
@@ -156,9 +157,7 @@ export class Team extends AggregateRoot<TeamProps> {
       }
       
       // Konvertera ownerId till UniqueId
-      const ownerId = props.ownerId instanceof UniqueId 
-        ? props.ownerId 
-        : new UniqueId(props.ownerId);
+      const ownerId = UniqueId.from(props.ownerId);
       
       const now = new Date();
       
@@ -208,10 +207,8 @@ export class Team extends AggregateRoot<TeamProps> {
   }): Result<void, string> {
     try {
       // Verifiera att användaren inte redan är medlem
-      const userId = props.userId instanceof UniqueId 
-        ? props.userId 
-        : new UniqueId(props.userId);
-        
+      const userId = UniqueId.from(props.userId);
+      
       const existingMemberIndex = this.props.members.findIndex(
         member => member.userId.equals(userId)
       );
@@ -269,7 +266,7 @@ export class Team extends AggregateRoot<TeamProps> {
    */
   public removeMember(userId: string | UniqueId): Result<void, string> {
     try {
-      const userIdObj = userId instanceof UniqueId ? userId : new UniqueId(userId);
+      const userIdObj = UniqueId.from(userId);
       
       // Ägaren kan inte tas bort
       if (userIdObj.equals(this.props.ownerId)) {
@@ -319,11 +316,22 @@ export class Team extends AggregateRoot<TeamProps> {
    */
   public changeMemberRole(userId: string | UniqueId, newRole: TeamRole | string): Result<void, string> {
     try {
-      const userIdObj = userId instanceof UniqueId ? userId : new UniqueId(userId);
+      const userIdObj = UniqueId.from(userId);
       
       // Förhindra att ägaren byter roll
-      if (userIdObj.equals(this.props.ownerId) && !newRole.equalsValue || !newRole.equalsValue(TeamRole.OWNER)) {
-        return err('Ägarens roll kan inte ändras');
+      if (userIdObj.equals(this.props.ownerId)) {
+        // Kontrollera att den nya rollen är OWNER
+        let isOwnerRole = false;
+        
+        if (typeof newRole === 'string') {
+          isOwnerRole = newRole.toLowerCase() === TeamRoleEnum.OWNER;
+        } else if (newRole instanceof TeamRole) {
+          isOwnerRole = newRole.equalsValue(TeamRole.OWNER);
+        }
+        
+        if (!isOwnerRole) {
+          return err('Ägarens roll kan inte ändras');
+        }
       }
       
       const memberIndex = this.props.members.findIndex(
@@ -376,6 +384,14 @@ export class Team extends AggregateRoot<TeamProps> {
     } catch (error) {
       return err(`Kunde inte ändra medlemsroll: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+  
+  /**
+   * Alias för changeMemberRole för bakåtkompatibilitet
+   * Detta är för att stödja koden som använder updateMemberRole istället för changeMemberRole
+   */
+  public updateMemberRole(userId: string | UniqueId, newRole: TeamRole | string): Result<void, string> {
+    return this.changeMemberRole(userId, newRole);
   }
   
   /**
@@ -599,55 +615,36 @@ export class Team extends AggregateRoot<TeamProps> {
   }
 
   /**
-   * Kontrollerar om en medlem har en viss behörighet
-   * 
-   * @param userId ID för medlemmen
-   * @param permission Behörighet att kontrollera
-   * @returns True om medlemmen har behörigheten, annars false
+   * Kontrollerar om en roll har en specifik behörighet
+   * @param role Rollen att kontrollera
+   * @param permission Behörigheten att kontrollera
+   * @returns Sant om rollen har behörigheten
+   */
+  public hasPermission(role: TeamRole | string, permission: TeamPermission | string): boolean {
+    // Använd roleHasPermission från DefaultRolePermissions
+    return roleHasPermission(role, permission);
+  }
+
+  /**
+   * Kontrollerar om en medlem har en specifik behörighet
+   * @param userId ID för medlemmen att kontrollera
+   * @param permission Behörigheten att kontrollera
+   * @returns Sant om medlemmen har behörigheten
    */
   public hasMemberPermission(userId: UniqueId, permission: TeamPermission | string): boolean {
     // Hitta medlemmen
     const member = this.props.members.find(m => m.userId.equals(userId));
-
-    if (!member) {
-      return false;
-    }
+    if (!member) return false;
 
     // Konvertera sträng till enum om det är en sträng
     const permissionEnum = typeof permission === 'string' 
-      ? permission as TeamPermission 
-      : permission;
+      ? permission 
+      : permission instanceof TeamPermissionValue
+        ? permission.toString()
+        : permission.toString();
 
-    // Kontrollera behörighet baserat på medlemmens roll
-    switch (true) {
-      case member.role.equalsValue(TeamRole.OWNER):
-        // Ägare har alla behörigheter
-        return true;
-        
-      case member.role.equalsValue(TeamRole.ADMIN):
-        // Administratör har alla behörigheter förutom att ta bort teamet
-        return permissionEnum !== TeamPermission.DELETE_TEAM;
-        
-      case member.role.equalsValue(TeamRole.MEMBER):
-        // Vanlig medlem har grundläggande behörigheter
-        return [
-          TeamPermission.VIEW_TEAM,
-          TeamPermission.SEND_MESSAGES,
-          TeamPermission.UPLOAD_FILES,
-          TeamPermission.JOIN_ACTIVITIES,
-          TeamPermission.CREATE_POSTS,
-        ].includes(permissionEnum);
-        
-      case member.role.equalsValue(TeamRole.GUEST):
-        // Gäst har begränsade behörigheter
-        return [
-          TeamPermission.VIEW_TEAM,
-          TeamPermission.JOIN_ACTIVITIES
-        ].includes(permissionEnum);
-        
-      default:
-        return false;
-    }
+    // Kontrollera behörighet baserat på medlemsrollen
+    return this.hasPermission(member.role, permissionEnum);
   }
   
   /**

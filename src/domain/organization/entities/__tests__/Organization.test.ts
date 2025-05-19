@@ -15,6 +15,7 @@ import { OrganizationInvitationDeclinedEvent } from '../../events/OrganizationIn
 import { MockDomainEvents } from '@/test-utils/mocks/mockDomainEvents';
 import { OrgSettings } from '../../value-objects/OrgSettings';
 import { OrganizationMember } from '../../value-objects/OrganizationMember';
+import { getEventData } from '@/test-utils/helpers/eventDataAdapter';
 
 describe('Organization Aggregate', () => {
   // Setup
@@ -80,13 +81,11 @@ describe('Organization Aggregate', () => {
       const event = events[0];
       expect(event.constructor.name).toBe('OrganizationCreatedEvent');
       
-      // Kontrollera att name-egenskapen är tillgänglig på något av de förväntade ställena
-      const eventData = event.payload || event;
-      const eventName = eventData.name || event.name;
-      expect(eventName).toBe(name);
+      // Använd getEventData istället för direkt property-access
+      expect(getEventData(event, 'name')).toBe(name);
       
-      // Kontrollera ägare
-      const eventOwnerId = eventData.ownerId || event.ownerId;
+      // Kontrollera ägare med getEventData
+      const eventOwnerId = getEventData(event, 'ownerId');
       expect(eventOwnerId.toString()).toBe(ownerId.toString());
     });
   });
@@ -203,12 +202,11 @@ describe('Organization Aggregate', () => {
       const event = events[0];
       expect(event.constructor.name).toBe('OrganizationMemberJoinedEvent');
       
-      // Hämta data från eventet, oavsett struktur
-      const eventData = event.payload || event;
-      const eventUserId = eventData.userId || event.userId;
+      // Använd getEventData istället för direkt property-access
+      const eventUserId = getEventData(event, 'userId');
       expect(eventUserId.toString()).toBe(userId.toString());
       
-      const eventRole = eventData.role || event.role;
+      const eventRole = getEventData(event, 'role');
       expect(eventRole).toBe(OrganizationRole.MEMBER);
     });
     
@@ -255,9 +253,8 @@ describe('Organization Aggregate', () => {
       const event = events[0];
       expect(event.constructor.name).toBe('OrganizationMemberLeftEvent');
       
-      // Hämta data från eventet, oavsett struktur
-      const eventData = event.payload || event;
-      const eventUserId = eventData.userId || event.userId;
+      // Använd getEventData istället för direkt property-access
+      const eventUserId = getEventData(event, 'userId');
       expect(eventUserId.toString()).toBe(userId.toString());
     });
     
@@ -335,14 +332,12 @@ describe('Organization Aggregate', () => {
       const event = events[0];
       expect(event.constructor.name).toBe('OrganizationMemberRoleChangedEvent');
       
-      // Hämta data från eventet, oavsett struktur
-      const eventData = event.payload || event;
-      const eventUserId = eventData.userId || event.userId;
+      // Använd getEventData istället för direkt property-access
+      const eventUserId = getEventData(event, 'userId');
       expect(eventUserId.toString()).toBe(userId.toString());
       
-      // Verifiera gamla och nya rollen
-      const oldRole = eventData.oldRole || event.oldRole;
-      const newRole = eventData.newRole || event.newRole;
+      const oldRole = getEventData(event, 'oldRole');
+      const newRole = getEventData(event, 'newRole');
       expect(oldRole).toBe(OrganizationRole.MEMBER);
       expect(newRole).toBe(OrganizationRole.ADMIN);
     });
@@ -407,9 +402,8 @@ describe('Organization Aggregate', () => {
       const event = events[0];
       expect(event.constructor.name).toBe('TeamAddedToOrganizationEvent');
       
-      // Hämta data från eventet, oavsett struktur
-      const eventData = event.payload || event;
-      const eventTeamId = eventData.teamId || event.teamId;
+      // Använd getEventData istället för direkt property-access
+      const eventTeamId = getEventData(event, 'teamId');
       expect(eventTeamId.toString()).toBe(teamId.toString());
     });
     
@@ -450,9 +444,8 @@ describe('Organization Aggregate', () => {
       const event = events[0];
       expect(event.constructor.name).toBe('TeamRemovedFromOrganizationEvent');
       
-      // Hämta data från eventet, oavsett struktur
-      const eventData = event.payload || event;
-      const eventTeamId = eventData.teamId || event.teamId;
+      // Använd getEventData istället för direkt property-access
+      const eventTeamId = getEventData(event, 'teamId');
       expect(eventTeamId.toString()).toBe(teamId.toString());
     });
     

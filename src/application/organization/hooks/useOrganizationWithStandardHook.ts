@@ -3,6 +3,7 @@ import { createStandardizedQuery, createStandardizedMutation } from '@/applicati
 import { unwrapResult } from '@/application/shared/hooks/BaseHook';
 import { Organization } from '@/domain/organization/entities/Organization';
 import { useOrganizationContext } from './useOrganizationContext';
+import { OrganizationRole } from '@/domain/organization/value-objects/OrganizationRole';
 
 // DTOs och interfaces som behöver definieras baserat på Organization entity
 export interface CreateOrganizationDTO {
@@ -24,6 +25,29 @@ export interface AddTeamToOrganizationDTO {
 export interface RemoveTeamFromOrganizationDTO {
   organizationId: string;
   teamId: string;
+}
+
+export interface AddOrganizationMemberDTO {
+  organizationId: string;
+  userId: string;
+  role: OrganizationRole | string;
+}
+
+export interface RemoveOrganizationMemberDTO {
+  organizationId: string;
+  userId: string;
+}
+
+export interface AddOrganizationResourceDTO {
+  organizationId: string;
+  resourceId: string;
+  resourceType: string;
+  permissions?: string[];
+}
+
+export interface RemoveOrganizationResourceDTO {
+  organizationId: string;
+  resourceId: string;
 }
 
 /**
@@ -163,16 +187,195 @@ export function useOrganizationWithStandardHook() {
   });
   
   /**
+   * Lägger till en medlem i organisationen
+   */
+  const useAddOrganizationMember = createStandardizedMutation<void, AddOrganizationMemberDTO>({
+    mutationFn: async (dto) => {
+      const orgResult = await organizationRepository.findById(new UniqueId(dto.organizationId));
+      if (orgResult.isErr()) {
+        throw new Error(orgResult.error);
+      }
+      
+      const org = orgResult.value;
+      if (!org) {
+        throw new Error('Organisationen hittades inte');
+      }
+      
+      // Hämta roll-objekt från string eller använd direkt om det redan är OrganizationRole
+      let role = dto.role;
+      if (typeof dto.role === 'string') {
+        const roleResult = OrganizationRole.create(dto.role);
+        if (roleResult.isErr()) {
+          throw new Error(`Ogiltig roll: ${roleResult.error}`);
+        }
+        role = roleResult.value;
+      }
+      
+      const addMemberResult = org.addMember(new UniqueId(dto.userId), role);
+      if (addMemberResult.isErr()) {
+        throw new Error(addMemberResult.error);
+      }
+      
+      const saveResult = await organizationRepository.save(org);
+      if (saveResult.isErr()) {
+        throw new Error(saveResult.error);
+      }
+      
+      // Publicera domänevents
+      org.getDomainEvents().forEach(event => {
+        eventPublisher.publish(event);
+      });
+    },
+    invalidateQueryKey: (variables) => [
+      ['organization', variables.organizationId],
+      ['organizations', 'user', variables.userId]
+    ]
+  });
+  
+  /**
+   * Tar bort en medlem från organisationen
+   */
+  const useRemoveOrganizationMember = createStandardizedMutation<void, RemoveOrganizationMemberDTO>({
+    mutationFn: async (dto) => {
+      const orgResult = await organizationRepository.findById(new UniqueId(dto.organizationId));
+      if (orgResult.isErr()) {
+        throw new Error(orgResult.error);
+      }
+      
+      const org = orgResult.value;
+      if (!org) {
+        throw new Error('Organisationen hittades inte');
+      }
+      
+      const removeMemberResult = org.removeMember(new UniqueId(dto.userId));
+      if (removeMemberResult.isErr()) {
+        throw new Error(removeMemberResult.error);
+      }
+      
+      const saveResult = await organizationRepository.save(org);
+      if (saveResult.isErr()) {
+        throw new Error(saveResult.error);
+      }
+      
+      // Publicera domänevents
+      org.getDomainEvents().forEach(event => {
+        eventPublisher.publish(event);
+      });
+    },
+    invalidateQueryKey: (variables) => [
+      ['organization', variables.organizationId],
+      ['organizations', 'user', variables.userId]
+    ]
+  });
+  
+  /**
+   * Lägger till en resurs i en organisation
+   */
+  const useAddOrganizationResource = createStandardizedMutation<void, AddOrganizationResourceDTO>({
+    mutationFn: async (dto) => {
+      const orgResult = await organizationRepository.findById(new UniqueId(dto.organizationId));
+      if (orgResult.isErr()) {
+        throw new Error(orgResult.error);
+      }
+      
+      const org = orgResult.value;
+      if (!org) {
+        throw new Error('Organisationen hittades inte');
+      }
+      
+      const addResourceResult = org.addResource({
+        resourceId: dto.resourceId,
+        resourceType: dto.resourceType,
+        permissions: dto.permissions || ['VIEW']
+      });
+      
+      if (addResourceResult.isErr()) {
+        throw new Error(addResourceResult.error);
+      }
+      
+      const saveResult = await organizationRepository.save(org);
+      if (saveResult.isErr()) {
+        throw new Error(saveResult.error);
+      }
+      
+      // Publicera domänevents
+      org.getDomainEvents().forEach(event => {
+        eventPublisher.publish(event);
+      });
+    },
+    invalidateQueryKey: (variables) => [
+      ['organization', variables.organizationId]
+    ]
+  });
+  
+  /**
+   * Tar bort en resurs från en organisation
+   */
+  const useRemoveOrganizationResource = createStandardizedMutation<void, RemoveOrganizationResourceDTO>({
+    mutationFn: async (dto) => {
+      const orgResult = await organizationRepository.findById(new UniqueId(dto.organizationId));
+      if (orgResult.isErr()) {
+        throw new Error(orgResult.error);
+      }
+      
+      const org = orgResult.value;
+      if (!org) {
+        throw new Error('Organisationen hittades inte');
+      }
+      
+      const removeResourceResult = org.removeResource(dto.resourceId);
+      if (removeResourceResult.isErr()) {
+        throw new Error(removeResourceResult.error);
+      }
+      
+      const saveResult = await organizationRepository.save(org);
+      if (saveResult.isErr()) {
+        throw new Error(saveResult.error);
+      }
+      
+      // Publicera domänevents
+      org.getDomainEvents().forEach(event => {
+        eventPublisher.publish(event);
+      });
+    },
+    invalidateQueryKey: (variables) => [
+      ['organization', variables.organizationId]
+    ]
+  });
+  
+  /**
    * Lägger till ett team till en organisation
    */
   const useAddTeamToOrganization = createStandardizedMutation<void, AddTeamToOrganizationDTO>({
     mutationFn: async (dto) => {
-      const result = await organizationRepository.addTeam(
-        new UniqueId(dto.organizationId), 
-        new UniqueId(dto.teamId)
-      );
+      // Förbättrad felhantering och validering
+      if (!dto.organizationId) {
+        throw new Error('organizationId är obligatoriskt');
+      }
       
-      return unwrapResult(result);
+      if (!dto.teamId) {
+        throw new Error('teamId är obligatoriskt');
+      }
+      
+      try {
+        console.log(`Lägger till team ${dto.teamId} till organisation ${dto.organizationId}`);
+        
+        // Skapa UniqueId-objekten inuti try-catch för att fånga potentiella felaktiga ID-format
+        const orgId = new UniqueId(dto.organizationId);
+        const teamId = new UniqueId(dto.teamId);
+        
+        const result = await organizationRepository.addTeam(orgId, teamId);
+        
+        if (result.isErr()) {
+          console.error('Fel vid tillägg av team till organisation:', result.error);
+          throw new Error(`Kunde inte lägga till team i organisation: ${result.error}`);
+        }
+        
+        return unwrapResult(result);
+      } catch (error) {
+        console.error('Error i addTeamToOrganization:', error);
+        throw error instanceof Error ? error : new Error('Ett okänt fel uppstod vid tillägg av team till organisation');
+      }
     },
     invalidateQueryKey: (variables) => [
       ['organization', variables.organizationId]
@@ -206,6 +409,10 @@ export function useOrganizationWithStandardHook() {
     useCreateOrganization,
     useUpdateOrganization,
     useAddTeamToOrganization,
-    useRemoveTeamFromOrganization
+    useRemoveTeamFromOrganization,
+    useAddOrganizationMember,
+    useRemoveOrganizationMember,
+    useAddOrganizationResource,
+    useRemoveOrganizationResource
   };
 } 

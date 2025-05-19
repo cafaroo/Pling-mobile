@@ -7,7 +7,7 @@ import { Result, ok, err } from '@/shared/core/Result';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { Subscription } from '../entities/Subscription';
 import { SubscriptionRepository } from './SubscriptionRepository';
-import { SubscriptionStatus, SubscriptionUsage } from '../value-objects/SubscriptionTypes';
+import { SubscriptionStatus, SubscriptionUsage } from '../entities/SubscriptionTypes';
 
 /**
  * Minimalt interface för repository

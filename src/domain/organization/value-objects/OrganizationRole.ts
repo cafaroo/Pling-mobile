@@ -121,6 +121,13 @@ export class OrganizationRole extends ValueObject<OrganizationRoleProps> {
   toString(): string {
     return this.props.value;
   }
+  
+  /**
+   * Hämtar rollvärdet (för bakåtkompatibilitet)
+   */
+  getValue(): string {
+    return this.props.value;
+  }
 }
 
 export const OrganizationRoleLabels: Record<OrganizationRoleEnum, string> = {

@@ -29,7 +29,8 @@
     "start:prod": "expo start --no-dev --minify",
     "clear:cache": "expo start --clear",
     "update:check": "npx expo install --check",
-    "doctor": "npx expo-env-info"
+    "doctor": "npx expo-env-info",
+    "test:jsdom": "jest --config=jest.config.jsdom.js"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.2.3",

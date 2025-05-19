@@ -1,50 +1,113 @@
-import { ValueObject } from '@/shared/domain/ValueObject';
+import { ValueObject } from '@/shared/core/ValueObject';
 import { TeamRole } from './TeamRole';
 import { Result, ok, err } from '@/shared/core/Result';
 
-export enum TeamPermission {
+/**
+ * Enum för alla tillgängliga team-behörigheter
+ */
+export enum TeamPermissionEnum {
   // Grundläggande behörigheter
-  VIEW_TEAM = 'view_team',
-  EDIT_TEAM = 'edit_team',
-  DELETE_TEAM = 'delete_team',
+  VIEW_TEAM = 'VIEW_TEAM',
+  EDIT_TEAM = 'EDIT_TEAM',
+  DELETE_TEAM = 'DELETE_TEAM',
   
-  // Medlemshantering
-  INVITE_MEMBERS = 'invite_members',
-  REMOVE_MEMBERS = 'remove_members',
-  MANAGE_ROLES = 'manage_roles',
+  // Medlemsbehörigheter
+  VIEW_MEMBERS = 'VIEW_MEMBERS',
+  ADD_MEMBERS = 'ADD_MEMBERS',
+  REMOVE_MEMBERS = 'REMOVE_MEMBERS',
+  CHANGE_MEMBER_ROLE = 'CHANGE_MEMBER_ROLE',
   
-  // Aktiviteter
-  CREATE_ACTIVITIES = 'create_activities',
-  EDIT_ACTIVITIES = 'edit_activities',
-  DELETE_ACTIVITIES = 'delete_activities',
-  JOIN_ACTIVITIES = 'join_activities',
+  // Aktivitetsbehörigheter
+  VIEW_ACTIVITIES = 'VIEW_ACTIVITIES',
+  CREATE_ACTIVITY = 'CREATE_ACTIVITY',
+  EDIT_ACTIVITY = 'EDIT_ACTIVITY',
+  DELETE_ACTIVITY = 'DELETE_ACTIVITY',
   
-  // Kommunikation
-  SEND_MESSAGES = 'send_messages',
-  MODERATE_MESSAGES = 'moderate_messages',
-  
-  // Resurshantering
-  UPLOAD_FILES = 'upload_files',
-  MANAGE_FILES = 'manage_files',
-  
-  // Målhantering
-  CREATE_GOALS = 'create_goals',
-  EDIT_GOALS = 'edit_goals',
-  DELETE_GOALS = 'delete_goals',
+  // Inställningsbehörigheter
+  VIEW_SETTINGS = 'VIEW_SETTINGS',
+  EDIT_SETTINGS = 'EDIT_SETTINGS'
+}
 
-  // Admin
-  ADMIN_ACCESS = 'admin_access',
-  MANAGE_TEAM = 'manage_team',
-  UPDATE_TEAM_SETTINGS = 'update_team_settings',
-  APPROVE_MEMBERS = 'approve_members',
-  MANAGE_CONTENT = 'manage_content',
-  CREATE_POSTS = 'create_posts',
-  DELETE_POSTS = 'delete_posts',
-  VIEW_STATISTICS = 'view_statistics',
-  EXPORT_DATA = 'export_data',
-  MANAGE_CHANNELS = 'manage_channels',
-  ASSIGN_GOALS = 'assign_goals',
-  COMPLETE_GOALS = 'complete_goals'
+/**
+ * Type-alias för alla TeamPermission-värden som strängar
+ */
+export type TeamPermission = keyof typeof TeamPermissionEnum | TeamPermissionEnum;
+
+/**
+ * Props för TeamPermissionValue
+ */
+interface TeamPermissionValueProps {
+  permission: TeamPermissionEnum;
+}
+
+/**
+ * Value Object för TeamPermission som säkerställer att behörigheter är giltiga
+ */
+export class TeamPermissionValue extends ValueObject<TeamPermissionValueProps> {
+  /**
+   * Privat konstruktor - använd static factory-metoder istället
+   */
+  private constructor(props: TeamPermissionValueProps) {
+    super(props);
+  }
+
+  /**
+   * Validerar att en behörighet är giltig
+   */
+  private static isValidPermission(permission: TeamPermission): boolean {
+    const permissionEnumValues = Object.values(TeamPermissionEnum);
+    
+    if (typeof permission === 'string') {
+      return permissionEnumValues.includes(permission as TeamPermissionEnum);
+    }
+    
+    return permissionEnumValues.includes(permission);
+  }
+
+  /**
+   * Skapar en ny TeamPermissionValue med validering
+   */
+  public static create(permission: TeamPermission): Result<TeamPermissionValue, string> {
+    if (!this.isValidPermission(permission)) {
+      return err(`"${permission}" är inte en giltig TeamPermission`);
+    }
+
+    // Konvertera till enum-värde om det är en sträng
+    const permissionEnum = typeof permission === 'string' 
+      ? permission as TeamPermissionEnum 
+      : permission;
+    
+    return ok(new TeamPermissionValue({ permission: permissionEnum }));
+  }
+
+  /**
+   * Jämför med rått värde (sträng eller enum)
+   */
+  public equalsValue(value?: TeamPermission): boolean {
+    if (value === null || value === undefined) {
+      return false;
+    }
+    
+    if (typeof value === 'string') {
+      return this.props.permission === value;
+    }
+    
+    return this.props.permission === value;
+  }
+
+  /**
+   * Returnerar strängrepresentation av behörigheten
+   */
+  public toString(): string {
+    return this.props.permission;
+  }
+
+  /**
+   * Returnerar det faktiska enum-värdet
+   */
+  public value(): TeamPermissionEnum {
+    return this.props.permission;
+  }
 }
 
 export type PermissionCategory = 'basic' | 'members' | 'activities' | 'communication' | 'resources' | 'goals' | 'admin';
@@ -58,231 +121,117 @@ export interface PermissionDefinition {
 
 export const TeamPermissionDetails: Record<TeamPermission, PermissionDefinition> = {
   // Grundläggande behörigheter
-  [TeamPermission.VIEW_TEAM]: {
-    permission: TeamPermission.VIEW_TEAM,
+  [TeamPermissionEnum.VIEW_TEAM]: {
+    permission: TeamPermissionEnum.VIEW_TEAM,
     category: 'basic',
     label: 'Se team',
     description: 'Kan visa teamet och grundläggande information'
   },
-  [TeamPermission.EDIT_TEAM]: {
-    permission: TeamPermission.EDIT_TEAM,
+  [TeamPermissionEnum.EDIT_TEAM]: {
+    permission: TeamPermissionEnum.EDIT_TEAM,
     category: 'basic',
     label: 'Redigera team',
     description: 'Kan ändra teamets namn, beskrivning och inställningar'
   },
-  [TeamPermission.DELETE_TEAM]: {
-    permission: TeamPermission.DELETE_TEAM,
+  [TeamPermissionEnum.DELETE_TEAM]: {
+    permission: TeamPermissionEnum.DELETE_TEAM,
     category: 'basic',
     label: 'Ta bort team',
     description: 'Kan ta bort teamet permanent'
   },
   
   // Medlemshantering
-  [TeamPermission.INVITE_MEMBERS]: {
-    permission: TeamPermission.INVITE_MEMBERS,
+  [TeamPermissionEnum.VIEW_MEMBERS]: {
+    permission: TeamPermissionEnum.VIEW_MEMBERS,
+    category: 'members',
+    label: 'Se medlemmar',
+    description: 'Kan se medlemmar i teamet'
+  },
+  [TeamPermissionEnum.ADD_MEMBERS]: {
+    permission: TeamPermissionEnum.ADD_MEMBERS,
     category: 'members',
     label: 'Bjud in medlemmar',
     description: 'Kan bjuda in nya medlemmar till teamet'
   },
-  [TeamPermission.REMOVE_MEMBERS]: {
-    permission: TeamPermission.REMOVE_MEMBERS,
+  [TeamPermissionEnum.REMOVE_MEMBERS]: {
+    permission: TeamPermissionEnum.REMOVE_MEMBERS,
     category: 'members',
     label: 'Ta bort medlemmar',
     description: 'Kan ta bort medlemmar från teamet'
   },
-  [TeamPermission.MANAGE_ROLES]: {
-    permission: TeamPermission.MANAGE_ROLES,
+  [TeamPermissionEnum.CHANGE_MEMBER_ROLE]: {
+    permission: TeamPermissionEnum.CHANGE_MEMBER_ROLE,
     category: 'members',
-    label: 'Hantera roller',
-    description: 'Kan ändra medlemmars roller och behörigheter'
+    label: 'Ändra medlemmars roller',
+    description: 'Kan ändra medlemmars roller'
   },
   
   // Aktiviteter
-  [TeamPermission.CREATE_ACTIVITIES]: {
-    permission: TeamPermission.CREATE_ACTIVITIES,
+  [TeamPermissionEnum.VIEW_ACTIVITIES]: {
+    permission: TeamPermissionEnum.VIEW_ACTIVITIES,
+    category: 'activities',
+    label: 'Se aktiviteter',
+    description: 'Kan se aktiviteter i teamet'
+  },
+  [TeamPermissionEnum.CREATE_ACTIVITY]: {
+    permission: TeamPermissionEnum.CREATE_ACTIVITY,
     category: 'activities',
     label: 'Skapa aktiviteter',
     description: 'Kan skapa nya aktiviteter i teamet'
   },
-  [TeamPermission.EDIT_ACTIVITIES]: {
-    permission: TeamPermission.EDIT_ACTIVITIES,
+  [TeamPermissionEnum.EDIT_ACTIVITY]: {
+    permission: TeamPermissionEnum.EDIT_ACTIVITY,
     category: 'activities',
     label: 'Redigera aktiviteter',
     description: 'Kan ändra existerande aktiviteter'
   },
-  [TeamPermission.DELETE_ACTIVITIES]: {
-    permission: TeamPermission.DELETE_ACTIVITIES,
+  [TeamPermissionEnum.DELETE_ACTIVITY]: {
+    permission: TeamPermissionEnum.DELETE_ACTIVITY,
     category: 'activities',
     label: 'Ta bort aktiviteter',
     description: 'Kan ta bort aktiviteter från teamet'
   },
-  [TeamPermission.JOIN_ACTIVITIES]: {
-    permission: TeamPermission.JOIN_ACTIVITIES,
-    category: 'activities',
-    label: 'Delta i aktiviteter',
-    description: 'Kan delta i teamets aktiviteter'
-  },
   
-  // Kommunikation
-  [TeamPermission.SEND_MESSAGES]: {
-    permission: TeamPermission.SEND_MESSAGES,
-    category: 'communication',
-    label: 'Skicka meddelanden',
-    description: 'Kan skicka meddelanden i teamchatten'
-  },
-  [TeamPermission.MODERATE_MESSAGES]: {
-    permission: TeamPermission.MODERATE_MESSAGES,
-    category: 'communication',
-    label: 'Moderera meddelanden',
-    description: 'Kan redigera och ta bort andras meddelanden'
-  },
-  
-  // Resurshantering
-  [TeamPermission.UPLOAD_FILES]: {
-    permission: TeamPermission.UPLOAD_FILES,
-    category: 'resources',
-    label: 'Ladda upp filer',
-    description: 'Kan ladda upp filer till teamets resursbibliotek'
-  },
-  [TeamPermission.MANAGE_FILES]: {
-    permission: TeamPermission.MANAGE_FILES,
-    category: 'resources',
-    label: 'Hantera filer',
-    description: 'Kan organisera, redigera och ta bort filer'
-  },
-  
-  // Målhantering
-  [TeamPermission.CREATE_GOALS]: {
-    permission: TeamPermission.CREATE_GOALS,
-    category: 'goals',
-    label: 'Skapa mål',
-    description: 'Kan skapa nya mål för teamet'
-  },
-  [TeamPermission.EDIT_GOALS]: {
-    permission: TeamPermission.EDIT_GOALS,
-    category: 'goals',
-    label: 'Redigera mål',
-    description: 'Kan ändra existerande mål'
-  },
-  [TeamPermission.DELETE_GOALS]: {
-    permission: TeamPermission.DELETE_GOALS,
-    category: 'goals',
-    label: 'Ta bort mål',
-    description: 'Kan ta bort teamets mål'
-  },
-
-  // Admin
-  [TeamPermission.ADMIN_ACCESS]: {
-    permission: TeamPermission.ADMIN_ACCESS,
+  // Inställningsbehörigheter
+  [TeamPermissionEnum.VIEW_SETTINGS]: {
+    permission: TeamPermissionEnum.VIEW_SETTINGS,
     category: 'admin',
-    label: 'Administratörsåtkomst',
-    description: 'Har full administratörsåtkomst till teamet'
+    label: 'Se teaminställningar',
+    description: 'Kan se teaminställningar'
   },
-  [TeamPermission.MANAGE_TEAM]: {
-    permission: TeamPermission.MANAGE_TEAM,
+  [TeamPermissionEnum.EDIT_SETTINGS]: {
+    permission: TeamPermissionEnum.EDIT_SETTINGS,
     category: 'admin',
-    label: 'Hantera team',
-    description: 'Kan hantera alla aspekter av teamet'
-  },
-  [TeamPermission.UPDATE_TEAM_SETTINGS]: {
-    permission: TeamPermission.UPDATE_TEAM_SETTINGS,
-    category: 'admin',
-    label: 'Uppdatera teaminställningar',
-    description: 'Kan ändra avancerade teaminställningar'
-  },
-  [TeamPermission.APPROVE_MEMBERS]: {
-    permission: TeamPermission.APPROVE_MEMBERS,
-    category: 'admin',
-    label: 'Godkänn medlemmar',
-    description: 'Kan godkänna nya medlemsansökningar'
-  },
-  [TeamPermission.MANAGE_CONTENT]: {
-    permission: TeamPermission.MANAGE_CONTENT,
-    category: 'admin',
-    label: 'Hantera innehåll',
-    description: 'Kan hantera allt innehåll i teamet'
-  },
-  [TeamPermission.CREATE_POSTS]: {
-    permission: TeamPermission.CREATE_POSTS,
-    category: 'admin',
-    label: 'Skapa inlägg',
-    description: 'Kan skapa officiella teaminlägg'
-  },
-  [TeamPermission.DELETE_POSTS]: {
-    permission: TeamPermission.DELETE_POSTS,
-    category: 'admin',
-    label: 'Ta bort inlägg',
-    description: 'Kan ta bort alla inlägg'
-  },
-  [TeamPermission.VIEW_STATISTICS]: {
-    permission: TeamPermission.VIEW_STATISTICS,
-    category: 'admin',
-    label: 'Se statistik',
-    description: 'Kan se detaljerad teamstatistik'
-  },
-  [TeamPermission.EXPORT_DATA]: {
-    permission: TeamPermission.EXPORT_DATA,
-    category: 'admin',
-    label: 'Exportera data',
-    description: 'Kan exportera teamdata'
-  },
-  [TeamPermission.MANAGE_CHANNELS]: {
-    permission: TeamPermission.MANAGE_CHANNELS,
-    category: 'admin',
-    label: 'Hantera kanaler',
-    description: 'Kan hantera kommunikationskanaler'
-  },
-  [TeamPermission.ASSIGN_GOALS]: {
-    permission: TeamPermission.ASSIGN_GOALS,
-    category: 'admin',
-    label: 'Tilldela mål',
-    description: 'Kan tilldela mål till medlemmar'
-  },
-  [TeamPermission.COMPLETE_GOALS]: {
-    permission: TeamPermission.COMPLETE_GOALS,
-    category: 'admin',
-    label: 'Markera mål som klara',
-    description: 'Kan markera mål som slutförda'
+    label: 'Ändra teaminställningar',
+    description: 'Kan ändra teaminställningar'
   }
 };
 
-export const DefaultRolePermissions = {
-  [TeamRole.OWNER]: Object.values(TeamPermission),
-  [TeamRole.ADMIN]: [
-    TeamPermission.VIEW_TEAM,
-    TeamPermission.EDIT_TEAM,
-    TeamPermission.INVITE_MEMBERS,
-    TeamPermission.REMOVE_MEMBERS,
-    TeamPermission.MANAGE_ROLES,
-    TeamPermission.CREATE_ACTIVITIES,
-    TeamPermission.EDIT_ACTIVITIES,
-    TeamPermission.DELETE_ACTIVITIES,
-    TeamPermission.JOIN_ACTIVITIES,
-    TeamPermission.SEND_MESSAGES,
-    TeamPermission.MODERATE_MESSAGES,
-    TeamPermission.UPLOAD_FILES,
-    TeamPermission.MANAGE_FILES,
-    TeamPermission.CREATE_GOALS,
-    TeamPermission.EDIT_GOALS,
-    TeamPermission.DELETE_GOALS,
-    TeamPermission.ADMIN_ACCESS,
-    TeamPermission.MANAGE_TEAM,
-    TeamPermission.UPDATE_TEAM_SETTINGS,
-    TeamPermission.APPROVE_MEMBERS,
-    TeamPermission.MANAGE_CONTENT,
-    TeamPermission.CREATE_POSTS,
-    TeamPermission.DELETE_POSTS,
-    TeamPermission.VIEW_STATISTICS,
-    TeamPermission.EXPORT_DATA,
-    TeamPermission.MANAGE_CHANNELS,
-    TeamPermission.ASSIGN_GOALS,
-    TeamPermission.COMPLETE_GOALS
+// Säkra nyckeltyper för DefaultRolePermissions
+type RoleKey = string;
+
+export const DefaultRolePermissions: Record<RoleKey, TeamPermissionEnum[]> = {
+  // Använd strängvärden istället för computed properties
+  'OWNER': Object.values(TeamPermissionEnum),
+  'ADMIN': [
+    TeamPermissionEnum.VIEW_TEAM,
+    TeamPermissionEnum.EDIT_TEAM,
+    TeamPermissionEnum.VIEW_MEMBERS,
+    TeamPermissionEnum.ADD_MEMBERS,
+    TeamPermissionEnum.REMOVE_MEMBERS,
+    TeamPermissionEnum.CHANGE_MEMBER_ROLE,
+    TeamPermissionEnum.VIEW_ACTIVITIES,
+    TeamPermissionEnum.CREATE_ACTIVITY,
+    TeamPermissionEnum.EDIT_ACTIVITY,
+    TeamPermissionEnum.DELETE_ACTIVITY,
+    TeamPermissionEnum.VIEW_SETTINGS,
+    TeamPermissionEnum.EDIT_SETTINGS
   ],
-  [TeamRole.MEMBER]: [
-    TeamPermission.VIEW_TEAM,
-    TeamPermission.JOIN_ACTIVITIES,
-    TeamPermission.SEND_MESSAGES,
-    TeamPermission.UPLOAD_FILES
+  'MEMBER': [
+    TeamPermissionEnum.VIEW_TEAM,
+    TeamPermissionEnum.VIEW_MEMBERS,
+    TeamPermissionEnum.VIEW_ACTIVITIES,
+    TeamPermissionEnum.VIEW_SETTINGS
   ]
 };
 
@@ -305,12 +254,29 @@ export function getPermissionDescription(permission: TeamPermission): string {
  * Användbart för att jämföra enums med strängar i tester och applikation
  */
 export function equalsTeamPermission(
-  permission: TeamPermission,
-  otherPermission: TeamPermission | string
+  permission: TeamPermission | TeamPermissionValue,
+  otherPermission: TeamPermission | TeamPermissionValue | string
 ): boolean {
+  // Om permission är TeamPermissionValue och har equalsValue-metod, använd den
+  if (permission instanceof TeamPermissionValue) {
+    // Säker typning för parameter till equalsValue
+    return permission.equalsValue(
+      otherPermission instanceof TeamPermissionValue ? 
+        otherPermission.value() : 
+        (otherPermission as TeamPermission)
+    );
+  }
+  
+  // Om permission är enum och otherPermission är TeamPermissionValue
+  if (otherPermission instanceof TeamPermissionValue) {
+    return permission === otherPermission.value();
+  }
+  
+  // Om båda är strängar eller enums
   if (typeof otherPermission === 'string') {
     return permission === otherPermission;
   }
+  
   return permission === otherPermission;
 }
 
@@ -318,16 +284,23 @@ export function equalsTeamPermission(
  * Försöker konvertera en sträng till ett TeamPermission-värde
  * Användbart för tester och gränssnitt där vi tar emot strängar
  */
-export function parseTeamPermission(permissionStr: string): Result<TeamPermission, string> {
+export function parseTeamPermission(permissionStr: string): Result<TeamPermissionValue | TeamPermission, string> {
+  // Försök konvertera till TeamPermissionValue först
+  const teamPermissionValueResult = TeamPermissionValue.create(permissionStr as TeamPermission);
+  if (teamPermissionValueResult.isOk()) {
+    return ok(teamPermissionValueResult.value);
+  }
+  
+  // Alternativt, försök matcha med enum-värdet direkt
   const normalizedStr = permissionStr.toLowerCase();
   
   // Kolla om strängen matchar någon av enum-värdena
-  const matchingPermission = Object.values(TeamPermission).find(
+  const matchingPermission = Object.values(TeamPermissionEnum).find(
     p => p.toLowerCase() === normalizedStr
   );
   
   if (matchingPermission) {
-    return ok(matchingPermission);
+    return ok(matchingPermission as TeamPermission);
   }
   
   return err(`"${permissionStr}" är inte en giltig teambehörighet`);
@@ -338,22 +311,36 @@ export function parseTeamPermission(permissionStr: string): Result<TeamPermissio
  * Hjälper med testkompatibilitet
  */
 export function hasTeamPermission(
-  userPermissions: TeamPermission[] | string[],
-  requiredPermission: TeamPermission | string
+  userPermissions: (TeamPermission | TeamPermissionValue | string)[],
+  requiredPermission: TeamPermission | TeamPermissionValue | string
 ): boolean {
   return userPermissions.some(permission => {
+    // Om permission är en TeamPermissionValue
+    if (permission instanceof TeamPermissionValue) {
+      // Säker typning vid anrop till equalsValue
+      if (requiredPermission instanceof TeamPermissionValue) {
+        return permission.value() === requiredPermission.value();
+      }
+      return permission.value() === requiredPermission;
+    }
+    
+    // Om requiredPermission är en TeamPermissionValue
+    if (requiredPermission instanceof TeamPermissionValue) {
+      return permission === requiredPermission.value();
+    }
+    
+    // Strängjämförelser
     if (typeof permission === 'string' && typeof requiredPermission === 'string') {
       return permission === requiredPermission;
     }
     
-    if (typeof permission === 'string' && typeof requiredPermission !== 'string') {
-      return permission === requiredPermission.toString();
-    }
-    
-    if (typeof permission !== 'string' && typeof requiredPermission === 'string') {
-      return permission.toString() === requiredPermission;
-    }
-    
-    return permission === requiredPermission;
+    // Mixed jämförelser mellan objekt och strängar
+    const permStr = typeof permission === 'string' ? 
+      permission : String(permission);
+      
+    const reqPermStr = typeof requiredPermission === 'string' ? 
+      requiredPermission : String(requiredPermission);
+      
+    return permStr === reqPermStr;
   });
 } 

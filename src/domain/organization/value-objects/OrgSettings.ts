@@ -1,156 +1,102 @@
-import { ValueObject } from '@/shared/core/ValueObject';
+import { ValueObject } from '@/shared/domain/ValueObject';
 import { Result, ok, err } from '@/shared/core/Result';
 
-export interface NotificationSettings {
-  newMembers: boolean;
-  memberLeft: boolean;
-  roleChanges: boolean;
-  activityUpdates: boolean;
-}
-
-export interface OrgSettingsProps {
-  isPrivate: boolean;
-  requiresApproval: boolean;
-  maxMembers: number | null;
-  allowGuests: boolean;
-  notificationSettings: NotificationSettings;
+/**
+ * Interface för OrgSettings properties
+ */
+interface OrgSettingsProps {
   description: string;
   logoUrl: string;
-  name?: string;
-  resourceLimits?: Record<string, number>;
+  maxMembers: number | null;
+  colorSchema?: string;
+  allowTeamCreation?: boolean;
+  [key: string]: any; // Tillåt extra egenskaper för framtida utökning
 }
 
+/**
+ * Värde-objekt för organisationsinställningar
+ */
 export class OrgSettings extends ValueObject<OrgSettingsProps> {
   private constructor(props: OrgSettingsProps) {
     super(props);
   }
 
-  get isPrivate(): boolean {
-    return this.props.isPrivate;
+  /**
+   * Skapar nya organisationsinställningar med standardvärden om inga anges
+   * 
+   * @param props Egenskaper för inställningarna
+   * @returns Ett Result med OrgSettings eller felmeddelande
+   */
+  public static create(props: Partial<OrgSettingsProps> = {}): Result<OrgSettings, string> {
+    try {
+      // Sätt standardvärden för egenskaper som inte anges
+      const defaultProps: OrgSettingsProps = {
+        description: props.description || '',
+        logoUrl: props.logoUrl || '',
+        maxMembers: props.maxMembers !== undefined ? props.maxMembers : 3, // Standard är 3 medlemmar
+        colorSchema: props.colorSchema || 'default',
+        allowTeamCreation: props.allowTeamCreation !== undefined ? props.allowTeamCreation : true,
+      };
+
+      // Kopiera eventuella extraegenskaper från props
+      Object.keys(props).forEach(key => {
+        if (!defaultProps.hasOwnProperty(key)) {
+          defaultProps[key] = props[key];
+        }
+      });
+
+      return ok(new OrgSettings(defaultProps));
+    } catch (error) {
+      return err(`Kunde inte skapa organisationsinställningar: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
-  get requiresApproval(): boolean {
-    return this.props.requiresApproval;
+  /**
+   * Uppdaterar inställningarna med nya värden
+   * 
+   * @param newProps Nya egenskaper att uppdatera med
+   * @returns En ny OrgSettings-instans med uppdaterade värden
+   */
+  public update(newProps: Partial<OrgSettingsProps>): OrgSettings {
+    const updatedResult = OrgSettings.create({
+      ...this.props,
+      ...newProps
+    });
+
+    if (updatedResult.isErr()) {
+      throw new Error(updatedResult.error);
+    }
+
+    return updatedResult.value;
+  }
+
+  /**
+   * Konverterar inställningarna till ett rent JavaScript-objekt
+   */
+  public toJSON(): OrgSettingsProps {
+    return { ...this.props };
+  }
+
+  /**
+   * Getters för olika inställningar
+   */
+  get description(): string {
+    return this.props.description;
+  }
+
+  get logoUrl(): string {
+    return this.props.logoUrl;
   }
 
   get maxMembers(): number | null {
     return this.props.maxMembers;
   }
 
-  set maxMembers(value: number | null) {
-    this.props.maxMembers = value;
+  get colorSchema(): string {
+    return this.props.colorSchema || 'default';
   }
 
-  get allowGuests(): boolean {
-    return this.props.allowGuests;
-  }
-
-  get notificationSettings(): NotificationSettings {
-    return { ...this.props.notificationSettings };
-  }
-
-  get description(): string {
-    return this.props.description || '';
-  }
-
-  set description(value: string) {
-    this.props.description = value;
-  }
-
-  get logoUrl(): string {
-    return this.props.logoUrl || '';
-  }
-
-  set logoUrl(value: string) {
-    this.props.logoUrl = value;
-  }
-
-  get name(): string | undefined {
-    return this.props.name;
-  }
-
-  set name(value: string | undefined) {
-    this.props.name = value;
-  }
-
-  get resourceLimits(): Record<string, number> | undefined {
-    return this.props.resourceLimits ? {...this.props.resourceLimits} : undefined;
-  }
-
-  set resourceLimits(value: Record<string, number> | undefined) {
-    this.props.resourceLimits = value ? {...value} : undefined;
-  }
-
-  public static create(props: Partial<OrgSettingsProps> = {}): Result<OrgSettings, string> {
-    try {
-      // Standardvärden för organisationsinställningar
-      const defaultSettings: OrgSettingsProps = {
-        isPrivate: true,
-        requiresApproval: true,
-        maxMembers: 100,
-        allowGuests: false,
-        notificationSettings: {
-          newMembers: true,
-          memberLeft: true,
-          roleChanges: true,
-          activityUpdates: true
-        },
-        description: '',
-        logoUrl: '',
-        resourceLimits: {}
-      };
-
-      // Kombinera standardinställningar med angivna inställningar
-      const settings: OrgSettingsProps = {
-        ...defaultSettings,
-        ...props,
-        notificationSettings: {
-          ...defaultSettings.notificationSettings,
-          ...(props.notificationSettings || {})
-        }
-      };
-
-      // Validera inställningar
-      if (settings.maxMembers !== null && settings.maxMembers < 1) {
-        return err('Maxgränsen för medlemmar måste vara minst 1');
-      }
-
-      return ok(new OrgSettings(settings));
-    } catch (error) {
-      return err(`Kunde inte skapa organisationsinställningar: ${error.message}`);
-    }
-  }
-
-  public update(updateProps: Partial<OrgSettingsProps>): OrgSettings {
-    const updatedProps: OrgSettingsProps = {
-      ...this.props,
-      ...updateProps,
-      notificationSettings: {
-        ...this.props.notificationSettings,
-        ...(updateProps.notificationSettings || {})
-      }
-    };
-
-    // Använd create för att validera
-    const result = OrgSettings.create(updatedProps);
-    if (result.isErr()) {
-      throw new Error(result.error);
-    }
-
-    return result.value;
-  }
-
-  public toJSON() {
-    return {
-      isPrivate: this.props.isPrivate,
-      requiresApproval: this.props.requiresApproval,
-      maxMembers: this.props.maxMembers,
-      allowGuests: this.props.allowGuests,
-      notificationSettings: { ...this.props.notificationSettings },
-      description: this.props.description,
-      logoUrl: this.props.logoUrl,
-      name: this.props.name,
-      resourceLimits: this.props.resourceLimits
-    };
+  get allowTeamCreation(): boolean {
+    return this.props.allowTeamCreation !== undefined ? this.props.allowTeamCreation : true;
   }
 } 

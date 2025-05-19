@@ -1,7 +1,7 @@
 import { Result } from '@/shared/core/Result';
 import { UniqueId } from '@/shared/core/UniqueId';
 import { Subscription } from '../entities/Subscription';
-import { SubscriptionStatus, SubscriptionUsage } from '../value-objects/SubscriptionTypes';
+import { SubscriptionStatus, SubscriptionUsage } from '../entities/SubscriptionTypes';
 
 /**
  * SubscriptionRepository Interface

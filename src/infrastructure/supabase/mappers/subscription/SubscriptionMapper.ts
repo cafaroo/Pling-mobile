@@ -2,7 +2,7 @@ import { UniqueId } from '../../../../domain/core/UniqueId';
 import { Subscription } from '../../../../domain/subscription/entities/Subscription';
 import { SubscriptionPlan } from '../../../../domain/subscription/entities/SubscriptionPlan';
 import { PlanFeature, PlanLimits } from '../../../../domain/subscription/value-objects/PlanTypes';
-import { BillingAddress, SubscriptionStatus, SubscriptionUsage } from '../../../../domain/subscription/value-objects/SubscriptionTypes';
+import { BillingAddress, SubscriptionStatus, SubscriptionUsage } from '../../../../../domain/subscription/entities/SubscriptionTypes';
 
 export interface SubscriptionDTO {
   id: string;

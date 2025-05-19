@@ -1,7 +1,7 @@
-import { ValueObject } from '../../../shared/core/ValueObject';
-import { UniqueId } from '../../../shared/core/UniqueId';
-import { Result, ok, err } from '../../../shared/core/Result';
+import { UniqueId } from '@/shared/core/UniqueId';
 import { TeamRole, TeamRoleEnum } from './TeamRole';
+import { ValueObject } from '@/shared/domain/ValueObject';
+import { Result, ok, err } from '@/shared/core/Result';
 
 interface TeamMemberProps {
   userId: UniqueId;
@@ -33,22 +33,26 @@ export class TeamMember extends ValueObject<TeamMemberProps> {
 
   public static create(props: {
     userId: string | UniqueId;
-    role: TeamRole | TeamRoleEnum | string;
+    role: TeamRole | TeamRoleEnum | string | null | undefined;
     joinedAt?: Date;
     isApproved?: boolean;
   }): Result<TeamMember, string> {
     try {
-      const userId = props.userId instanceof UniqueId
-        ? props.userId
-        : new UniqueId(props.userId);
+      const userId = UniqueId.from(props.userId);
       
-      // Hantera rollen baserat på olika indata-typer
+      // Hantera rollen baserat på olika indata-typer med bättre felhantering
       let role: TeamRole;
-      if (props.role instanceof TeamRole) {
-        // Om role redan är ett TeamRole-objekt
+      
+      // Specialhantering för null/undefined roller - använd MEMBER som standard
+      if (props.role === null || props.role === undefined) {
+        role = TeamRole.MEMBER;
+      } 
+      // Om role redan är ett TeamRole-objekt
+      else if (props.role instanceof TeamRole) {
         role = props.role;
-      } else {
-        // Konvertera till TeamRole om det är ett enum-värde eller sträng
+      } 
+      // Konvertera till TeamRole om det är ett enum-värde eller sträng
+      else {
         const roleResult = TeamRole.create(props.role);
         if (roleResult.isErr()) {
           return err(`Ogiltig roll: ${roleResult.error}`);

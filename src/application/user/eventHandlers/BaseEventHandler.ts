@@ -16,14 +16,26 @@ export abstract class BaseEventHandler<T extends IDomainEvent> implements IDomai
    */
   public async handleEvent(event: IDomainEvent): Promise<void> {
     try {
+      // Loggning för felsökning
+      console.log('BaseEventHandler.handleEvent:', {
+        expectedEventType: this.eventType,
+        actualEventType: event.eventType,
+        actualName: (event as any).name, // för bakåtkompatibilitet med gamla test
+        matchEventType: event.eventType === this.eventType,
+        matchName: (event as any).name === this.eventType
+      });
+      
       // Kontrollera att eventet är av rätt typ genom att jämföra eventType
-      if (event.eventType === this.eventType) {
+      // Vi kollar både eventType och name för bakåtkompatibilitet
+      if (event.eventType === this.eventType || (event as any).name === this.eventType) {
         // Cast eventet till rätt typ och anropa processEvent
         const result = await this.processEvent(event as T);
         
         if (result.isFailure) {
           console.error(`Fel vid hantering av ${this.eventType}:`, result.error);
         }
+      } else {
+        console.warn(`Event skippat: ${event.eventType} matchar inte ${this.eventType}`);
       }
     } catch (error) {
       console.error(`Oväntat fel vid hantering av ${this.eventType}:`, error);

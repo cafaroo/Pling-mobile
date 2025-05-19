@@ -96,8 +96,9 @@
 Efter senaste fixarna:
 - ✅ Team.invariants.test.ts: Alla 11 tester passerar (100%)
 - ✅ user-team-integration.test.ts: Alla 6 tester passerar (100%)
+- ✅ team-user-hooks-integration.test.tsx: Alla 4 tester passerar (100%)
 - ⚠️ Organization-tester: Behöver samma event-standardisering
-- ⚠️ Hook-tester: Kräver React Query-kontext 
+- ⚠️ Övriga hook-tester: Fortsatt standardisering krävs
 
 ## Framstegsrapport för test-fixar
 
@@ -136,6 +137,16 @@ Efter senaste fixarna:
 
 ## Senaste uppdateringar
 
+### 2024-07-17
+- Fixat integrationstest mellan team- och användardomänen:
+  - Löst problem i team-user-hooks-integration.test.tsx
+  - Implementerat korrekta serviceimplementationer (DefaultTeamService, DefaultUserService)
+  - Korrigerat typkonflikt i TeamRole-hantering mellan string och objekt
+  - Förbättrat felhantering och logging för att identifiera problemkällor
+  - Integrerat med standardiserade React Query-test verktyg
+  - Lagt till explicit cachevalidering för att säkerställa konsekvent testdata
+  - Säkerställt att rätt medlem kan tas bort i teamtest
+
 ### 2024-06-07
 - Implementerat standardiserad React Query-testning:
   - Skapat QueryClientTestProvider för enklare testning av React Query-hooks och komponenter
@@ -171,6 +182,7 @@ Efter senaste fixarna:
 - ✅ QueryClientTestProvider - Standardiserad React Query setup för tester
 - ✅ react-query-testing-guide.md - Guide för att använda React Query i tester
 - ✅ useSubscriptionStandardized.test.tsx - Uppdaterat exempeltest
+- ✅ team-user-hooks-integration.test.tsx - Löst komplexa integrationstest-problem
 
 ### Entiteter och Värde-objekt
 - ✅ TeamRole - Lagts till equalsValue()-metod
@@ -194,13 +206,19 @@ Efter senaste fixarna:
 
 ## Nästa steg
 
-1. Fixa integration-tester mellan domäner
+1. Fortsätta med integration-tester mellan domäner
+   - ✅ User-Team integration (KLART)
    - Organization-Team integration
-   - User-Team integration
+   - Organization-User integration
 
 2. Fixa invariant-tester för organization- och team-domänerna
    - Förbättra Organization.invariants.test.ts 
-   - Förbättra Team.standardized.test.ts 
+   - Förbättra Team.standardized.test.ts
+
+3. Standardisera React Query-hooks
+   - Implementera konsekvent felhantering
+   - Standardisera caching strategier
+   - Förbättra TypeScript-typsäkerhet
 
 ## 2024-05-26: Integration-tester och invarianttester
 
@@ -237,3 +255,121 @@ Vi har lyckats fixa följande testproblem:
 ### Nästa steg
 - Fortsätta med återstående tester
 - Förbättra TypeScript-typing i hooks för att undvika typfel
+
+## 2024-05-28: TeamPermission Value Object och user-team-integration
+
+Vi har fixat integrationstesterna mellan User och Team genom att förbättra hanteringen av TeamPermission:
+
+### Genomförda förbättringar:
+
+1. ✅ **TeamPermissionValue-klass** - Implementerat en fullständig ValueObject-baserad klass för TeamPermission
+   - Lagt till `TeamPermissionValue` klass som ett robust ValueObject
+   - Implementerat `create()`, `equals()`, `equalsValue()` och `toString()` metoder
+   - Stöd för att jämföra med både strängar och andra TeamPermissionValue objekt
+
+2. ✅ **Förbättrad Team.hasPermission** - Moderniserat behörighetshanteringen i Team-entiteten
+   - Lagt till en `hasPermission(role, permission)` metod för att kontrollera om en roll har en behörighet
+   - Uppdaterat `hasMemberPermission(userId, permission)` att använda den nya metoden 
+   - Support för att hantera alla tre typer av behörighetskontroller (enum, string och TeamPermissionValue)
+
+3. ✅ **Förbättrat user-team-integration.test.ts** 
+   - Uppdaterat mockade Team-objekt att implementera hasPermission och hasMemberPermission
+   - Lagt till ett nytt testfall som specifikt testar alla behörighetskombinationer
+   - Validerat att behörigheter fungerar korrekt med alla tre representationer (enum, string, ValueObject)
+
+4. ✅ **Bakåtkompatibla hjälpfunktioner**
+   - Uppdaterat `equalsTeamPermission` och `hasTeamPermission` för att hantera alla typer
+   - Förbättrat `parseTeamPermission` för att returnera antingen TeamPermission enum eller TeamPermissionValue
+
+### Tekniska detaljer:
+
+TeamPermissionValue följer nu samma mönster som TeamRole och andra domänklasser:
+```typescript
+// Exempel på användning
+const permission = TeamPermissionValue.create(TeamPermission.VIEW_TEAM);
+if (permission.isOk()) {
+  team.hasMemberPermission(userId, permission.value);
+}
+```
+
+Behörighetskontroll är nu mycket flexiblare:
+```typescript
+// Alla dessa fungerar likvärdigt
+team.hasMemberPermission(userId, TeamPermission.VIEW_TEAM);
+team.hasMemberPermission(userId, 'view_team');
+team.hasMemberPermission(userId, permissionValueObject);
+```
+
+### Framsteg:
+
+✅ **user-team-integration.test.ts**: Alla tester passerar nu
+✅ **Team.invariants.test.ts**: Fortsätter fungera med den nya implementation
+✅ **Nya tester för behörigheter**: Bekräftar att alla behörigheter fungerar för alla roller
+
+### Nästa steg:
+
+1. Fixa hooks-integrationstester för Organization-Team samspel
+2. Förbättra event-hantering i applikationslagret
+
+## 2024-05-29: Standardisering av hooks-integrationstester
+
+För att förbättra kvaliteten och underhållbarheten av integrationstester mellan olika delar av applikationen har vi utvecklat en standardiserad approach för hooks-integrationstester.
+
+### Genomförda förbättringar:
+
+1. ✅ **Skapade testhjälpklasser** - Implementerat nya klasser för hooks-integrationstester
+   - `HooksIntegrationTestWrapper.tsx` - En wrapper-komponent som hanterar alla nödvändiga providers
+   - `ReactQueryIntegrationTest.tsx` - Hjälpfunktioner för att arbeta med React Query i tester
+   - `mockReactQuery.tsx` - Mockad funktionalitet för React Query-hooks
+
+2. ✅ **Refaktorering av Organization-Team integrationstester** 
+   - Tillämpat den nya standardiserade metoden på `organization-team-integration.test.tsx`
+   - Uppdaterat `team-organization-integration.test.ts` för att använda standardkomponenter
+   - Ersatt manuell mock-logik med standardiserade hjälpfunktioner
+   - Löst problem med reaktivitet i React Query-baserade hooks-tester
+
+3. ✅ **Förbättrad testbarhet**
+   - Förbättrat isolering mellan tester genom konsekvent repository-återställning
+   - Implementerat testdatahjälpare för att skapa och populera testmodeller
+   - Standardiserat approach för att testa queries, mutations och felhantering
+
+4. ✅ **Dokumenterad standardiserad metod**
+   - Skapat `hooks-integration-testing-guide.md` med beskrivning av metodiken
+   - Dokumenterat best practices och mönster för hooks-integrationstestning
+
+### Nästa steg:
+
+Efter denna standardisering är nästa steg att applicera metodiken på fler hooks-tester i applikationen, samt att utveckla fler domänspecifika testhjälpare.
+
+### Upptäckta problem som behöver åtgärdas:
+
+Vid körning av tester med den nya standardiserade testmetodiken upptäcktes följande problem:
+
+1. **Saknade moduler och providers**:
+   - `OrganizationContextProvider` saknas eller har fel sökväg
+   - `GetTeamUseCase` kan inte importeras från '../useCases/getTeam'
+   - `TeamFactory` finns inte i team-domänen
+   - Flera andra saknade importer och moduler
+
+2. **Inkonsekventa interfaces och anrop**:
+   - UniqueId hanteras på olika sätt mellan repositories och tester
+   - `organization.setEventPublisher` och liknande metoder saknas
+   - Många mock-funktioner matchar inte faktiskt användning
+
+3. **Testfixturer och assertions**:
+   - Många assertions testar värden som ändrats i refaktorering
+   - Testdata mellan domäner har inkompatibla strukturer
+   - Event-publiceringar fungerar inte konsekvent
+
+Dessa insikter är viktiga för det fortsatta arbetet med att standardisera testmiljön och kommer att åtgärdas som en del av nästa sprint.
+
+## Fortsatt arbete
+
+För att lyckas med standardiseringen av testmiljön behöver vi:
+
+1. Skapa saknade moduler och standardisera sökvägar
+2. Implementera konsekventa interfaces för repositories och entiteter
+3. Uppdatera assertions och verifieringar i tester
+4. Gradvis migrera alla tester till den nya standardiserade metoden
+
+Med dessa åtgärder kommer vi att bygga en robust och underhållbar testmiljö som främjar fortsatt kodkvalitet och utvecklarhastighet.

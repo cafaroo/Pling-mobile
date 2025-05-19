@@ -4,6 +4,7 @@ import { Result } from '@/shared/core/Result';
 import { UserRepository } from '@/domain/user/repositories/UserRepository';
 import { TeamRepository } from '@/domain/team/repositories/TeamRepository';
 import { OrganizationRepository } from '@/domain/organization/repositories/OrganizationRepository';
+import { UniqueId } from '@/shared/core/UniqueId';
 
 /**
  * Hanterar UserCreated events
@@ -34,8 +35,12 @@ export class UserCreatedHandler extends BaseEventHandler<UserCreated> {
    */
   protected async processEvent(event: UserCreated): Promise<Result<void>> {
     try {
+      // Säkerställ att vi har ett giltigt UniqueId-objekt för att finna användaren
+      // Stöder både UniqueId-objekt och strängar som konverteras till UniqueId-objekt
+      const userId = new UniqueId(event.userId.toString());
+      
       // 1. Hämta den skapade användaren
-      const userResult = await this.userRepository.findById(event.userId);
+      const userResult = await this.userRepository.findById(userId);
       if (userResult.isErr()) {
         return Result.fail(`Kunde inte hitta den skapade användaren: ${userResult.error}`);
       }

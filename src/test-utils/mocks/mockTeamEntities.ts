@@ -204,7 +204,12 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
   // Returnera ett objekt som liknar ett team
   const team = {
     id,
-    ownerId,
+    _ownerId: ownerId, // Spara originalreferensen privat
+    get ownerId() {
+      // Returnera strängen för konsistens med standardiserade tester
+      // Hantera även null/undefined fall för testers
+      return this._ownerId ? this._ownerId.toString() : undefined;
+    },
     name: props.name,
     description: props.description,
     members: [ownerMember], // Lägg till ägaren som medlem direkt vid skapande
@@ -257,10 +262,12 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
       }
       
       // Skapa och lägg till en händelse för uppdatering
-      const updateEvent = new TeamUpdatedEvent(
-        this.id,
-        this.name
-      );
+      const updateEvent = new TeamUpdatedEvent({
+        teamId: this.id,
+        name: this.name,
+        description: this.description,
+        updatedAt: new Date()
+      });
       
       this.addDomainEvent(updateEvent);
       // Publicera även till mockDomainEvents för global åtkomst i tester
@@ -278,12 +285,12 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
         return err('Teamnamn måste vara minst 2 tecken');
       }
       
-      if (!this.ownerId) {
+      if (!this._ownerId) {
         return err('Team måste ha en ägare');
       }
       
       // Validera att ägaren är medlem med OWNER-roll
-      const owner = this.members.find((m: any) => m.userId.equals(this.ownerId));
+      const owner = this.members.find((m: any) => m.userId.equals(this._ownerId));
       console.log('Söker efter ägare bland medlemmar, hittade:', owner ? 'Ja' : 'Nej');
       
       if (!owner) {
@@ -352,11 +359,12 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
       this.members.push(memberToAdd);
       
       // Skapa och lägg till en händelse
-      const memberJoinedEvent = new TeamMemberJoinedEvent(
-        this.id,
-        memberToAdd.userId,
-        memberToAdd.role
-      );
+      const memberJoinedEvent = new TeamMemberJoinedEvent({
+        teamId: this.id,
+        userId: memberToAdd.userId,
+        role: memberToAdd.role.toString(),
+        joinedAt: new Date()
+      });
       
       this.addDomainEvent(memberJoinedEvent);
       // Publicera även till mockDomainEvents för global åtkomst i tester
@@ -367,15 +375,15 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
     
     // Ta bort medlem från teamet
     removeMember: function(userId: UniqueId | string): Result<void, string> {
-      const userIdStr = userId instanceof UniqueId ? userId.toString() : userId;
+      const userIdObj = UniqueId.from(userId);
       
       // Validera att det inte är ägaren
-      if (userIdStr === this.ownerId.toString()) {
+      if (userIdObj.equals(this._ownerId)) {
         return err('Ägaren kan inte tas bort från teamet');
       }
       
       const memberIndex = this.members.findIndex(
-        (m: any) => m.userId.toString() === userIdStr
+        (m: any) => m.userId.equals(userIdObj)
       );
       
       if (memberIndex === -1) {
@@ -386,26 +394,39 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
       this.members.splice(memberIndex, 1);
       
       // Simulera ett domänevent för borttagning med rätt event-klass
-      this.addDomainEvent(new TeamMemberLeftEvent(
-        this.id,
-        memberToRemove.userId
-      ));
+      this.addDomainEvent(new TeamMemberLeftEvent({
+        teamId: this.id,
+        userId: memberToRemove.userId,
+        removedAt: new Date()
+      }));
       
       return ok(undefined);
     },
     
     // Uppdatera en medlems roll
     updateMemberRole: function(userId: UniqueId | string, newRole: string): Result<void, string> {
-      const userIdStr = userId instanceof UniqueId ? userId.toString() : userId;
-      console.log(`updateMemberRole: Uppdaterar roll för ${userIdStr} till ${newRole}`);
+      const userIdObj = UniqueId.from(userId);
       
-      // Validera att det inte är ägaren om rollen inte är OWNER
-      if (userIdStr === this.ownerId.toString() && newRole !== MockTeamRole.OWNER) {
-        return err('Ägarens roll kan inte ändras');
+      // Konvertera string till MockTeamRole för intern bruk
+      let newRoleEnum;
+      if (typeof newRole === 'string') {
+        const upperCaseRole = newRole.toUpperCase();
+        if (upperCaseRole in MockTeamRole) {
+          newRoleEnum = MockTeamRole[upperCaseRole as keyof typeof MockTeamRole];
+        } else {
+          return err(`Ogiltig roll: ${newRole}`);
+        }
+      } else {
+        newRoleEnum = newRole;
+      }
+      
+      // Förhindra ändringar av ägarens roll från OWNER
+      if (userIdObj.equals(this._ownerId) && newRoleEnum !== MockTeamRole.OWNER) {
+        return err('Ägarens roll kan inte ändras från OWNER');
       }
       
       const memberIndex = this.members.findIndex(
-        (m: any) => m.userId.toString() === userIdStr
+        (m: any) => m.userId.equals(userIdObj)
       );
       
       if (memberIndex === -1) {
@@ -413,7 +434,7 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
       }
       
       const oldRole = this.members[memberIndex].role;
-      console.log(`updateMemberRole: Hittade medlem med roll ${oldRole}, ändrar till ${newRole}`);
+      console.log(`updateMemberRole: Hittade medlem med roll ${oldRole}, ändrar till ${newRoleEnum}`);
       
       // Istället för att sätta rollen direkt, ta bort den gamla medlemmen och lägg till en ny
       // med den nya rollen
@@ -425,7 +446,7 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
       // Skapa en ny medlem med samma ID men med den nya rollen (via MockTeamMember.create för konsistens)
       const newMemberResult = MockTeamMember.create({
         userId: userIdToRemove,
-        role: newRole,
+        role: newRoleEnum,
         joinedAt: new Date()
       });
       
@@ -438,15 +459,16 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
       // Lägg till den nya medlemmen
       this.members.push(newMember);
       
-      console.log(`updateMemberRole: Skapar RoleChangedEvent med oldRole=${oldRole}, newRole=${newRole}`);
+      console.log(`updateMemberRole: Skapar RoleChangedEvent med oldRole=${oldRole}, newRole=${newRoleEnum}`);
       
       // Simulera ett domänevent för rollförändring med rätt event-klass
-      this.addDomainEvent(new TeamMemberRoleChangedEvent(
-        this.id,
-        userIdToRemove,
-        oldRole,
-        newRole
-      ));
+      this.addDomainEvent(new TeamMemberRoleChangedEvent({
+        teamId: this.id,
+        userId: userIdToRemove,
+        oldRole: oldRole.toString(),
+        newRole: newRoleEnum.toString(),
+        changedAt: new Date()
+      }));
       
       return ok(undefined);
     },
@@ -514,11 +536,12 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
       this.invitations.push(invitation);
       
       // Skapa och lägg till en händelse med rätt event-klass
-      const invitationEvent = new TeamInvitationSentEvent(
-        this.id,
-        invitation.email,
-        invitation.invitedBy
-      );
+      const invitationEvent = new TeamInvitationSentEvent({
+        teamId: this.id,
+        inviteeEmail: invitation.email,
+        senderId: invitation.invitedBy,
+        sentAt: new Date()
+      });
       
       this.addDomainEvent(invitationEvent);
       // Publicera även till mockDomainEvents för global åtkomst i tester
@@ -529,11 +552,11 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
     
     // Metod för att hantera svar på inbjudan (accept/decline)
     handleInvitationResponse: function(userId: string | UniqueId, accept: boolean): Result<void, string> {
-      const userIdStr = userId instanceof UniqueId ? userId.toString() : userId;
+      const userIdObj = UniqueId.from(userId);
       
       // Hitta inbjudan
       const invitationIndex = this.invitations.findIndex((inv: any) => 
-        inv.userId && inv.userId.toString() === userIdStr
+        inv.userId && inv.userId.equals(userIdObj)
       );
       
       if (invitationIndex === -1) {
@@ -547,18 +570,19 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
       
       if (accept) {
         // Skapa händelse för accepterad inbjudan med rätt event-klass
-        const acceptedEvent = new TeamInvitationAcceptedEvent(
-          this.id,
-          invitation.email,
-          invitation.userId
-        );
+        const acceptedEvent = new TeamInvitationAcceptedEvent({
+          teamId: this.id,
+          inviteeEmail: invitation.email,
+          inviteeId: invitation.userId,
+          acceptedAt: new Date()
+        });
         
         this.addDomainEvent(acceptedEvent);
         mockDomainEvents.publish(acceptedEvent);
         
         // Skapa ny medlem
         const newMember = MockTeamMember.create({
-          userId: userIdStr,
+          userId: userIdObj,
           role: invitation.role || MockTeamRole.MEMBER,
           joinedAt: new Date()
         }).value;
@@ -567,10 +591,11 @@ export function createMockTeam(props: MockTeamCreateDTO): any {
         return this.addMember(newMember);
       } else {
         // Skapa händelse för avböjd inbjudan med rätt event-klass
-        const declinedEvent = new TeamInvitationDeclinedEvent(
-          this.id,
-          invitation.email
-        );
+        const declinedEvent = new TeamInvitationDeclinedEvent({
+          teamId: this.id,
+          inviteeEmail: invitation.email,
+          declinedAt: new Date()
+        });
         
         this.addDomainEvent(declinedEvent);
         mockDomainEvents.publish(declinedEvent);
@@ -664,14 +689,14 @@ export class MockTeam {
       const createdEvent = new TeamCreatedEvent({
         teamId: mockTeam.id,
         name: mockTeam.name,
-        ownerId: mockTeam.ownerId,
+        ownerId: mockTeam._ownerId,
         createdAt: new Date()
       });
       
       mockTeam.addDomainEvent(createdEvent);
       mockDomainEvents.publish(createdEvent);
       
-      console.log('Team skapades med ägare:', mockTeam.ownerId.toString());
+      console.log('Team skapades med ägare:', mockTeam.ownerId);
       console.log('Teamet har medlemmar:', mockTeam.members.length);
       mockTeam.members.forEach((m: any, i: number) => {
         console.log(`- Medlem ${i+1}: ${m.userId.toString()}, roll: ${m.role}`);

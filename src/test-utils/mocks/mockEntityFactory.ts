@@ -22,28 +22,64 @@ import { mockDomainEvents } from './mockDomainEvents';
 import { OrganizationCreatedEvent } from './mockOrganizationEvents';
 import { Email } from '@/domain/user/value-objects/Email';
 import { OrganizationMember } from '@/domain/organization/value-objects/OrganizationMember';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
- * Hjälpfunktion för att säkert hämta en del av en sträng
- * Returnerar en tom sträng om ingången är null, undefined eller inte en sträng
+ * Säker substring-funktion som hanterar både strängar och objekt med toString-metod
+ * @param value Värdet att ta substring av
+ * @param start Startposition
+ * @param end Slutposition (valfri)
+ * @returns Substring av värdet
  */
-function safeSubstring(str: any, start: number, end?: number): string {
-  if (str === null || str === undefined || typeof str !== 'string') {
+function safeSubstring(value: any, start: number, end?: number): string {
+  if (value === undefined || value === null) {
     return '';
   }
+  
+  let stringValue: string;
+  
   try {
-    return end ? str.substring(start, end) : str.substring(start);
+    if (typeof value === 'string') {
+      stringValue = value;
+    } else if (typeof value === 'object' && value !== null) {
+      if (value instanceof UniqueId) {
+        stringValue = value.toString();
+      } else if (typeof value.toString === 'function') {
+        // Använd explicit try-catch för toString eftersom det kan kasta fel
+        try {
+          stringValue = value.toString();
+        } catch (error) {
+          console.error('Error i toString-anrop:', error);
+          stringValue = String(value);
+        }
+      } else {
+        stringValue = String(value);
+      }
+    } else {
+      stringValue = String(value);
+    }
+    
+    if (typeof stringValue !== 'string') {
+      console.warn('safeSubstring: toString gav inte en sträng', { 
+        originalValue: value, 
+        stringValue 
+      });
+      return ''; // Om vi fortfarande inte har en sträng, returnera tom sträng
+    }
+    
+    return end ? stringValue.substring(start, end) : stringValue.substring(start);
   } catch (error) {
+    console.error('Fel i safeSubstring:', error);
     return '';
   }
 }
 
 /**
- * Genererar en slumpmässig e-postadress för testsyften
+ * Genererar en testemail
  */
 function generateTestEmail(prefix: string = 'test'): string {
-  const randomPart = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-  return `${prefix}_${randomPart}@example.com`;
+  const randomId = uuidv4().substring(0, 8);
+  return `${prefix}.${randomId}@example.com`;
 }
 
 /**
@@ -108,6 +144,132 @@ export class MockEntityFactory {
   }
   
   /**
+   * Skapa en mock-Team
+   * 
+   * Denna metod skapar automatiskt en TeamMember för ägaren
+   * för att uppfylla invarianten att ägaren måste vara medlem
+   * med OWNER-roll.
+   */
+  static async createMockTeam(
+    teamId: string | undefined = undefined,
+    props: Partial<TeamProps> = {}
+  ): Promise<Result<Team, string>> {
+    try {
+      // Använd angivet ID eller skapa nytt
+      const id = teamId ? new UniqueId(teamId) : new UniqueId();
+      
+      // Skapa ägaren om det behövs
+      let ownerId = props.ownerId ? new UniqueId(props.ownerId) : new UniqueId();
+      let ownerUser = props.ownerUser;
+      
+      if (!ownerUser && !props.ownerId) {
+        // Skapa en standardägare om ingen angavs
+        const ownerResult = await this.createMockUser(ownerId.toString(), {
+          firstName: 'Team',
+          lastName: 'Owner'
+        });
+        
+        if (ownerResult.isErr()) {
+          return Result.err(`Kunde inte skapa teamägare: ${ownerResult.error}`);
+        }
+        
+        ownerUser = ownerResult.value;
+        ownerId = ownerUser.id;
+      }
+      
+      // För debugging
+      console.log('createMockTeam - ägare:', {
+        ownerIdString: ownerId.toString(),
+        ownerIdObject: ownerId,
+        members: props.members
+      });
+      
+      // Grund-egenskaper för team
+      const baseProps = {
+        id,
+        name: props.name || `Test Team ${safeSubstring(id, 0, 5)}`,
+        description: props.description || 'Detta är ett testteam',
+        logo: props.logo || null,
+        members: props.members || [],
+        organizationId: props.organizationId ? new UniqueId(props.organizationId) : new UniqueId(),
+        createdAt: props.createdAt || new Date(),
+        updatedAt: props.updatedAt || new Date(),
+        ownerId: ownerId,
+        settings: props.settings || {
+          maxMembers: 10,
+          isPublic: true,
+          allowInvites: true
+        }
+      };
+      
+      // Kontrollera om ägaren redan finns i medlemslistan
+      let ownerAlreadyMember = false;
+      
+      if (baseProps.members && baseProps.members.length > 0) {
+        ownerAlreadyMember = baseProps.members.some(
+          member => {
+            const memberUserId = member.userId instanceof UniqueId 
+              ? member.userId.toString() 
+              : member.userId.toString();
+            
+            const ownerIdString = ownerId instanceof UniqueId
+              ? ownerId.toString()
+              : ownerId.toString();
+              
+            console.log('Kontrollerar om ägare är medlem:', {
+              memberUserId,
+              ownerIdString,
+              isMatch: memberUserId === ownerIdString
+            });
+            
+            return memberUserId === ownerIdString;
+          }
+        );
+      }
+      
+      console.log('createMockTeam - ownerAlreadyMember:', ownerAlreadyMember);
+      
+      // Om ägaren inte är medlem, lägg till som OWNER
+      if (!ownerAlreadyMember) {
+        // Använd TeamRole.OWNER statiskt värde-objekt
+        const ownerRole = TeamRole.OWNER;
+        
+        // Lägg till ägaren som medlem med ägarroll
+        const ownerMemberResult = TeamMember.create({
+          userId: ownerId,
+          role: ownerRole,
+          joinedAt: new Date(),
+          isApproved: true
+        });
+        
+        if (ownerMemberResult.isErr()) {
+          return Result.err(`Kunde inte skapa ägarmedlem: ${ownerMemberResult.error}`);
+        }
+        
+        console.log('createMockTeam - lägger till ägare som medlem:', {
+          ownerId: ownerId.toString(),
+          role: ownerRole
+        });
+        
+        baseProps.members = [...baseProps.members, ownerMemberResult.value];
+      }
+      
+      // Skapa teamet
+      const result = Team.create(baseProps);
+      
+      if (result.isErr()) {
+        console.error('Fel vid skapande av team:', result.error, { baseProps });
+        return result;
+      }
+      
+      return Result.ok(result.value);
+    } catch (error) {
+      console.error('Exception i createMockTeam:', error);
+      return Result.err(`Oväntat fel vid skapande av team: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
    * Skapa en mock-Organization
    * 
    * Denna metod skapar automatiskt en OrganizationMember för ägaren
@@ -119,78 +281,85 @@ export class MockEntityFactory {
     props: Partial<OrganizationProps> = {}
   ): Promise<Result<Organization, string>> {
     try {
-      // Skapa unika ID:n om de inte är angivna
+      // Använd angivet ID eller skapa nytt
       const id = organizationId ? new UniqueId(organizationId) : new UniqueId();
       
-      // Skapa en ägare om den inte är angiven
-      let owner: User;
-      if (props.ownerUser) {
-        owner = props.ownerUser;
-      } else if (props.ownerId) {
-        const ownerId = props.ownerId instanceof UniqueId ? props.ownerId.toString() : props.ownerId;
-        const ownerResult = await this.createUser({ id: ownerId });
-        owner = ownerResult;
-      } else {
-        const ownerResult = await this.createUser();
-        owner = ownerResult;
+      // Skapa ägaren om det behövs
+      let ownerId = props.ownerId ? new UniqueId(props.ownerId) : new UniqueId();
+      let ownerUser = props.ownerUser;
+      
+      if (!ownerUser && !props.ownerId) {
+        // Skapa en standardägare om ingen angavs
+        const ownerResult = await this.createMockUser(ownerId.toString(), {
+          firstName: 'Org',
+          lastName: 'Owner'
+        });
+        
+        if (ownerResult.isErr()) {
+          return Result.err(`Kunde inte skapa organisationsägare: ${ownerResult.error}`);
+        }
+        
+        ownerUser = ownerResult.value;
+        ownerId = ownerUser.id;
       }
       
-      const ownerId = owner.id;
-      
-      // Skapa en standardlista med medlemmar om ingen är angiven
-      let orgMembers = props.members || [];
-      
-      // Se till att minst en medlem finns (ägaren)
-      const ownerAlreadyMember = orgMembers.some(m => {
-        try {
-          return m.userId.equals(ownerId);
-        } catch (error) {
-          return false;
+      // Grund-egenskaper för organisation
+      const baseProps = {
+        id,
+        name: props.name || `Test Organization ${safeSubstring(id, 0, 5)}`,
+        description: props.description || 'Detta är en testorganisation',
+        logo: props.logo || null,
+        members: props.members || [],
+        createdAt: props.createdAt || new Date(),
+        updatedAt: props.updatedAt || new Date(),
+        ownerId: ownerId,
+        planId: props.planId || 'basic',
+        settings: props.settings || {
+          maxTeams: 5,
+          maxMembersPerTeam: 10,
+          maxMembers: 20,
+          features: ['core', 'teams', 'messaging']
         }
-      });
+      };
       
+      // Kontrollera om ägaren redan finns i medlemslistan
+      let ownerAlreadyMember = false;
+      
+      if (baseProps.members.length > 0) {
+        ownerAlreadyMember = baseProps.members.some(
+          member => member.userId.toString() === ownerId.toString()
+        );
+      }
+      
+      // Om ägaren inte är medlem, lägg till som OWNER
       if (!ownerAlreadyMember) {
-        // Skapa OrganizationRole.OWNER värde-objekt
-        const ownerRoleResult = OrganizationRole.owner();
-        if (ownerRoleResult.isErr()) {
-          throw new Error(`Kunde inte skapa OrganizationRole.OWNER: ${ownerRoleResult.error}`);
-        }
+        // Använd OrganizationRole.OWNER statiskt värde-objekt
+        const ownerRole = OrganizationRole.OWNER;
         
         // Lägg till ägaren som medlem med ägarroll
         const ownerMemberResult = OrganizationMember.create({
           userId: ownerId,
-          role: ownerRoleResult.value,
+          role: ownerRole,
           joinedAt: new Date()
         });
         
         if (ownerMemberResult.isErr()) {
-          throw new Error(`Kunde inte skapa ägarmembership: ${ownerMemberResult.error}`);
+          return Result.err(`Kunde inte skapa ägarmedlem: ${ownerMemberResult.error}`);
         }
         
-        orgMembers.push(ownerMemberResult.value);
+        baseProps.members = [...baseProps.members, ownerMemberResult.value];
       }
       
-      // Skapa en enkel Organization-instans med standardvärden
-      const organizationResult = Organization.create({
-        id,
-        name: props.name || `Test Organization ${id.toString().substring(0, 5)}`,
-        description: props.description || `Test Organization description`,
-        ownerId,
-        members: orgMembers,
-        isVerified: props.isVerified ?? false,
-        settings: props.settings || { maxTeams: 5, maxMembers: 50 },
-        createdAt: props.createdAt || new Date(),
-        updatedAt: props.updatedAt || new Date(),
-        resources: props.resources || []
-      });
+      // Skapa organisationen
+      const result = Organization.create(baseProps);
       
-      if (organizationResult.isErr()) {
-        throw new Error(`Kunde inte skapa organisation: ${organizationResult.error}`);
+      if (result.isErr()) {
+        return Result.err(`Kunde inte skapa organisation: ${result.error}`);
       }
       
-      return organizationResult;
+      return Result.ok(result.value);
     } catch (error) {
-      return err(error instanceof Error ? error.message : 'Okänt fel vid skapande av mock-organisation');
+      return Result.err(`Oväntat fel vid skapande av organisation: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   
@@ -208,7 +377,7 @@ export class MockEntityFactory {
     try {
       const id = userId ? new UniqueId(userId) : new UniqueId();
       
-      // Använd default-namnkomponenter som är minst 2 tecken långa
+      // Använd default-namnkomponenter som garanterat är minst 2 tecken långa
       const defaultFirstName = props.firstName || 'TestUser';
       const defaultLastName = props.lastName || 'TestLastName';
       
@@ -252,6 +421,7 @@ export class MockEntityFactory {
       // Skapa användaren med alla värden
       const userResult = User.create({
         id,
+        name: props.name || `${defaultFirstName} ${defaultLastName}`, // Lägg till namn
         profile: profileResult.value,
         email: emailResult.value,
         settings: settingsResult.value,
@@ -267,102 +437,6 @@ export class MockEntityFactory {
       return userResult;
     } catch (error) {
       return err(error instanceof Error ? error.message : 'Okänt fel vid skapande av mock-användare');
-    }
-  }
-  
-  /**
-   * Skapa en mock-Team
-   * 
-   * Denna metod skapar automatiskt en TeamMember för ägaren
-   * för att uppfylla invarianten att ägaren måste vara medlem
-   * med OWNER-roll.
-   */
-  static async createMockTeam(
-    teamId: string | undefined = undefined,
-    props: Partial<TeamProps> = {}
-  ): Promise<Result<Team, string>> {
-    try {
-      // Skapa unika ID:n om de inte är angivna
-      const id = teamId ? new UniqueId(teamId) : new UniqueId();
-      
-      // Skapa en ägare om den inte är angiven
-      let owner: User;
-      if (props.ownerUser) {
-        owner = props.ownerUser;
-      } else if (props.ownerId) {
-        const ownerId = props.ownerId instanceof UniqueId ? props.ownerId.toString() : props.ownerId;
-        const ownerResult = await this.createUser({ id: ownerId });
-        owner = ownerResult;
-      } else {
-        const ownerResult = await this.createUser();
-        owner = ownerResult;
-      }
-      
-      const ownerId = owner.id;
-      
-      // Skapa en standardlista med medlemmar om ingen är angiven
-      let teamMembers = props.members || [];
-      
-      // Se till att minst en medlem finns (ägaren)
-      const ownerAlreadyMember = teamMembers.some(m => {
-        try {
-          return m.userId.equals(ownerId);
-        } catch (error) {
-          return false;
-        }
-      });
-      
-      if (!ownerAlreadyMember) {
-        // Skapa TeamRole.OWNER värde-objekt
-        const ownerRoleResult = TeamRole.owner();
-        if (ownerRoleResult.isErr()) {
-          throw new Error(`Kunde inte skapa TeamRole.OWNER: ${ownerRoleResult.error}`);
-        }
-        
-        // Lägg till ägaren som medlem med ägarroll
-        const ownerMemberResult = TeamMember.create({
-          userId: ownerId,
-          role: ownerRoleResult.value,
-          joinedAt: new Date(),
-          isApproved: true
-        });
-        
-        if (ownerMemberResult.isErr()) {
-          throw new Error(`Kunde inte skapa ägarmembership: ${ownerMemberResult.error}`);
-        }
-        
-        teamMembers.push(ownerMemberResult.value);
-      }
-      
-      // Skapa ett organization-ID om det behövs
-      let organizationId = props.organizationId;
-      if (organizationId) {
-        organizationId = organizationId instanceof UniqueId ? 
-          organizationId : 
-          new UniqueId(organizationId.toString());
-      }
-      
-      // Skapa en enkel Team-instans med standardvärden
-      const teamResult = Team.create({
-        id,
-        name: props.name || `Test Team ${id.toString().substring(0, 5)}`,
-        description: props.description || `Test Team description`,
-        ownerId,
-        organizationId,
-        members: teamMembers,
-        isPrivate: props.isPrivate ?? false,
-        settings: props.settings || { maxMembers: 10 },
-        createdAt: props.createdAt || new Date(),
-        updatedAt: props.updatedAt || new Date()
-      });
-      
-      if (teamResult.isErr()) {
-        throw new Error(`Kunde inte skapa team: ${teamResult.error}`);
-      }
-      
-      return teamResult;
-    } catch (error) {
-      return err(error instanceof Error ? error.message : 'Okänt fel vid skapande av mock-team');
     }
   }
   
@@ -517,7 +591,7 @@ export class MockEntityFactory {
         this.createMockUser({
           id: memberId,
           firstName: 'Team',
-          lastName: `Member_${memberId.substring(0, 5)}`
+          lastName: `Member_${safeSubstring(memberId, 0, 5)}`
         })
       );
       
@@ -585,7 +659,7 @@ export class MockEntityFactory {
         this.createMockUser({
           id: memberId,
           firstName: 'Organization',
-          lastName: `Member_${memberId.substring(0, 5)}`
+          lastName: `Member_${safeSubstring(memberId, 0, 5)}`
         })
       );
       
@@ -639,6 +713,121 @@ export class MockEntityFactory {
     }
     
     return result.value;
+  }
+
+  /**
+   * Skapar ett Team-mocksobjekt med en enklare synkron metod för standardiserade tester
+   * 
+   * Denna metod använder createMockTeam från mockTeamEntities.ts som är synkron, till
+   * skillnad från den asynkrona createMockTeam-metoden som används för full integration
+   */
+  static createMockTeamSync(props: {
+    name?: string;
+    description?: string;
+    ownerId?: string;
+    settings?: any;
+  } = {}): Result<any, string> {
+    try {
+      // Importera mockDomainEvents
+      const { mockDomainEvents } = require('./mockDomainEvents');
+      
+      // Rensa eventuella tidigare events
+      mockDomainEvents.clearEvents();
+      
+      // Använd mockTeamEntities.createMockTeam som är synkron
+      const team = createMockTeam({
+        name: props.name || 'Test Team',
+        description: props.description || 'Test description',
+        ownerId: props.ownerId || 'test-owner-id',
+        settings: props.settings || { maxMembers: 10 }
+      });
+      
+      // Säkerställ att domainEvents är en array och att getDomainEvents returnerar en kopia
+      if (!team.domainEvents) {
+        team.domainEvents = [];
+      }
+      
+      // Kontrollera att getDomainEvents finns
+      if (!team.getDomainEvents) {
+        team.getDomainEvents = function() {
+          return [...this.domainEvents];
+        };
+      }
+      
+      // Se till att addDomainEvent publicerar till både lokal och global eventlista
+      const originalAddDomainEvent = team.addDomainEvent;
+      team.addDomainEvent = function(event) {
+        // Anropa den ursprungliga metoden
+        originalAddDomainEvent.call(this, event);
+        
+        // Publicera också till mockDomainEvents
+        mockDomainEvents.publish(event);
+      };
+      
+      // Skapa och publicera en TeamCreatedEvent om den inte redan finns
+      if (team.domainEvents.length === 0) {
+        const { TeamCreatedEvent } = require('../../domain/team/events/TeamCreatedEvent');
+        
+        const createdEvent = new TeamCreatedEvent({
+          teamId: team.id,
+          name: team.name,
+          ownerId: team._ownerId || team.ownerId,
+          createdAt: new Date()
+        });
+        
+        team.addDomainEvent(createdEvent);
+      }
+      
+      // Lägg till implementering av AggregateRoot-metoder för standardiserade tester
+      team.validateInvariants = team.validateInvariants || function() { 
+        // Validera obligatoriska fält
+        if (!this.name || this.name.trim().length < 2) {
+          return err('Teamnamn måste vara minst 2 tecken');
+        }
+        
+        // Validera att ägaren är medlem med OWNER-roll
+        const owner = this.members.find((m) => m.userId.toString() === this.ownerId);
+        if (!owner) {
+          return err('Ägaren måste vara medlem i teamet med OWNER-roll');
+        }
+        
+        // Validera medlemsgränser om de är satta
+        if (this.settings && this.settings.maxMembers && this.members.length > this.settings.maxMembers) {
+          return err('Teamet har överskridit sin medlemsgräns');
+        }
+        
+        return ok(undefined);
+      };
+      
+      // Anpassa addMember för att hantera invariantTestHelper
+      const originalAddMember = team.addMember;
+      team.addMember = function(member) {
+        // Kontrollera medlemsgränsen (för invariantTesting)
+        if (this.settings && this.settings.maxMembers && this.members.length >= this.settings.maxMembers) {
+          return err('Teamet har nått sin maximala medlemsgräns');
+        }
+        
+        // Anropa den ursprungliga metoden
+        return originalAddMember.call(this, member);
+      };
+      
+      // Anpassa removeMember för att hantera invariantTestHelper
+      const originalRemoveMember = team.removeMember;
+      team.removeMember = function(userId) {
+        // Kontrollera om det är ägaren (för invariantTesting)
+        const userIdStr = userId instanceof UniqueId ? userId.toString() : userId;
+        if (userIdStr === this.ownerId) {
+          return err('Ägaren kan inte tas bort från teamet');
+        }
+        
+        // Anropa den ursprungliga metoden
+        return originalRemoveMember.call(this, userId);
+      };
+      
+      return ok(team);
+    } catch (error) {
+      return err(`Kunde inte skapa mock team: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }
 

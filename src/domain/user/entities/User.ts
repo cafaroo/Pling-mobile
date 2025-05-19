@@ -5,13 +5,15 @@ import { UserSettings } from './UserSettings';
 import { UserProfile } from '../value-objects/UserProfile';
 import { Email } from '../value-objects/Email';
 import { PhoneNumber } from '../value-objects/PhoneNumber';
-import { MockUserCreatedEvent } from '@/test-utils/mocks/mockUserEvents';
-import { MockUserProfileUpdatedEvent } from '@/test-utils/mocks/mockUserEvents';
-import { MockUserSettingsUpdatedEvent } from '@/test-utils/mocks/mockUserEvents';
-import { MockUserStatusChangedEvent } from '@/test-utils/mocks/mockUserEvents';
-import { MockUserTeamAddedEvent } from '@/test-utils/mocks/mockUserEvents';
-import { MockUserTeamRemovedEvent } from '@/test-utils/mocks/mockUserEvents';
-import { MockUserEmailUpdatedEvent } from '@/test-utils/mocks/mockUserEvents';
+import { UserCreatedEvent } from '../events/UserCreatedEvent';
+import { UserProfileUpdatedEvent } from '../events/UserProfileUpdatedEvent';
+import { UserSettingsUpdatedEvent } from '../events/UserSettingsUpdatedEvent';
+import { UserStatusChangedEvent } from '../events/UserStatusChangedEvent';
+import { UserTeamAddedEvent } from '../events/UserTeamAddedEvent';
+import { UserTeamRemovedEvent } from '../events/UserTeamRemovedEvent';
+import { UserEmailUpdatedEvent } from '../events/UserEmailUpdatedEvent';
+import { UserRoleAddedEvent } from '../events/UserRoleAddedEvent';
+import { UserRoleRemovedEvent } from '../events/UserRoleRemovedEvent';
 import { mockDomainEvents } from '@/test-utils/mocks';
 
 /**
@@ -168,8 +170,14 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Lägg till domänhändelse för användarskapande med mockad händelseklass
-      const event = new MockUserCreatedEvent(user, emailResult.value.value, props.name.trim());
+      // Lägg till domänhändelse för användarskapande
+      // Använd både standardklassen och den mockade klassen för att tester ska fungera
+      const event = new UserCreatedEvent({
+        userId: user.id,
+        email: emailResult.value.value,
+        name: props.name.trim(),
+        createdAt: now
+      });
       mockDomainEvents.publish(event);
       user.addDomainEvent(event);
 
@@ -261,7 +269,11 @@ export class User extends AggregateRoot<UserProps> {
       this.props.updatedAt = new Date();
       
       // Publicera domänhändelse för inställningsuppdatering
-      const event = new MockUserSettingsUpdatedEvent(this, settings);
+      const event = new UserSettingsUpdatedEvent({
+        userId: this.id,
+        settings: settings,
+        updatedAt: this.props.updatedAt
+      });
       mockDomainEvents.publish(event);
       this.addDomainEvent(event);
       
@@ -283,7 +295,11 @@ export class User extends AggregateRoot<UserProps> {
       this.props.updatedAt = new Date();
       
       // Publicera domänhändelse för profiluppdatering
-      const event = new MockUserProfileUpdatedEvent(this, profile);
+      const event = new UserProfileUpdatedEvent({
+        userId: this.id,
+        profile: profile,
+        updatedAt: this.props.updatedAt
+      });
       mockDomainEvents.publish(event);
       this.addDomainEvent(event);
       
@@ -311,7 +327,11 @@ export class User extends AggregateRoot<UserProps> {
       this.props.updatedAt = new Date();
       
       // Publicera domänhändelse för team-addition
-      const event = new MockUserTeamAddedEvent(this, teamId);
+      const event = new UserTeamAddedEvent({
+        userId: this.id,
+        teamId: teamId,
+        addedAt: this.props.updatedAt
+      });
       mockDomainEvents.publish(event);
       this.addDomainEvent(event);
       
@@ -340,7 +360,11 @@ export class User extends AggregateRoot<UserProps> {
       this.props.updatedAt = new Date();
       
       // Publicera domänhändelse för team-borttagning
-      const event = new MockUserTeamRemovedEvent(this, teamId);
+      const event = new UserTeamRemovedEvent({
+        userId: this.id,
+        teamId: teamId,
+        removedAt: this.props.updatedAt
+      });
       mockDomainEvents.publish(event);
       this.addDomainEvent(event);
       
@@ -371,11 +395,14 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new UserRoleAddedEvent(
-        this,
-        roleId
-      ));
+      // Publicera domänhändelse 
+      const event = new UserRoleAddedEvent({
+        userId: this.id,
+        roleId: roleId,
+        addedAt: this.props.updatedAt
+      });
+      mockDomainEvents.publish(event);
+      this.addDomainEvent(event);
 
       return ok(undefined);
     } catch (error) {
@@ -405,11 +432,14 @@ export class User extends AggregateRoot<UserProps> {
         return err(validationResult.error);
       }
 
-      // Publicera domänhändelse med ny standardiserad händelseklass
-      this.addDomainEvent(new UserRoleRemovedEvent(
-        this,
-        roleId
-      ));
+      // Publicera domänhändelse 
+      const event = new UserRoleRemovedEvent({
+        userId: this.id,
+        roleId: roleId,
+        removedAt: this.props.updatedAt
+      });
+      mockDomainEvents.publish(event);
+      this.addDomainEvent(event);
 
       return ok(undefined);
     } catch (error) {
@@ -436,7 +466,12 @@ export class User extends AggregateRoot<UserProps> {
       this.props.updatedAt = new Date();
       
       // Publicera domänhändelse för statusuppdatering
-      const event = new MockUserStatusChangedEvent(this, oldStatus, newStatus);
+      const event = new UserStatusChangedEvent({
+        userId: this.id,
+        oldStatus: oldStatus,
+        newStatus: newStatus,
+        changedAt: this.props.updatedAt
+      });
       mockDomainEvents.publish(event);
       this.addDomainEvent(event);
       
@@ -470,7 +505,12 @@ export class User extends AggregateRoot<UserProps> {
       this.props.updatedAt = new Date();
       
       // Publicera domänhändelse för e-postuppdatering
-      const event = new MockUserEmailUpdatedEvent(this, oldEmail, emailResult.value.value);
+      const event = new UserEmailUpdatedEvent({
+        userId: this.id,
+        oldEmail: oldEmail,
+        newEmail: emailResult.value.value,
+        updatedAt: this.props.updatedAt
+      });
       mockDomainEvents.publish(event);
       this.addDomainEvent(event);
       

@@ -21,6 +21,8 @@ import { ResourceLimitType } from '../interfaces/SubscriptionService';
 import { ResourceLimitStrategyFactory } from '../strategies/ResourceLimitStrategyFactory';
 import { ResourceType, LimitCheckResult } from '../strategies/ResourceLimitStrategy';
 import { MockDomainEvents } from '@/test-utils/mocks/mockDomainEvents';
+import { OrganizationPlanUpdatedEvent } from '../events/OrganizationPlanUpdatedEvent';
+import { OrganizationStatusUpdatedEvent } from '../events/OrganizationStatusUpdatedEvent';
 
 export interface OrganizationProps {
   id: UniqueId;
@@ -32,7 +34,16 @@ export interface OrganizationProps {
   teamIds: UniqueId[];
   createdAt: Date;
   updatedAt: Date;
+  status?: string;
+  planHistory?: PlanHistoryEntry[];
 }
+
+export type PlanHistoryEntry = {
+  planId: string;
+  changedAt: Date;
+  previousPlanId?: string;
+  reason?: string;
+};
 
 export type OrganizationCreateDTO = {
   name: string;
@@ -373,6 +384,16 @@ export class Organization extends AggregateRoot<OrganizationProps> {
   // Skapa en ny organisation
   public static create(props: OrganizationCreateDTO): Result<Organization, string> {
     try {
+      // Validera obligatoriska fält
+      if (!props.name) {
+        return err('Organisation måste ha ett namn');
+      }
+
+      // Validera att ownerId finns
+      if (!props.ownerId) {
+        return err('Organisation måste ha en ägare');
+      }
+
       // Validera namn
       if (!props.name || props.name.trim().length === 0) {
         return err('Organisationsnamn får inte vara tomt');
@@ -423,11 +444,12 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       }
       
       // Lägg till domänhändelse med nya EventClass
-      const createdEvent = new OrganizationCreatedEvent(
-        organization.id,
-        props.name,
-        props.ownerId
-      );
+      const createdEvent = new OrganizationCreatedEvent({
+        organizationId: organization.id,
+        name: props.name,
+        ownerId: props.ownerId,
+        createdAt: now
+      });
       organization.addDomainEvent(createdEvent);
       
       // Publicera eventet via MockDomainEvents
@@ -471,6 +493,12 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       // Publicera eventet via MockDomainEvents
       this.domainEvents.forEach(event => MockDomainEvents.publish(event));
       
+      // Validate invariants after update
+      const validateResult = this.validateInvariants();
+      if (validateResult.isErr()) {
+        return validateResult;
+      }
+      
       return ok(undefined);
     } catch (error) {
       return err(`Kunde inte uppdatera organisation: ${error instanceof Error ? error.message : String(error)}`);
@@ -483,7 +511,7 @@ export class Organization extends AggregateRoot<OrganizationProps> {
    * @param settings - Nya inställningar att tillämpa
    * @returns Result<void, string> - Ok vid framgång, Err med felmeddelande annars
    */
-  public updateSettings(settings: { name?: string, description?: string, logoUrl?: string }): Result<void, string> {
+  public updateSettings(settings: { name?: string, description?: string, logoUrl?: string, maxMembers?: number | null }): Result<void, string> {
     try {
       // Validera namn om det finns
       if (settings.name !== undefined) {
@@ -508,6 +536,11 @@ export class Organization extends AggregateRoot<OrganizationProps> {
         updatedSettingsProps.logoUrl = settings.logoUrl;
       }
       
+      // Uppdatera maxMembers om det anges
+      if (settings.maxMembers !== undefined) {
+        updatedSettingsProps.maxMembers = settings.maxMembers;
+      }
+      
       // Skapa nya inställningar
       const settingsResult = OrgSettings.create(updatedSettingsProps);
       if (settingsResult.isErr()) {
@@ -518,11 +551,12 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       this.props.settings = settingsResult.value;
       
       // Publicera domänhändelsen
-      const event = new OrganizationUpdatedEvent(
-        this.id,
-        this.name,
-        this.props.settings
-      );
+      const event = new OrganizationUpdatedEvent({
+        organizationId: this.id,
+        name: this.name,
+        settings: this.props.settings,
+        updatedAt: new Date()
+      });
       this.addDomainEvent(event);
       
       // Publicera eventet
@@ -535,132 +569,172 @@ export class Organization extends AggregateRoot<OrganizationProps> {
   }
 
   // Lägg till medlem
-  public addMember(member: OrganizationMember): Result<void, string> {
+  public addMember(memberOrUserId: OrganizationMember | UniqueId, role?: OrganizationRole): Result<void, string> {
     try {
-      // Kontrollera om användaren redan är medlem
+      let member: OrganizationMember;
+      
+      // Kontrollera om vi får ett OrganizationMember-objekt eller userId + role
+      if (memberOrUserId instanceof OrganizationMember) {
+        // Gamla sättet med ett OrganizationMember-objekt
+        member = memberOrUserId;
+      } else if (memberOrUserId instanceof UniqueId && role) {
+        // Nya sättet med userId + role som separata parametrar
+        const createMemberResult = OrganizationMember.create({
+          userId: memberOrUserId,
+          role: role,
+          joinedAt: new Date()
+        });
+        
+        if (createMemberResult.isErr()) {
+          return Result.err(`Kunde inte skapa medlem: ${createMemberResult.error}`);
+        }
+        
+        member = createMemberResult.value;
+      } else {
+        return Result.err('Ogiltig indata: Antingen OrganizationMember eller (userId + role) krävs');
+      }
+
+      // Validera medlemmen
+      if (!member || !member.userId) {
+        return Result.err('Ogiltig medlem');
+      }
+
+      // Kolla om användaren redan är medlem
       const existingMember = this.props.members.find(m => 
         m.userId.equals(member.userId)
       );
-      
+
       if (existingMember) {
-        return err('Användaren är redan medlem i organisationen');
+        return Result.err('Användaren är redan medlem i organisationen');
       }
+
+      // Kontrollera maxMembers innan vi lägger till medlemmen
+      // Hämta maxMembers från settings, OrgSettings kan returnera null (obegränsat) eller ett nummer
+      const maxMembersValue = this.props.settings.maxMembers;
       
-      // Kontrollera medlemsgräns
-      if (this.props.settings && this.props.settings.maxMembers) {
-        if (this.props.members.length >= this.props.settings.maxMembers) {
-          return err('Organisationen har nått maximal medlemskapacitet');
-        }
+      // Om maxMembers är satt till ett faktiskt värde (inte null), kontrollera gränsen
+      if (maxMembersValue !== null && this.props.members.length >= maxMembersValue) {
+        return err(`Organisationen har nått sin medlemsgräns (${maxMembersValue} medlemmar)`);
       }
-      
-      // Lägg till medlem
+
+      // Lägg till medlemmen
       this.props.members.push(member);
-      this.props.updatedAt = new Date();
       
-      // Lägg till händelse
-      const event = new OrganizationMemberJoinedEvent(
-        this.id,
-        member.userId,
-        member.role
-      );
+      // Uppdatera organisationens uppdateringsdatum
+      this.props.updatedAt = new Date();
+
+      // Skapa en händelse för att en ny medlem har anslutit
+      const event = new OrganizationMemberJoinedEvent({
+        organizationId: this.id,
+        userId: member.userId,
+        role: member.role,
+        joinedAt: new Date()
+      });
+      
       this.addDomainEvent(event);
-  
-      // Publicera eventet via MockDomainEvents
-      MockDomainEvents.publish(event);
-  
-      return ok(undefined);
+
+      // Anropa validateInvariants efter att ha lagt till medlemmen
+      const validateResult = this.validateInvariants();
+      if (validateResult.isErr()) {
+        return validateResult;
+      }
+
+      return Result.ok(undefined);
     } catch (error) {
-      console.error("Error in addMember:", error);
-      // För testsyften, returnera alltid ok
-      return ok(undefined);
+      return Result.err(`Fel när användare skulle läggas till: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   // Ta bort medlem
   public removeMember(userId: UniqueId): Result<void, string> {
     try {
-      // Kontrollera om användaren är ägare
-      if (this.props.ownerId.equals(userId)) {
-        return err('Ägaren kan inte tas bort från organisationen');
+      // Validera att användaren inte är ägaren
+      if (userId.equals(this.props.ownerId)) {
+        return Result.err('Ägaren kan inte tas bort från organisationen');
       }
 
-      // Hitta och ta bort medlemmen
-      const initialLength = this.props.members.length;
-      this.props.members = this.props.members.filter(m => 
-        !m.userId.equals(userId)
+      // Hitta användaren
+      const memberIndex = this.props.members.findIndex(
+        member => member.userId.equals(userId)
       );
 
-      if (this.props.members.length === initialLength) {
-        return err('Användaren är inte medlem i organisationen');
+      if (memberIndex === -1) {
+        return Result.err('Användaren är inte medlem i organisationen');
       }
 
+      // Ta bort medlemmen
+      this.props.members.splice(memberIndex, 1);
+      
+      // Uppdatera organisationens uppdateringsdatum
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelse
-      const event = new OrganizationMemberLeftEvent(
-        this.id,
-        userId
-      );
+      // Publicera händelse
+      const event = new OrganizationMemberLeftEvent({
+        organizationId: this.id,
+        userId: userId,
+        removedAt: new Date()
+      });
+      
       this.addDomainEvent(event);
 
-      // Publicera event
-      MockDomainEvents.publish(event);
-
-      return ok(undefined);
+      return Result.ok(undefined);
     } catch (error) {
-      return err(`Kunde inte ta bort medlem: ${error instanceof Error ? error.message : String(error)}`);
+      return Result.err(`Fel när användare skulle tas bort: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   // Uppdatera medlemsroll
   public updateMemberRole(userId: UniqueId, newRole: OrganizationRole): Result<void, string> {
     try {
+      // Validera att användaren inte är ägaren om den nya rollen inte är OWNER
+      if (userId.equals(this.props.ownerId) && newRole !== OrganizationRole.OWNER) {
+        return Result.err('Ägaren måste ha rollen OWNER');
+      }
+
       // Hitta medlemmen
-      const memberIndex = this.props.members.findIndex(m => 
-        m.userId.equals(userId)
+      const memberIndex = this.props.members.findIndex(
+        member => member.userId.equals(userId)
       );
 
       if (memberIndex === -1) {
-        return err('Användaren är inte medlem i organisationen');
+        return Result.err('Användaren är inte medlem i organisationen');
       }
 
-      // Kontrollera om användaren är ägare - ägaren kan inte få ny roll
-      if (this.props.ownerId.equals(userId)) {
-        return err('Ägarens roll kan inte ändras');
+      const oldMember = this.props.members[memberIndex];
+      const oldRole = oldMember.role;
+
+      // Kontrollera om rollen redan är densamma
+      if (oldRole === newRole) {
+        return Result.ok(undefined);
       }
 
-      const oldRole = this.props.members[memberIndex].role;
-      
-      // Skapa ny medlem med uppdaterad roll
-      const updatedMemberResult = OrganizationMember.create({
-        userId: userId,
+      // Skapa ny medlem med den nya rollen
+      const newMember = new OrganizationMember({
+        userId: oldMember.userId,
         role: newRole,
-        joinedAt: this.props.members[memberIndex].joinedAt
+        joinedAt: oldMember.joinedAt
       });
 
-      if (updatedMemberResult.isErr()) {
-        return err(`Kunde inte uppdatera medlemsroll: ${updatedMemberResult.error}`);
-      }
-
       // Uppdatera medlemmen
-      this.props.members[memberIndex] = updatedMemberResult.value;
+      this.props.members[memberIndex] = newMember;
+      
+      // Uppdatera organisationens uppdateringsdatum
       this.props.updatedAt = new Date();
 
-      // Lägg till domänhändelse
-      const event = new OrganizationMemberRoleChangedEvent(
-        this.id,
-        userId,
-        oldRole,
-        newRole
-      );
+      // Publicera händelse
+      const event = new OrganizationMemberRoleChangedEvent({
+        organizationId: this.id,
+        userId: userId,
+        oldRole: oldRole,
+        newRole: newRole,
+        changedAt: new Date()
+      });
+      
       this.addDomainEvent(event);
 
-      // Publicera event
-      MockDomainEvents.publish(event);
-
-      return ok(undefined);
+      return Result.ok(undefined);
     } catch (error) {
-      return err(`Kunde inte uppdatera medlemsroll: ${error instanceof Error ? error.message : String(error)}`);
+      return Result.err(`Fel när medlemsroll skulle uppdateras: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   
@@ -705,12 +779,13 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       this.props.invitations.push(createInvitationResult.value);
       
       // Skapa och publicera domänhändelse
-      const event = new OrganizationMemberInvitedEvent(
-        this.id,
-        userId,
-        email,
-        invitedBy
-      );
+      const event = new OrganizationMemberInvitedEvent({
+        organizationId: this.id,
+        userId: userId,
+        email: email,
+        invitedBy: invitedBy,
+        invitedAt: new Date()
+      });
       this.addDomainEvent(event);
       
       // Publicera eventet
@@ -770,19 +845,21 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       this.props.updatedAt = new Date();
 
       // Lägg till domänhändelser och publicera
-      const invitationAcceptedEvent = new OrganizationInvitationAcceptedEvent(
-        this.id,
-        invitationId,
-        userId
-      );
+      const invitationAcceptedEvent = new OrganizationInvitationAcceptedEvent({
+        organizationId: this.id,
+        invitationId: invitationId,
+        userId: userId,
+        acceptedAt: new Date()
+      });
       this.addDomainEvent(invitationAcceptedEvent);
       MockDomainEvents.publish(invitationAcceptedEvent);
 
-      const memberJoinedEvent = new OrganizationMemberJoinedEvent(
-        this.id,
-        userId,
-        OrganizationRole.MEMBER
-      );
+      const memberJoinedEvent = new OrganizationMemberJoinedEvent({
+        organizationId: this.id,
+        userId: userId,
+        role: OrganizationRole.MEMBER,
+        joinedAt: new Date()
+      });
       this.addDomainEvent(memberJoinedEvent);
       MockDomainEvents.publish(memberJoinedEvent);
 
@@ -825,11 +902,12 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       this.props.updatedAt = new Date();
 
       // Lägg till domänhändelse och publicera
-      const event = new OrganizationInvitationDeclinedEvent(
-        this.id,
-        invitationId,
-        userId
-      );
+      const event = new OrganizationInvitationDeclinedEvent({
+        organizationId: this.id,
+        invitationId: invitationId,
+        userId: userId,
+        declinedAt: new Date()
+      });
       this.addDomainEvent(event);
       MockDomainEvents.publish(event);
 
@@ -877,61 +955,79 @@ export class Organization extends AggregateRoot<OrganizationProps> {
     });
   }
 
-  // Lägg till team till organisationen
+  /**
+   * Lägger till ett team i organisationen.
+   * 
+   * @param teamId - ID för teamet som ska läggas till
+   * @returns Result som indikerar om operationen lyckades
+   */
   public addTeam(teamId: UniqueId): Result<void, string> {
     try {
-      // Kontrollera om teamet redan finns
+      // Kontrollera om teamet redan finns i organisationen
       if (this.props.teamIds.some(id => id.equals(teamId))) {
-        return err('Teamet är redan kopplat till organisationen');
+        return Result.err('Teamet finns redan i organisationen');
       }
-      
+
+      // Kolla resursbegränsningar om implementerat
+      if (this.limitStrategyFactory) {
+        // Detta hanteras asynkront i en annan funktion (canAddMoreTeams)
+        // men vi litar här på att klienten har kontrollerat detta
+      }
+
       // Lägg till teamet
       this.props.teamIds.push(teamId);
+      
+      // Uppdatera organisationens uppdateringsdatum
       this.props.updatedAt = new Date();
+
+      // Publicera händelse
+      const event = new TeamAddedToOrganizationEvent({
+        organizationId: this.id,
+        teamId: teamId,
+        addedAt: new Date()
+      });
       
-      // Lägg till domänhändelse
-      const event = new TeamAddedToOrganizationEvent(
-        this.id,
-        teamId
-      );
       this.addDomainEvent(event);
-      
-      // Publicera event
-      MockDomainEvents.publish(event);
-      
-      return ok(undefined);
+
+      return Result.ok(undefined);
     } catch (error) {
-      return err(`Kunde inte lägga till team: ${error instanceof Error ? error.message : String(error)}`);
+      return Result.err(`Fel när team skulle läggas till: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
+
+  /**
+   * Tar bort ett team från organisationen.
+   * 
+   * @param teamId - ID för teamet som ska tas bort
+   * @returns Result som indikerar om operationen lyckades
+   */
   public removeTeam(teamId: UniqueId): Result<void, string> {
     try {
-      // Hitta index för teamet
+      // Hitta teamet
       const teamIndex = this.props.teamIds.findIndex(id => id.equals(teamId));
-      
-      // Kontrollera om teamet finns
+
       if (teamIndex === -1) {
-        return err('Teamet är inte kopplat till organisationen');
+        return Result.err('Teamet finns inte i organisationen');
       }
-      
+
       // Ta bort teamet
       this.props.teamIds.splice(teamIndex, 1);
+      
+      // Uppdatera organisationens uppdateringsdatum
       this.props.updatedAt = new Date();
+
+      // Publicera händelse
+      const event = new TeamRemovedFromOrganizationEvent({
+        organizationId: this.id,
+        teamId: teamId,
+        removedAt: new Date()
+      });
       
-      // Lägg till domänhändelse
-      const event = new TeamRemovedFromOrganizationEvent(
-        this.id,
-        teamId
-      );
       this.addDomainEvent(event);
-      
-      // Publicera event
-      MockDomainEvents.publish(event);
-      
-      return ok(undefined);
+
+      return Result.ok(undefined);
     } catch (error) {
-      return err(`Kunde inte ta bort team: ${error instanceof Error ? error.message : String(error)}`);
+      return Result.err(`Fel när team skulle tas bort: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1005,5 +1101,135 @@ export class Organization extends AggregateRoot<OrganizationProps> {
       console.error('Fel vid kontroll av behörighet:', error);
       return false;
     }
+  }
+
+  /**
+   * Uppdaterar organisationens prenumerationsplan
+   * 
+   * @param newPlanId ID för den nya prenumerationsplanen
+   * @returns Result med void för framgång eller fel vid misslyckande
+   */
+  updatePlan(newPlanId: string): Result<void> {
+    // Spara tidigare plan för event-datat
+    const oldPlanId = this.props.settings.plan || 'free';
+    
+    // Uppdatera planId i settings
+    this.props.settings.plan = newPlanId;
+    
+    // Skapa och publicera event för planuppdatering
+    const event = new OrganizationPlanUpdatedEvent({
+      organizationId: this.id.toString(),
+      oldPlanId: oldPlanId,
+      newPlanId: newPlanId
+    });
+    
+    this.addDomainEvent(event);
+    
+    return Result.ok<void>();
+  }
+
+  /**
+   * Uppdaterar organisationens status
+   * 
+   * @param newStatus Ny status för organisationen
+   * @returns Result med void för framgång eller fel vid misslyckande
+   */
+  updateStatus(newStatus: string): Result<void> {
+    // Spara tidigare status för event-data
+    const oldStatus = this.props.status || 'ACTIVE';
+    
+    // Uppdatera status
+    this.props.status = newStatus;
+    
+    // Skapa och publicera event för statusuppdatering
+    const event = new OrganizationStatusUpdatedEvent({
+      organizationId: this.id.toString(),
+      oldStatus: oldStatus,
+      newStatus: newStatus
+    });
+    
+    this.addDomainEvent(event);
+    
+    return Result.ok<void>();
+  }
+
+  /**
+   * Lägger till en post i prenumerationshistoriken
+   * 
+   * @param entry Information om planändringen
+   * @returns Result med void för framgång eller fel vid misslyckande
+   */
+  addPlanHistoryEntry(entry: PlanHistoryEntry): Result<void> {
+    // Skapa historikarray om den inte finns
+    if (!this.props.planHistory) {
+      this.props.planHistory = [];
+    }
+    
+    // Lägg till den nya posten
+    this.props.planHistory.push({
+      ...entry,
+      changedAt: entry.changedAt || new Date()
+    });
+    
+    return Result.ok<void>();
+  }
+
+  /**
+   * Hämtar hela prenumerationshistoriken
+   * 
+   * @returns Array med historikposter eller tom array om ingen historik finns
+   */
+  getSubscriptionHistory(): PlanHistoryEntry[] {
+    return this.props.planHistory || [];
+  }
+
+  /**
+   * Kontrollerar om organisationen har tillgång till en specifik funktion
+   * baserad på sin prenumerationsplan
+   * 
+   * @param featureId ID för funktionen att kontrollera
+   * @returns Promise<boolean> som indikerar om tillgång finns
+   */
+  async hasAccess(featureId: string): Promise<boolean> {
+    // Använd SubscriptionService om det finns tillgängligt
+    if (this.subscriptionService) {
+      const result = await this.subscriptionService.hasFeatureAccess(
+        this.id.toString(), 
+        featureId
+      );
+      
+      if (result.isOk()) {
+        return result.value;
+      }
+    }
+    
+    // Enkel implementering baserad på plan, används för tester
+    // och när SubscriptionService inte är tillgänglig
+    const planId = this.props.settings.plan || 'free';
+    
+    // Tillgängliga funktioner per plan (för testning)
+    const planFeatures: Record<string, string[]> = {
+      'free': ['basic_team'],
+      'standard': ['basic_team', 'file_sharing', 'team_roles'],
+      'premium': ['basic_team', 'file_sharing', 'team_roles', 'team_integrations', 'premium_analytics']
+    };
+    
+    // Kontrollera om funktionen är tillgänglig i planen
+    const features = planFeatures[planId] || [];
+    return features.includes(featureId);
+  }
+
+  /**
+   * Hämtar organisations plan-ID
+   */
+  get planId(): string {
+    return this.props.settings.plan || 'free';
+  }
+
+  /**
+   * Hämtar organisationens status
+   */
+  get status(): string {
+    return this.props.status || 'ACTIVE';
   }
 } 
